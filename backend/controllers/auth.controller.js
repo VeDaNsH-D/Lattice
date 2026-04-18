@@ -33,7 +33,8 @@ export const registerUser = async (req, res, next) => {
                 id: user._id,
                 name: user.name,
                 email: user.email,
-                avatarUrl: user.avatarUrl || null
+                avatarUrl: user.avatarUrl || null,
+                bio: user.bio || ""
             }
         });
     } catch (error) {
@@ -72,7 +73,8 @@ export const loginUser = async (req, res, next) => {
                 id: user._id,
                 name: user.name,
                 email: user.email,
-                avatarUrl: user.avatarUrl || null
+                avatarUrl: user.avatarUrl || null,
+                bio: user.bio || ""
             }
         });
     } catch (error) {
@@ -97,7 +99,8 @@ export const getCurrentUser = async (req, res, next) => {
                 id: user._id,
                 name: user.name,
                 email: user.email,
-                avatarUrl: user.avatarUrl || null
+                avatarUrl: user.avatarUrl || null,
+                bio: user.bio || ""
             }
         });
     } catch (error) {

@@ -17,6 +17,10 @@ const projectSchema = new mongoose.Schema(
             type: Boolean,
             default: true
         },
+        isPublic: {
+            type: Boolean,
+            default: false
+        },
         members: [
             {
                 type: mongoose.Schema.Types.ObjectId,

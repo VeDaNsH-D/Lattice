@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LatticeFrame } from './LatticeFrame';
-import { BookOpen, PenTool, Code2, Share2, ArrowUpRight, Atom, Blocks, Plus, X, Link as LinkIcon, ChevronDown, SlidersHorizontal, ArrowDownUp, LayoutGrid } from 'lucide-react';
+import { BookOpen, PenTool, Code2, Share2, ArrowUpRight, Atom, Blocks, Plus, X, Link as LinkIcon, ChevronDown, SlidersHorizontal, ArrowDownUp, LayoutGrid, Lock, Unlock } from 'lucide-react';
 import { apiRequest } from '../utils/api';
+import { updateLatticeVisibility } from '../services/latticeApi';
 import './LatticePages.css';
 
 const personalIcons = [BookOpen, PenTool, Code2, Share2];
@@ -10,7 +11,7 @@ const collaborativeIcons = [Blocks, ArrowUpRight, Atom, PenTool];
 
 const pastelColors = ['#c5d0f6', '#e9e48f', '#f9c5d1', '#bbf7d0', '#fce7f3', '#e0e7ff'];
 
-const renderProjectCards = (projects, icons, onProjectClick, idOffset = 0) => {
+const renderProjectCards = (projects, icons, onProjectClick, onVisibilityToggle, visibilityLoadingId, idOffset = 0) => {
   if (!projects.length) {
     return <p className="directory-empty">No active projects yet.</p>;
   }
@@ -24,6 +25,7 @@ const renderProjectCards = (projects, icons, onProjectClick, idOffset = 0) => {
         const description = project.projectType === 'collaborative'
           ? "We organize our workspaces with a focus on real-time strategy and mutual support."
           : "Fun and productive personal workspace for managing links and internal logic blocks.";
+        const isPublic = Boolean(project.isPublic);
 
         return (
           <div
@@ -41,7 +43,12 @@ const renderProjectCards = (projects, icons, onProjectClick, idOffset = 0) => {
           >
             <div className="modern-project-top">
               <div className="modern-project-header">
-                <span className="modern-project-badge">{project.memberCount * 2 + 10} modules</span>
+                <div className="modern-project-header-group">
+                  <span className="modern-project-badge">{project.memberCount * 2 + 10} modules</span>
+                  <span className={`modern-project-visibility-pill ${isPublic ? 'is-public' : 'is-private'}`}>
+                    {isPublic ? 'Public' : 'Private'}
+                  </span>
+                </div>
                 <div className="modern-project-arrow">
                   <ArrowUpRight size={18} strokeWidth={2.5} />
                 </div>
@@ -51,6 +58,21 @@ const renderProjectCards = (projects, icons, onProjectClick, idOffset = 0) => {
                   {project.name.split(' ').map((word, i) => <React.Fragment key={i}>{word}<br/></React.Fragment>)}
                 </h3>
                 <p className="modern-project-desc">{description}</p>
+                {onVisibilityToggle ? (
+                  <div className="modern-project-actions">
+                    <button
+                      type="button"
+                      className="modern-project-visibility-btn"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onVisibilityToggle(project);
+                      }}
+                      disabled={visibilityLoadingId === project.id}
+                    >
+                      {isPublic ? <><Lock size={14} /> Make Private</> : <><Unlock size={14} /> Make Public</>}
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </div>
             
@@ -74,6 +96,7 @@ export const LatticeMyLatticesPage = () => {
   const [modalType, setModalType] = useState(null);
   const [newProjectName, setNewProjectName] = useState('');
   const [modalError, setModalError] = useState('');
+  const [visibilityLoadingId, setVisibilityLoadingId] = useState('');
 
   const isModalOpen = modalType !== null;
 
@@ -97,8 +120,6 @@ export const LatticeMyLatticesPage = () => {
 
       setPersonalProjects(nextPersonal);
       setCollaborativeProjects(nextCollaborative);
-
-      const nextAllProjects = [...nextPersonal, ...nextCollaborative];
     } catch (error) {
       setErrorMessage(error.message || 'Unable to load projects.');
     } finally {
@@ -169,6 +190,44 @@ export const LatticeMyLatticesPage = () => {
     }
   };
 
+  const onToggleVisibility = async (project) => {
+    if (!project?.id || visibilityLoadingId) {
+      return;
+    }
+
+    const nextVisibility = !Boolean(project.isPublic);
+    const previousPersonal = personalProjects;
+    const previousCollaborative = collaborativeProjects;
+
+    setVisibilityLoadingId(project.id);
+
+    const updateProjects = (list) => list.map((entry) => (entry.id === project.id ? { ...entry, isPublic: nextVisibility } : entry));
+
+    if (nextVisibility) {
+      setPersonalProjects((previous) => updateProjects(previous));
+      setCollaborativeProjects((previous) => updateProjects(previous));
+    } else {
+      setPersonalProjects((previous) => previous.filter((entry) => entry.id !== project.id));
+      setCollaborativeProjects((previous) => previous.filter((entry) => entry.id !== project.id));
+    }
+
+    try {
+      const response = await updateLatticeVisibility(project.id, nextVisibility);
+      const updatedLattice = response?.lattice;
+
+      if (updatedLattice && nextVisibility) {
+        setPersonalProjects((previous) => updateProjects(previous));
+        setCollaborativeProjects((previous) => updateProjects(previous));
+      }
+    } catch (error) {
+      setPersonalProjects(previousPersonal);
+      setCollaborativeProjects(previousCollaborative);
+      setErrorMessage(error.message || 'Unable to update lattice visibility.');
+    } finally {
+      setVisibilityLoadingId('');
+    }
+  };
+
   const onProjectOpen = (project) => {
     navigate(`/lattice/project/${project.id}`, {
       state: {
@@ -215,7 +274,7 @@ export const LatticeMyLatticesPage = () => {
           </div>
         </header>
 
-        {loading ? <p className="directory-status">Loading projects...</p> : renderProjectCards(personalProjects, personalIcons, onProjectOpen)}
+        {loading ? <p className="directory-status">Loading projects...</p> : renderProjectCards(personalProjects, personalIcons, onProjectOpen, onToggleVisibility, visibilityLoadingId)}
 
         <header className="directory-dashboard-header" style={{ marginTop: '50px' }}>
           <div className="dash-header-title">
@@ -236,7 +295,7 @@ export const LatticeMyLatticesPage = () => {
           </div>
         </header>
 
-        {loading ? null : renderProjectCards(collaborativeProjects, collaborativeIcons, onProjectOpen, 50)}
+        {loading ? null : renderProjectCards(collaborativeProjects, collaborativeIcons, onProjectOpen, onToggleVisibility, visibilityLoadingId, 50)}
 
         {errorMessage ? <p className="directory-status directory-status-error">{errorMessage}</p> : null}
         {!loading && !hasProjects ? <p className="directory-status">Create your first project to get started.</p> : null}

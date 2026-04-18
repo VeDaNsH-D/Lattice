@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import {
   Command,
   LayoutDashboard,
@@ -15,7 +15,7 @@ import {
   CircleUserRound,
 } from 'lucide-react';
 import { LatticeSpotlight } from '../components/LatticeSpotlight';
-import { apiRequest } from '../utils/api';
+import { getCurrentSessionUser } from '../services/latticeApi';
 import './LatticePages.css';
 
 const navItems = [
@@ -30,6 +30,7 @@ export const LatticeFrame = ({ children }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSpotlightOpen, setIsSpotlightOpen] = useState(false);
   const [userAvatarUrl, setUserAvatarUrl] = useState(null);
+  const [userProfileId, setUserProfileId] = useState('');
 
   useEffect(() => {
     const handleGlobalKeyDown = (event) => {
@@ -47,20 +48,17 @@ export const LatticeFrame = ({ children }) => {
     let isMounted = true;
 
     const loadCurrentUser = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        return;
-      }
-
       try {
-        const response = await apiRequest('/auth/me', { method: 'GET' });
+        const response = await getCurrentSessionUser();
 
         if (isMounted) {
-          setUserAvatarUrl(response?.user?.avatarUrl || null);
+          setUserAvatarUrl(response?.avatarUrl || null);
+          setUserProfileId(response?.id || response?._id || '');
         }
       } catch {
         if (isMounted) {
           setUserAvatarUrl(null);
+          setUserProfileId('');
         }
       }
     };
@@ -70,6 +68,24 @@ export const LatticeFrame = ({ children }) => {
     return () => {
       isMounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const handleProfileUpdate = (event) => {
+      const nextAvatar = event?.detail?.avatar || event?.detail?.avatarUrl || null;
+      const nextUserId = event?.detail?.id || event?.detail?._id || '';
+
+      if (nextAvatar !== undefined) {
+        setUserAvatarUrl(nextAvatar);
+      }
+
+      if (nextUserId) {
+        setUserProfileId(String(nextUserId));
+      }
+    };
+
+    window.addEventListener('lattice:current-user-updated', handleProfileUpdate);
+    return () => window.removeEventListener('lattice:current-user-updated', handleProfileUpdate);
   }, []);
 
   return (
@@ -107,13 +123,23 @@ export const LatticeFrame = ({ children }) => {
             <button className="action-circle" aria-label="Notifications">
               <Bell size={18} />
             </button>
-            <div className="user-avatar" aria-label="User profile">
-              {userAvatarUrl ? (
-                <img src={userAvatarUrl} alt="User profile" className="user-avatar-image" />
-              ) : (
-                <CircleUserRound size={20} strokeWidth={1.8} />
-              )}
-            </div>
+            {userProfileId ? (
+              <Link to={`/profile/${userProfileId}`} className="user-avatar user-avatar-link" aria-label="Open your profile">
+                {userAvatarUrl ? (
+                  <img src={userAvatarUrl} alt="User profile" className="user-avatar-image" />
+                ) : (
+                  <CircleUserRound size={20} strokeWidth={1.8} />
+                )}
+              </Link>
+            ) : (
+              <div className="user-avatar" aria-label="User profile">
+                {userAvatarUrl ? (
+                  <img src={userAvatarUrl} alt="User profile" className="user-avatar-image" />
+                ) : (
+                  <CircleUserRound size={20} strokeWidth={1.8} />
+                )}
+              </div>
+            )}
           </div>
         </header>
 

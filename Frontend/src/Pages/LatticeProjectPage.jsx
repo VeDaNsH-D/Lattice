@@ -6,6 +6,7 @@ import { LatticeFrame } from './LatticeFrame';
 import { ProjectRealtimePanel } from './ProjectRealtimePanel';
 import ProjectBookmarkImport from '../components/ProjectBookmarkImport';
 import LinkModal from '../components/LinkModal';
+import { MembersList } from '../components/MembersList';
 import { apiRequest } from '../utils/api';
 import './LatticePages.css';
 
@@ -42,6 +43,7 @@ export const LatticeProjectPage = () => {
     const [reactionPickerLinkId, setReactionPickerLinkId] = useState('');
     const [reactingLinkId, setReactingLinkId] = useState('');
     const [selectedLink, setSelectedLink] = useState(null);
+    const [projectMembers, setProjectMembers] = useState([]);
 
     const projectName = useMemo(() => {
         if (typeof resolvedProjectName === 'string' && resolvedProjectName.trim()) {
@@ -87,24 +89,21 @@ export const LatticeProjectPage = () => {
         let isMounted = true;
 
         const loadProjectContext = async () => {
-            if (!projectId || (projectType && resolvedProjectName)) {
+            if (!projectId) {
                 return;
             }
 
             try {
-                const response = await apiRequest('/projects', { method: 'GET' });
-                const allProjects = [
-                    ...(response?.personalProjects || []),
-                    ...(response?.collaborativeProjects || []),
-                ];
+                const response = await apiRequest(`/projects/${projectId}`, { method: 'GET' });
+                const project = response?.project;
 
-                const matchedProject = allProjects.find((project) => project.id === projectId);
-                if (!matchedProject || !isMounted) {
+                if (!project || !isMounted) {
                     return;
                 }
 
-                setProjectType(matchedProject.projectType || 'personal');
-                setResolvedProjectName(matchedProject.name || null);
+                setProjectType(project.projectType || 'personal');
+                setResolvedProjectName(project.name || null);
+                setProjectMembers(Array.isArray(project.members) ? project.members : []);
             } catch {
                 // Ignore context loading failures; page still works with fallbacks.
             }
@@ -115,7 +114,7 @@ export const LatticeProjectPage = () => {
         return () => {
             isMounted = false;
         };
-    }, [projectId, projectType, resolvedProjectName]);
+    }, [projectId]);
 
     useEffect(() => {
         const timer = window.setTimeout(() => {
@@ -415,6 +414,8 @@ export const LatticeProjectPage = () => {
 
                 {isCollaborativeProject ? (
                     <>
+                        <MembersList members={projectMembers} />
+
                         <ProjectRealtimePanel projectId={projectId} projectName={projectName} />
 
                         <section className="project-role-panel">

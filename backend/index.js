@@ -27,6 +27,7 @@ import roleRoutes from "./routes/role.routes.js";
 import graphRoutes from "./routes/graph.routes.js";
 import latticeRoutes from "./routes/lattice.routes.js";
 import timelineRoutes from "./routes/timeline.routes.js";
+import userRoutes from "./routes/user.routes.js";
 
 const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
 const configuredOrigins = (process.env.FRONTEND_ORIGINS || frontendUrl)
@@ -387,6 +388,7 @@ app.use("/api/search", searchRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api", latticeRoutes);
 app.use("/api", graphRoutes);
+app.use("/api/users", userRoutes);
 app.use("/", timelineRoutes);
 
 /* Not found + global errors */
