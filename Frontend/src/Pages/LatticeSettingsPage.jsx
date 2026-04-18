@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { SlidersHorizontal } from 'lucide-react';
 
 import { LatticeFrame } from './LatticeFrame';
+import { ProfileIdentityFields } from '../components/ProfileIdentityFields';
 import { getCurrentSessionUser, updateCurrentUserProfile } from '../services/latticeApi';
 import './LatticePages.css';
 
@@ -121,80 +123,87 @@ export const LatticeSettingsPage = () => {
     }
   };
 
+  const socialFields = [
+    { key: 'linkedinUrl', label: 'LinkedIn URL', placeholder: 'https://linkedin.com/in/...' },
+    { key: 'githubUrl', label: 'GitHub URL', placeholder: 'https://github.com/...' },
+    { key: 'websiteUrl', label: 'Website URL', placeholder: 'https://...' },
+    { key: 'xUrl', label: 'X URL', placeholder: 'https://x.com/...' },
+  ];
+
   return (
     <LatticeFrame>
       <div className="directory-container settings-page-container">
         <header className="settings-head">
+          <span className="settings-kicker">
+            <SlidersHorizontal size={14} />
+            Workspace controls
+          </span>
           <h1>Settings</h1>
-          <p>Update profile details and customize when link shrinking and graveyard transitions happen.</p>
+          <p>Configure your identity and tune lifecycle rules for how stale links are handled in your workspace.</p>
         </header>
 
         {isLoading ? <p className="directory-status">Loading settings...</p> : null}
 
         {!isLoading ? (
           <form className="settings-form" onSubmit={onSubmit}>
-            <section className="settings-card">
-              <h3>Profile</h3>
-
-              <label>
-                <span>Name</span>
-                <input type="text" value={form.name} onChange={(event) => onFieldChange('name', event.target.value)} maxLength={80} />
-              </label>
-
-              <label>
-                <span>Bio</span>
-                <textarea rows={4} value={form.bio} onChange={(event) => onFieldChange('bio', event.target.value)} maxLength={300} />
-              </label>
-
-              <label>
-                <span>Avatar URL</span>
-                <input type="url" value={form.avatarUrl} onChange={(event) => onFieldChange('avatarUrl', event.target.value)} placeholder="https://..." />
-              </label>
-
-              <label>
-                <span>LinkedIn URL</span>
-                <input type="url" value={form.linkedinUrl} onChange={(event) => onFieldChange('linkedinUrl', event.target.value)} placeholder="https://linkedin.com/in/..." />
-              </label>
-
-              <label>
-                <span>GitHub URL</span>
-                <input type="url" value={form.githubUrl} onChange={(event) => onFieldChange('githubUrl', event.target.value)} placeholder="https://github.com/..." />
-              </label>
-
-              <label>
-                <span>Website URL</span>
-                <input type="url" value={form.websiteUrl} onChange={(event) => onFieldChange('websiteUrl', event.target.value)} placeholder="https://..." />
-              </label>
-
-              <label>
-                <span>X URL</span>
-                <input type="url" value={form.xUrl} onChange={(event) => onFieldChange('xUrl', event.target.value)} placeholder="https://x.com/..." />
-              </label>
-            </section>
-
-            <section className="settings-card">
-              <h3>Link Decay Rules</h3>
-
-              <label>
-                <span>Shrink starts after (days)</span>
-                <input type="number" min={1} max={365} value={form.linkDecayStartDays} onChange={(event) => onFieldChange('linkDecayStartDays', event.target.value)} />
-              </label>
-
-              <label>
-                <span>Move to graveyard after (days)</span>
-                <input type="number" min={2} max={730} value={form.linkGraveyardDays} onChange={(event) => onFieldChange('linkGraveyardDays', event.target.value)} />
-              </label>
-
-              <p className="settings-note">Default is 14 days for shrinking and 30 days for graveyard.</p>
-            </section>
-
             {errorMessage ? <p className="directory-status directory-status-error">{errorMessage}</p> : null}
             {successMessage ? <p className="directory-status" style={{ color: '#166534' }}>{successMessage}</p> : null}
 
-            <div className="settings-actions">
-              <button type="submit" className="bookmark-submit-btn" disabled={isSaving}>
-                {isSaving ? 'Saving...' : 'Save Settings'}
-              </button>
+            <div className="settings-layout">
+              <div className="settings-main-column">
+                <section className="settings-card">
+                  <h3>Profile Identity</h3>
+
+                  <ProfileIdentityFields
+                    name={form.name}
+                    bio={form.bio}
+                    avatar={form.avatarUrl}
+                    onNameChange={(value) => onFieldChange('name', value)}
+                    onBioChange={(value) => onFieldChange('bio', value)}
+                    onAvatarChange={(value) => onFieldChange('avatarUrl', value)}
+                  />
+                </section>
+
+                <section className="settings-card">
+                  <h3>Public Links</h3>
+
+                  {socialFields.map((field) => (
+                    <label key={field.key}>
+                      <span>{field.label}</span>
+                      <input
+                        type="url"
+                        value={form[field.key]}
+                        onChange={(event) => onFieldChange(field.key, event.target.value)}
+                        placeholder={field.placeholder}
+                      />
+                    </label>
+                  ))}
+                </section>
+              </div>
+
+              <aside className="settings-side-column">
+                <section className="settings-card settings-card-accent">
+                  <h3>Link Decay Rules</h3>
+
+                  <label>
+                    <span>Shrink starts after (days)</span>
+                    <input type="number" min={1} max={365} value={form.linkDecayStartDays} onChange={(event) => onFieldChange('linkDecayStartDays', event.target.value)} />
+                  </label>
+
+                  <label>
+                    <span>Move to graveyard after (days)</span>
+                    <input type="number" min={2} max={730} value={form.linkGraveyardDays} onChange={(event) => onFieldChange('linkGraveyardDays', event.target.value)} />
+                  </label>
+
+                  <p className="settings-note">Default behavior starts shrinking at day 14 and moves links to graveyard at day 30.</p>
+
+                  <div className="settings-actions">
+                    <button type="submit" className="bookmark-submit-btn" disabled={isSaving}>
+                      {isSaving ? 'Saving...' : 'Save Settings'}
+                    </button>
+                  </div>
+                </section>
+              </aside>
             </div>
           </form>
         ) : null}

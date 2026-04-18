@@ -194,42 +194,49 @@ export const LatticeProfilePage = () => {
                 ) : null}
 
                 {!loading && lattices.length > 0 ? (
-                    <section className="profile-lattice-grid">
-                        {lattices.map((lattice) => (
-                            <article key={lattice.id} className="profile-lattice-card">
-                                <div className="profile-lattice-card-head">
-                                    <div>
-                                        <span className="profile-lattice-pill">{lattice.projectType === 'collaborative' ? 'Collaborative' : 'Personal'}</span>
-                                        <h3>{lattice.name}</h3>
+                    <section className="profile-lattice-section">
+                        <div className="profile-lattice-section-head">
+                            <h2>Published Lattices</h2>
+                            <p>Browse the structures and idea systems this profile has chosen to share publicly.</p>
+                        </div>
+
+                        <div className="profile-lattice-grid">
+                            {lattices.map((lattice) => (
+                                <article key={lattice.id} className="profile-lattice-card">
+                                    <div className="profile-lattice-card-head">
+                                        <div>
+                                            <span className="profile-lattice-pill">{lattice.projectType === 'collaborative' ? 'Collaborative' : 'Personal'}</span>
+                                            <h3>{lattice.name}</h3>
+                                        </div>
+                                        {lattice.isPublic ? <span className="profile-lattice-status">Public</span> : null}
                                     </div>
-                                    {lattice.isPublic ? <span className="profile-lattice-status">Public</span> : null}
-                                </div>
 
-                                <p className="profile-lattice-description">{getLatticeDescription(lattice)}</p>
+                                    <p className="profile-lattice-description">{getLatticeDescription(lattice)}</p>
 
-                                <div className="profile-lattice-actions">
-                                    <Link
-                                        to={`/lattice/project/${lattice.id}`}
-                                        state={{ projectName: lattice.name, projectType: lattice.projectType }}
-                                        className="profile-lattice-view-btn"
-                                    >
-                                        View
-                                        <ExternalLink size={14} />
-                                    </Link>
-
-                                    {isOwner ? (
-                                        <button
-                                            type="button"
-                                            className="profile-lattice-visibility-btn"
-                                            onClick={() => void handleVisibilityToggle(lattice)}
-                                            disabled={updatingLatticeId === lattice.id}
+                                    <div className="profile-lattice-actions">
+                                        <Link
+                                            to={`/lattice/project/${lattice.id}`}
+                                            state={{ projectName: lattice.name, projectType: lattice.projectType }}
+                                            className="profile-lattice-view-btn"
                                         >
-                                            {lattice.isPublic ? 'Make Private' : 'Make Public'}
-                                        </button>
-                                    ) : null}
-                                </div>
-                            </article>
-                        ))}
+                                            View
+                                            <ExternalLink size={14} />
+                                        </Link>
+
+                                        {isOwner ? (
+                                            <button
+                                                type="button"
+                                                className="profile-lattice-visibility-btn"
+                                                onClick={() => void handleVisibilityToggle(lattice)}
+                                                disabled={updatingLatticeId === lattice.id}
+                                            >
+                                                {lattice.isPublic ? 'Make Private' : 'Make Public'}
+                                            </button>
+                                        ) : null}
+                                    </div>
+                                </article>
+                            ))}
+                        </div>
                     </section>
                 ) : null}
 

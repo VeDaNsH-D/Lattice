@@ -5466,7 +5466,7 @@
 
 /* Profile Page Styles */
 .profile-page-container {
-  max-width: 900px;
+  max-width: 980px;
   margin: 0 auto;
   padding: 20px;
 }
@@ -5502,18 +5502,19 @@
   color: #64748b;
   text-transform: uppercase;
   font-weight: 700;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.06em;
 }
 
 .profile-hero-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 32px;
+  background: linear-gradient(155deg, #ffffff 0%, #f8fbff 100%);
+  border: 1px solid #dfe7f2;
+  border-radius: 18px;
+  padding: 34px;
   margin-bottom: 40px;
   display: flex;
   align-items: flex-start;
   gap: 32px;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.06);
 }
 
 .profile-avatar-wrap {
@@ -5523,13 +5524,13 @@
 .profile-avatar {
   width: 120px;
   height: 120px;
-  border-radius: 12px;
-  background: #f1f5f9;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #edf2f9 0%, #f6f8fc 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border: 2px solid #e2e8f0;
+  border: 1px solid #d9e2ee;
 }
 
 .profile-avatar img,
@@ -5545,7 +5546,7 @@
 
 .profile-hero-copy h1 {
   margin: 0 0 12px 0;
-  font-size: 2rem;
+  font-size: clamp(2rem, 4vw, 2.45rem);
   font-weight: 700;
   color: #0f172a;
   letter-spacing: -0.02em;
@@ -5566,20 +5567,23 @@
 .profile-hero-meta {
   display: flex;
   align-items: center;
-  gap: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
   margin-bottom: 16px;
-  font-size: 0.9rem;
+  font-size: 0.84rem;
   color: #64748b;
 }
 
 .profile-owner-chip {
   display: inline-block;
-  background: #dbeafe;
-  color: #0c4a6e;
-  padding: 4px 10px;
+  background: #eaf2ff;
+  color: #1e3a8a;
+  padding: 5px 10px;
   border-radius: 999px;
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .profile-hero-actions {
@@ -5614,25 +5618,51 @@
 .profile-lattice-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
-  margin-top: 40px;
+  gap: 14px;
+}
+
+.profile-lattice-section {
+  display: grid;
+  gap: 16px;
+}
+
+.profile-lattice-section-head {
+  display: grid;
+  gap: 5px;
+}
+
+.profile-lattice-section-head h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.profile-lattice-section-head p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #64748b;
 }
 
 .profile-lattice-card {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e6edf7;
   border-radius: 12px;
-  padding: 20px;
+  padding: 16px;
   transition: all 0.2s;
 }
 
 .profile-lattice-card:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  border-color: #cad7ea;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
 .profile-lattice-card-head {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
 }
 
 .profile-lattice-pill {
@@ -5650,7 +5680,7 @@
 
 .profile-lattice-card h3 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.02rem;
   font-weight: 700;
   color: #0f172a;
   line-height: 1.3;
@@ -5658,9 +5688,9 @@
 
 .profile-lattice-description {
   color: #64748b;
-  font-size: 0.9rem;
+  font-size: 0.86rem;
   line-height: 1.4;
-  margin: 12px 0;
+  margin: 10px 0;
 }
 
 .profile-lattice-status {
@@ -5671,13 +5701,13 @@
   border-radius: 4px;
   font-size: 0.75rem;
   font-weight: 600;
-  margin-top: 8px;
+  margin-top: 0;
 }
 
 .profile-lattice-actions {
   display: flex;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .profile-lattice-view-btn,
@@ -5686,9 +5716,9 @@
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  border-radius: 6px;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #dbe4f0;
+  background: #f7fafc;
   color: #0f172a;
   font-size: 0.85rem;
   font-weight: 600;
@@ -5700,7 +5730,7 @@
 .profile-lattice-view-btn:hover,
 .profile-lattice-visibility-btn:hover {
   background: #ffffff;
-  border-color: #cbd5e1;
+  border-color: #c0d0e6;
 }
 
 .profile-lattice-visibility-btn:disabled {
@@ -6041,18 +6071,31 @@
 
 /* Settings Page Styles */
 .settings-page-container {
-  max-width: 700px;
+  max-width: 1080px;
   margin: 0 auto;
   padding: 20px;
 }
 
 .settings-head {
-  margin-bottom: 40px;
+  margin-bottom: 24px;
+  display: grid;
+  gap: 8px;
+}
+
+.settings-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  font-weight: 800;
 }
 
 .settings-head h1 {
-  margin: 0 0 8px 0;
-  font-size: 1.8rem;
+  margin: 0;
+  font-size: clamp(1.85rem, 3.2vw, 2.4rem);
   font-weight: 700;
   color: #0f172a;
   letter-spacing: -0.02em;
@@ -6061,64 +6104,85 @@
 .settings-head p {
   margin: 0;
   color: #64748b;
-  font-size: 1rem;
+  font-size: 0.95rem;
+  max-width: 72ch;
 }
 
 .settings-form {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+  display: grid;
+  gap: 14px;
+}
+
+.settings-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  align-items: start;
+}
+
+.settings-main-column,
+.settings-side-column {
+  display: grid;
+  gap: 16px;
 }
 
 .settings-card {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 24px;
+  border: 1px solid #dce5f1;
+  border-radius: 14px;
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.settings-card-accent {
+  background: linear-gradient(165deg, #f8fbff 0%, #ffffff 76%);
+  border-color: #d4e0ef;
 }
 
 .settings-card h3 {
-  margin: 0 0 20px 0;
-  font-size: 1.05rem;
+  margin: 0;
+  font-size: 0.98rem;
   font-weight: 700;
   color: #0f172a;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
 }
 
 .settings-card label {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.settings-card label:last-child {
+  display: grid;
+  gap: 6px;
   margin-bottom: 0;
 }
 
 .settings-card label span {
-  font-weight: 600;
-  color: #0f172a;
-  font-size: 0.95rem;
+  font-weight: 700;
+  color: #334155;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .settings-card input,
 .settings-card textarea,
 .settings-card select {
-  padding: 10px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 0.95rem;
+  padding: 10px 11px;
+  border: 1px solid #d4deea;
+  border-radius: 9px;
+  font-size: 0.9rem;
   font-family: inherit;
   color: #0f172a;
   transition: all 0.2s;
+  background: #fbfdff;
 }
 
 .settings-card input:focus,
 .settings-card textarea:focus,
 .settings-card select:focus {
   outline: none;
-  border-color: #0f172a;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.1);
+  border-color: #5f7693;
+  box-shadow: 0 0 0 3px rgba(96, 123, 152, 0.16);
+  background: #ffffff;
 }
 
 .settings-card input:disabled,
@@ -6137,11 +6201,8 @@
 }
 
 .settings-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 32px;
-  padding-top: 24px;
-  border-top: 1px solid #e2e8f0;
+  display: grid;
+  margin-top: 6px;
 }
 
 .settings-btn {
@@ -6185,7 +6246,7 @@
   padding: 12px 16px;
   border-radius: 8px;
   font-size: 0.9rem;
-  margin-bottom: 16px;
+  margin: 0;
 }
 
 .settings-status-success {
@@ -6227,13 +6288,22 @@
     font-size: 1.4rem;
   }
 
+  .settings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-main-column,
+  .settings-side-column {
+    gap: 14px;
+  }
+
   .settings-form-section {
     flex-direction: column;
     align-items: stretch;
   }
 
   .settings-actions {
-    flex-direction: column;
+    margin-top: 2px;
   }
 
   .settings-btn {

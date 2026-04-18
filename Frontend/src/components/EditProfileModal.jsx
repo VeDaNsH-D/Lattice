@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { ProfileIdentityFields } from './ProfileIdentityFields';
 
 export const EditProfileModal = ({ user, onClose, onSave }) => {
     const [name, setName] = useState(user?.name || '');
@@ -117,21 +118,19 @@ export const EditProfileModal = ({ user, onClose, onSave }) => {
                 </div>
 
                 <form className="edit-profile-modal-form" onSubmit={handleSubmit}>
-                    <label className="edit-profile-field">
-                        <span>Name</span>
-                        <input type="text" value={name} onChange={(event) => setName(event.target.value)} maxLength={80} disabled={isSaving} />
-                    </label>
-
-                    <label className="edit-profile-field">
-                        <span>Bio</span>
-                        <textarea value={bio} onChange={(event) => setBio(event.target.value)} maxLength={240} rows={4} disabled={isSaving} />
-                    </label>
-
-                    <label className="edit-profile-field">
-                        <span>Avatar URL</span>
-                        <input type="url" value={avatar} onChange={(event) => setAvatar(event.target.value)} placeholder="https://example.com/avatar.jpg" disabled={isSaving} />
-                        <small>Leave blank to keep your current avatar.</small>
-                    </label>
+                    <ProfileIdentityFields
+                        name={name}
+                        bio={bio}
+                        avatar={avatar}
+                        onNameChange={setName}
+                        onBioChange={setBio}
+                        onAvatarChange={setAvatar}
+                        disabled={isSaving}
+                        bioMaxLength={240}
+                        avatarPlaceholder="https://example.com/avatar.jpg"
+                        avatarHint="Leave blank to keep your current avatar."
+                        fieldClassName="edit-profile-field"
+                    />
 
                     {errorMessage ? <p className="edit-profile-error">{errorMessage}</p> : null}
 
