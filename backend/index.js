@@ -22,6 +22,7 @@ import inviteRoutes from "./routes/invite.routes.js";
 import linkRoutes from "./routes/link.routes.js";
 import projectRoutes from "./routes/project.routes.js";
 import roleRoutes from "./routes/role.routes.js";
+import timelineRoutes from "./routes/timeline.routes.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -136,7 +137,7 @@ if (process.env.MONGO_URI) {
             console.error("Mongo connection error:", err);
         });
 } else {
-    console.log("Mongo URI not set; skipping database connection for local realtime testing.");
+    console.log("Mongo URI not set; skipping database connection.");
 }
 
 /* Root route */
@@ -363,6 +364,7 @@ app.use("/api/pulse", pulseRoutes);
 app.use("/api/invites", inviteRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/roles", roleRoutes);
+app.use("/", timelineRoutes);
 
 /* Not found + global errors */
 app.use(notFoundHandler);
