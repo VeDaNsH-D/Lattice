@@ -221,39 +221,49 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: #ffffff;
+  background-color: #fafafa;
   min-width: 0;
   /* Prevents overflow pushing grid */
 }
 
 /* Topbar */
 .main-topbar {
-  height: 60px;
+  height: 64px;
   display: flex;
   align-items: center;
-  gap: 16px;
+  justify-content: space-between;
   padding: 0 32px;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
-.search-bar {
+.topbar-nav-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  background-color: #f9fafb;
-  border: 1px solid #e5e7eb;
-  padding: 6px 16px;
-  border-radius: 20px;
-  flex: 1;
-  color: #9ca3af;
+  padding: 6px 12px;
+  border-radius: 8px;
+  color: #4b5563;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
 }
 
-.search-bar input {
-  border: none;
-  background: transparent;
-  outline: none;
-  font-size: 0.9rem;
-  width: 100%;
+.topbar-nav-item:hover {
+  background-color: #f5f5f7;
+  color: #111827;
+}
+
+.topbar-nav-item.active {
+  background-color: #f3f4f6;
+  color: #111827;
+  font-weight: 600;
 }
 
 .topbar-actions {
@@ -483,9 +493,8 @@
    ========================================================= */
 
 .directory-container {
-  padding: 40px 0 100px 0;
-  max-width: 1400px;
-  /* Adjusted to fit the wider grid well */
+  padding: 40px 32px 100px 32px;
+  max-width: 1060px;
   margin: 0 auto;
 }
 
@@ -550,53 +559,43 @@
 
 .bookmark-entry-panel {
   margin-bottom: 34px;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  background: linear-gradient(180deg, #ffffff 0%, #fbfcf8 100%);
-  padding: 24px;
-  box-shadow: 0 10px 28px rgba(17, 24, 39, 0.07);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  padding: 28px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0,0,0,0.02);
   position: relative;
 }
 
-.bookmark-entry-panel::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  border-top-left-radius: 16px;
-  border-top-right-radius: 16px;
-  background: linear-gradient(90deg, #6b8e23 0%, #95b64f 45%, #c8d9a0 100%);
-}
-
 .bookmark-entry-head {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .bookmark-entry-title-wrap {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .bookmark-entry-title-wrap h3 {
   margin: 0;
-  font-size: 1.18rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: #111827;
+  letter-spacing: -0.01em;
 }
 
 .bookmark-entry-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  border: 1px solid #d1d5db;
-  color: #6b7280;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: #f5f5f7;
+  color: #111827;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #fff;
 }
 
 .bookmark-entry-head p {
@@ -608,19 +607,19 @@
 .bookmark-entry-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .bookmark-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 16px;
 }
 
 .bookmark-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .bookmark-field-wide {
@@ -635,14 +634,15 @@
 
 .bookmark-field input,
 .bookmark-field select {
-  border: 1px solid #d1d5db;
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-size: 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 0.95rem;
   color: #111827;
-  background: #fff;
+  background: #f5f5f7;
   outline: none;
   transition: all 0.2s ease;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .bookmark-select-wrap {
@@ -660,7 +660,7 @@
 
 .bookmark-select-chevron {
   position: absolute;
-  right: 12px;
+  right: 14px;
   top: 50%;
   transform: translateY(-50%);
   color: #6b7280;
@@ -669,24 +669,24 @@
 
 .bookmark-field input:focus,
 .bookmark-field select:focus {
-  border-color: #6b8e23;
-  box-shadow: 0 0 0 3px rgba(107, 142, 35, 0.14);
+  background: #ffffff;
+  border-color: #e5e7eb;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
 }
 
 .bookmark-field select:hover {
-  border-color: #9ca3af;
+  background: #ebebeb;
 }
 
 .bookmark-role-section {
-  border: 1px solid #e5e7eb;
-  background: #fcfcfc;
-  border-radius: 12px;
-  padding: 12px;
+  background: #f5f5f7;
+  border-radius: 16px;
+  padding: 16px;
 }
 
 .bookmark-role-label {
-  margin: 0 0 8px 0;
-  font-size: 0.82rem;
+  margin: 0 0 10px 0;
+  font-size: 0.85rem;
   font-weight: 600;
   color: #374151;
 }
@@ -701,12 +701,13 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 10px;
-  border: 1px solid #d1d5db;
+  padding: 8px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
   border-radius: 999px;
-  background: #fff;
+  background: #ffffff;
   color: #374151;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .bookmark-role-chip input {
@@ -716,48 +717,57 @@
 .bookmark-role-empty {
   margin: 0;
   color: #6b7280;
-  font-size: 0.84rem;
+  font-size: 0.85rem;
 }
 
 .bookmark-feedback {
   margin: 0;
-  font-size: 0.86rem;
+  font-size: 0.9rem;
 }
 
 .bookmark-feedback-error {
-  color: #b91c1c;
+  color: #ef4444;
 }
 
 .bookmark-feedback-success {
-  color: #047857;
+  color: #10b981;
 }
 
 .bookmark-actions {
   display: flex;
   justify-content: flex-end;
+  margin-top: 8px;
 }
 
 .bookmark-submit-btn {
-  border: 1px solid #5f7f1f;
-  background: #6b8e23;
-  color: #fff;
-  font-size: 0.86rem;
+  background: #111827;
+  border: none;
+  color: #ffffff;
+  font-size: 0.9rem;
   font-weight: 600;
-  padding: 10px 16px;
-  border-radius: 10px;
+  padding: 12px 24px;
+  border-radius: 999px;
   cursor: pointer;
   transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(17, 24, 39, 0.2);
 }
 
 .bookmark-submit-btn:hover {
-  background: #5f7f1f;
-  border-color: #56741c;
+  background: #000000;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(17, 24, 39, 0.3);
+}
+
+.bookmark-submit-btn:active {
+  transform: translateY(0);
 }
 
 .bookmark-submit-btn:disabled {
-  opacity: 0.65;
+  opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
+
 
 .project-modal-backdrop {
   position: fixed;
@@ -899,178 +909,226 @@
 
 .directory-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  background: #f4f5ee;
-  /* Very light beige container for all cards */
-  /* Using borders on the container and children to achieve the explicit sharp lines */
-  border-top: 1px solid #e1e3da;
-  border-left: 1px solid #e1e3da;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+  background: transparent;
+  border: none;
 }
 
 .dir-card {
   position: relative;
-  min-height: 280px;
-  /* Safer than aspect-ratio */
-  border-right: 1px solid #e1e3da;
-  border-bottom: 1px solid #e1e3da;
+  min-height: 290px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
   padding: 24px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   cursor: pointer;
   overflow: hidden;
-  background-color: #f4f5ee;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.04);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Hover Dark Mesh State */
-.dir-hover-bg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(circle at center, #6b8e23 0%, #293813 100%);
-  filter: blur(20px);
-  opacity: 0;
-  transition: opacity 0.4s ease;
-  z-index: 1;
-  transform: scale(1.1);
-  /* Ensure blur bleeds to edges */
-  pointer-events: none;
+.dir-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.08);
 }
 
-/* Elements above hover */
-.dir-index {
+/* Beautiful pastel mesh backgrounds for the cards */
+.dir-card.dir-variant-0 { background: radial-gradient(120% 120% at 100% 0%, #e0e7ff 0%, #fdfbf7 50%, #fbe9f7 100%); }
+.dir-card.dir-variant-1 { background: radial-gradient(120% 120% at 0% 100%, #eff6ff 0%, #f5efff 50%, #ffeef0 100%); }
+.dir-card.dir-variant-2 { background: radial-gradient(120% 120% at 50% 50%, #fffafa 0%, #e5ebff 60%, #edffff 100%); }
+.dir-card.dir-variant-3 { background: radial-gradient(120% 120% at 0% 0%, #fff2e0 0%, #f5efff 40%, #e5ebff 100%); }
+.dir-card.dir-variant-4 { background: radial-gradient(120% 120% at 100% 100%, #edffff 0%, #fffafa 40%, #fae8f3 100%); }
+.dir-card.dir-variant-5 { background: radial-gradient(120% 120% at 50% 0%, #fffcf0 0%, #e5ebff 60%, #f5efff 100%); }
+
+.dir-top-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
   position: relative;
   z-index: 2;
-  font-size: 0.85rem;
-  color: #a3a3a3;
-  font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
-  font-weight: 500;
-  transition: color 0.4s ease;
 }
 
-.dir-icon-wrapper {
-  position: absolute;
-  top: 45%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 80px;
-  height: 80px;
-  z-index: 2;
+.dir-lessons-badge {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #374151;
+  font-family: var(--font-body);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.dir-icon-area {
   display: flex;
   align-items: center;
   justify-content: center;
+  height: 100px;
+  margin-bottom: 24px;
+  position: relative;
   z-index: 2;
-  margin: 16px 0;
-  /* Breathing room */
 }
 
-.dir-icon-blob {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  background: #e6edd7;
-  border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
-  animation: blobFloat 8s ease-in-out infinite alternate;
-  z-index: -1;
-  transition: opacity 0.4s ease;
-}
-
-@keyframes blobFloat {
-  0% {
-    border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
-  }
-
-  100% {
-    border-radius: 60% 40% 30% 70% / 60% 50% 40% 50%;
-  }
-}
-
-.dir-icon {
+.dir-icon-squircle {
+  width: 76px;
+  height: 76px;
+  border-radius: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.4s ease;
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.05), inset 0 2px 8px rgba(255,255,255,0.8);
+  color: #5b21b6; /* CyberSentinel rich violet */
 }
 
-.dir-bottom {
+.dir-icon-squircle svg {
+  width: 32px;
+  height: 32px;
+  color: inherit;
+}
+
+.dir-tags {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
   position: relative;
   z-index: 2;
+}
+
+.dir-tag {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #4b5563;
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
 }
 
 .dir-title {
-  font-size: 1.05rem;
-  font-weight: 700;
-  margin: 0 0 12px 0;
-  /* Increased gap */
-  color: #333333;
-  transition: color 0.4s ease;
-  letter-spacing: 0.05em;
+  font-size: 1.15rem;
+  font-weight: 800;
+  margin: 0 0 16px 0;
+  color: #111827;
+  line-height: 1.35;
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+  position: relative;
+  z-index: 2;
 }
 
-.dir-meta {
+.dir-bottom {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid rgba(0, 0, 0, 0.04);
+  padding-top: 16px;
+  position: relative;
+  z-index: 2;
+}
+
+.dir-level {
+  font-size: 0.8rem;
+  color: #4b5563;
+  font-weight: 600;
+}
+
+.dir-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.dir-progress-ring {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 3px solid rgba(0, 0, 0, 0.05);
+  border-top-color: #8b5cf6;
+  transform: rotate(-45deg);
+}
+
+.directory-dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.dash-header-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.dash-header-title h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.dash-header-count {
+  font-size: 1rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.dash-header-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.dash-control-btn {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.8rem;
-  color: #999999;
+  background: white;
+  border: 1px solid #e5e7eb;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
   font-weight: 500;
-  transition: color 0.4s ease;
-  white-space: nowrap;
-  /* Stops 'Mina Gallagher' from splitting */
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.dir-line {
-  height: 1px;
-  width: 24px;
-  background-color: #d4d4d4;
-  transition: background-color 0.4s ease;
+.dash-control-btn:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
 }
 
-.dir-action-circle {
-  position: absolute;
-  bottom: 24px;
-  right: 24px;
-  width: 44px;
-  height: 44px;
-  background-color: #ffffff;
-  border-radius: 50%;
+.dash-control-btn-icon {
+  background: black;
+  color: white;
+  padding: 8px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2;
-  opacity: 0;
-  transform: translate(15px, 15px) scale(0.8);
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  border: none;
 }
-
-/* Hover Triggers */
-.dir-card:hover .dir-hover-bg {
-  opacity: 1;
-}
-
-.dir-card:hover .dir-index,
-.dir-card:hover .dir-title,
-.dir-card:hover .dir-meta {
-  color: #ffffff;
-}
-
-.dir-card:hover .dir-line {
-  background-color: rgba(255, 255, 255, 0.4);
-}
-
-.dir-card:hover .dir-icon-wrapper {
-  opacity: 0;
-}
-
-.dir-card:hover .dir-action-circle {
-  opacity: 1;
-  transform: translate(0, 0) scale(1);
-}
-
-.dir-card:focus-visible {
   outline: 3px solid rgba(107, 142, 35, 0.34);
   outline-offset: -3px;
 }
