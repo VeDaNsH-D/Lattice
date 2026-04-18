@@ -8,6 +8,7 @@ import { fetchMetadata } from "../services/metadata.service.js";
 import { generateAIContent } from "../services/ai.service.js";
 import { ensureLinkEnrichment, processNewLinkForCollision } from "../services/link-intelligence.service.js";
 import { buildGraphNode } from "../services/graph.service.js";
+import { publishDecayTelemetry } from "../services/realtime-synapse.service.js";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_DECAY_START_DAYS = 14;
@@ -79,7 +80,7 @@ const updateAgingStatusesForProjects = async (projectIds, userId) => {
 
     const links = await Link.find({
         projectId: { $in: projectIds },
-    }).select("_id createdBy status lastClickedAt createdAt movedToCompostAt graveyardReason deletedAt");
+    }).select("_id projectId createdBy status lastClickedAt createdAt movedToCompostAt graveyardReason deletedAt");
 
     const creatorIds = Array.from(new Set(
         links.map((link) => getLinkCreatorId(link)).filter(Boolean)
@@ -92,6 +93,8 @@ const updateAgingStatusesForProjects = async (projectIds, userId) => {
     const settingsByCreatorId = new Map(
         creatorDocs.map((doc) => [String(doc._id), resolveDecaySettings(doc)])
     );
+
+    const telemetrySignals = [];
 
     const updates = links
         .map((link) => {
@@ -108,6 +111,15 @@ const updateAgingStatusesForProjects = async (projectIds, userId) => {
 
             if (inactiveDays >= settings.graveyardDays) {
                 if (link.status !== "dead" || link.graveyardReason !== "expired") {
+                    telemetrySignals.push({
+                        projectId: String(link.projectId),
+                        linkId: String(link._id),
+                        status: "dead",
+                        reason: "expired",
+                        trigger: "aging",
+                        userId,
+                    });
+
                     return {
                         updateOne: {
                             filter: { _id: link._id },
@@ -127,6 +139,15 @@ const updateAgingStatusesForProjects = async (projectIds, userId) => {
 
             if (inactiveDays >= settings.decayStartDays) {
                 if (link.status !== "decaying") {
+                    telemetrySignals.push({
+                        projectId: String(link.projectId),
+                        linkId: String(link._id),
+                        status: "decaying",
+                        reason: "inactivity_window",
+                        trigger: "aging",
+                        userId,
+                    });
+
                     return {
                         updateOne: {
                             filter: { _id: link._id },
@@ -146,6 +167,15 @@ const updateAgingStatusesForProjects = async (projectIds, userId) => {
             }
 
             if (link.status !== "active") {
+                telemetrySignals.push({
+                    projectId: String(link.projectId),
+                    linkId: String(link._id),
+                    status: "active",
+                    reason: "revived_by_activity",
+                    trigger: "aging",
+                    userId,
+                });
+
                 return {
                     updateOne: {
                         filter: { _id: link._id },
@@ -168,6 +198,10 @@ const updateAgingStatusesForProjects = async (projectIds, userId) => {
 
     if (updates.length > 0) {
         await Link.bulkWrite(updates);
+
+        telemetrySignals.forEach((signal) => {
+            void publishDecayTelemetry(signal);
+        });
     }
 
     return {
@@ -395,6 +429,15 @@ export const deleteLink = async (req, res, next) => {
         link.graveyardReason = "deleted";
         await link.save();
 
+        void publishDecayTelemetry({
+            projectId: String(link.projectId),
+            linkId: String(link._id),
+            status: "dead",
+            reason: "deleted",
+            trigger: "manual_delete",
+            userId,
+        });
+
         return res.status(200).json({
             success: true,
             message: "Link moved to graveyard",
@@ -438,6 +481,15 @@ export const markLinkViewed = async (req, res, next) => {
         link.movedToCompostAt = null;
         link.graveyardReason = null;
         await link.save();
+
+        void publishDecayTelemetry({
+            projectId: String(link.projectId),
+            linkId: String(link._id),
+            status: "active",
+            reason: "viewed",
+            trigger: "link_view",
+            userId,
+        });
 
         return res.status(200).json({
             success: true,
@@ -531,6 +583,15 @@ export const restoreLinkFromGraveyard = async (req, res, next) => {
         link.graveyardReason = null;
         link.lastClickedAt = new Date();
         await link.save();
+
+        void publishDecayTelemetry({
+            projectId: String(link.projectId),
+            linkId: String(link._id),
+            status: "active",
+            reason: "restored",
+            trigger: "graveyard_restore",
+            userId,
+        });
 
         return res.status(200).json({
             success: true,
