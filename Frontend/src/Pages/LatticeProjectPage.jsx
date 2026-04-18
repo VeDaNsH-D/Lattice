@@ -294,7 +294,10 @@ export const LatticeProjectPage = () => {
         let isMounted = true;
 
         const loadProjectContext = async () => {
-            if (!projectId || (projectType && resolvedProjectName)) {
+            const hasProjectMeta = Boolean(projectType && resolvedProjectName);
+            const hasOwner = Boolean(projectOwnerId);
+
+            if (!projectId || (hasProjectMeta && hasOwner)) {
                 return;
             }
 
@@ -310,8 +313,14 @@ export const LatticeProjectPage = () => {
                     return;
                 }
 
-                setProjectType(matchedProject.projectType || 'personal');
-                setResolvedProjectName(matchedProject.name || null);
+                if (!projectType) {
+                    setProjectType(matchedProject.projectType || 'personal');
+                }
+
+                if (!resolvedProjectName) {
+                    setResolvedProjectName(matchedProject.name || null);
+                }
+
                 setProjectOwnerId(
                     matchedProject?.createdBy?.id
                     || matchedProject?.createdBy?._id
@@ -327,7 +336,7 @@ export const LatticeProjectPage = () => {
         return () => {
             isMounted = false;
         };
-    }, [projectId, projectType, resolvedProjectName]);
+    }, [projectId, projectType, resolvedProjectName, projectOwnerId]);
 
     useEffect(() => {
         let isMounted = true;
@@ -738,18 +747,49 @@ export const LatticeProjectPage = () => {
                         <section className="project-role-panel">
                             <div className="project-role-panel-head">
                                 <h3>Roles</h3>
-                                <p>Use roles like Discord channels to segment access.</p>
+                                <p>Define role-based access controls for this project.</p>
+                            </div>
+
+                            <div className="project-role-list-wrap">
+                                <p className="project-role-list-title">Existing roles</p>
+                                <div className="project-role-stack">
+                                    <button
+                                        type="button"
+                                        className={`project-role-row ${selectedRoleFilterId === 'all' ? 'active' : ''}`}
+                                        onClick={() => setSelectedRoleFilterId('all')}
+                                    >
+                                        <span className="project-role-row-main">Everyone</span>
+                                        <span className="project-role-row-meta">All links</span>
+                                    </button>
+
+                                    {roles.length ? roles.map((role) => (
+                                        <button
+                                            type="button"
+                                            key={role.id}
+                                            className={`project-role-row ${selectedRoleFilterId === role.id ? 'active' : ''}`}
+                                            onClick={() => setSelectedRoleFilterId(role.id)}
+                                        >
+                                            <span className="project-role-row-main">
+                                                <Shield size={14} />
+                                                {role.name}
+                                            </span>
+                                            <span className="project-role-row-meta">{role.permissions.replace(/_/g, ' ')}</span>
+                                        </button>
+                                    )) : (
+                                        <p className="project-left-note">No roles defined yet.</p>
+                                    )}
+                                </div>
                             </div>
 
                             {isCollaborativeProject && isOwner ? (
                                 <form className="project-role-form" onSubmit={onCreateRole}>
                                     <div className="project-owner-callout">
-                                        <span className="project-owner-callout-title">Create new role</span>
-                                        <span className="project-owner-callout-copy">Owner tools for access control and calls.</span>
+                                        <span className="project-owner-callout-title">Add role</span>
+                                        <span className="project-owner-callout-copy">Owner-only control for assigning project access levels.</span>
                                     </div>
                                     <div className="project-role-grid">
                                         <div className="bookmark-field">
-                                            <label htmlFor="project-role-name">New role</label>
+                                            <label htmlFor="project-role-name">Role name</label>
                                             <input
                                                 id="project-role-name"
                                                 type="text"
@@ -793,41 +833,10 @@ export const LatticeProjectPage = () => {
                             ) : (
                                 <p className="project-left-note">
                                     {isCollaborativeProject
-                                        ? 'Only project owner can create new roles.'
-                                        : 'Switch this project to collaborative mode to define roles.'}
+                                        ? 'Only the project owner can add roles.'
+                                        : 'Switch this project to collaborative mode to configure roles.'}
                                 </p>
                             )}
-
-                            <div className="project-role-list-wrap">
-                                <p className="project-role-list-title">Existing roles</p>
-                                <div className="project-role-stack">
-                                    <button
-                                        type="button"
-                                        className={`project-role-row ${selectedRoleFilterId === 'all' ? 'active' : ''}`}
-                                        onClick={() => setSelectedRoleFilterId('all')}
-                                    >
-                                        <span className="project-role-row-main">Everyone</span>
-                                        <span className="project-role-row-meta">All links</span>
-                                    </button>
-
-                                    {roles.length ? roles.map((role) => (
-                                        <button
-                                            type="button"
-                                            key={role.id}
-                                            className={`project-role-row ${selectedRoleFilterId === role.id ? 'active' : ''}`}
-                                            onClick={() => setSelectedRoleFilterId(role.id)}
-                                        >
-                                            <span className="project-role-row-main">
-                                                <Shield size={14} />
-                                                {role.name}
-                                            </span>
-                                            <span className="project-role-row-meta">{role.permissions.replace(/_/g, ' ')}</span>
-                                        </button>
-                                    )) : (
-                                        <p className="project-left-note">No roles defined yet.</p>
-                                    )}
-                                </div>
-                            </div>
                         </section>
 
                         <section className="project-role-panel project-online-panel">
