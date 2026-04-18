@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, Globe, Lock, UserRound } from 'lucide-react';
+import { LatticeFrame } from './LatticeFrame';
 import { getCurrentSessionUser, getLatticeById } from '../services/latticeApi';
 import { MembersList } from '../components/MembersList';
 import './LatticePages.css';
@@ -16,17 +17,21 @@ export const LatticePublicPage = () => {
     useEffect(() => {
         let isMounted = true;
 
+        setLoading(true);
+        setLattice(null);
+        setCurrentUser(null);
+        setStatusCode(0);
+        setErrorMessage('');
+
         const loadLattice = async () => {
             if (!latticeId) {
-                setLoading(false);
-                setStatusCode(404);
-                setErrorMessage('Lattice not found.');
+                if (isMounted) {
+                    setLoading(false);
+                    setStatusCode(404);
+                    setErrorMessage('Lattice not found.');
+                }
                 return;
             }
-
-            setLoading(true);
-            setErrorMessage('');
-            setStatusCode(0);
 
             try {
                 const [sessionUser, latticeResponse] = await Promise.all([
@@ -80,68 +85,74 @@ export const LatticePublicPage = () => {
 
     if (loading) {
         return (
-            <div className="lattice-public-shell">
-                <div className="lattice-public-card">
-                    <p className="directory-status">Loading lattice...</p>
+            <LatticeFrame>
+                <div className="lattice-public-page">
+                    <div className="lattice-public-card">
+                        <p className="directory-status">Loading lattice...</p>
+                    </div>
                 </div>
-            </div>
+            </LatticeFrame>
         );
     }
 
     if (!lattice) {
         return (
-            <div className="lattice-public-shell">
-                <div className="lattice-public-card">
-                    <h1>{statusCode === 401 ? 'Login Required' : statusCode === 403 ? 'Access Denied' : 'Lattice Unavailable'}</h1>
-                    <p>{errorMessage}</p>
-                    <div className="lattice-public-actions">
-                        {statusCode === 401 ? <Link to="/login" className="lattice-public-btn">Go to Login</Link> : null}
-                        <Link to="/" className="lattice-public-btn lattice-public-btn-ghost">Back to Home</Link>
+            <LatticeFrame>
+                <div className="lattice-public-page">
+                    <div className="lattice-public-card">
+                        <h1>{statusCode === 401 ? 'Login Required' : statusCode === 403 ? 'Access Denied' : 'Lattice Unavailable'}</h1>
+                        <p>{errorMessage}</p>
+                        <div className="lattice-public-actions">
+                            {statusCode === 401 ? <Link to="/login" className="lattice-public-btn">Go to Login</Link> : null}
+                            <Link to="/" className="lattice-public-btn lattice-public-btn-ghost">Back to Home</Link>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </LatticeFrame>
         );
     }
 
     return (
-        <div className="lattice-public-shell">
-            <div className="lattice-public-card">
-                <div className="lattice-public-topbar">
-                    <Link to="/" className="lattice-public-back-link">
-                        <ArrowLeft size={14} />
-                        Back
-                    </Link>
-
-                    <span className={`lattice-public-visibility ${lattice.isPublic ? 'is-public' : 'is-private'}`}>
-                        {lattice.isPublic ? <Globe size={13} /> : <Lock size={13} />}
-                        {lattice.isPublic ? 'Public' : 'Private'}
-                    </span>
-                </div>
-
-                <h1>{lattice.name}</h1>
-
-                <p className="lattice-public-description">
-                    {lattice.description || 'This lattice is available for viewing.'}
-                </p>
-
-                <div className="lattice-public-meta">
-                    <span>
-                        <UserRound size={14} />
-                        {lattice.createdBy?.name || 'Unknown owner'}
-                    </span>
-                </div>
-
-                <MembersList members={lattice.members} />
-
-                {isOwner ? (
-                    <div className="lattice-public-actions">
-                        <Link to={`/lattice/project/${lattice.id}`} className="lattice-public-btn">
-                            Open in workspace
-                            <ExternalLink size={14} />
+        <LatticeFrame>
+            <div className="lattice-public-page">
+                <section className="lattice-public-card">
+                    <div className="lattice-public-topbar">
+                        <Link to="/" className="lattice-public-back-link">
+                            <ArrowLeft size={14} />
+                            Back
                         </Link>
+
+                        <span className={`lattice-public-visibility ${lattice.isPublic ? 'is-public' : 'is-private'}`}>
+                            {lattice.isPublic ? <Globe size={13} /> : <Lock size={13} />}
+                            {lattice.isPublic ? 'Public' : 'Private'}
+                        </span>
                     </div>
-                ) : null}
+
+                    <h1>{lattice.name}</h1>
+
+                    <p className="lattice-public-description">
+                        {lattice.description || 'This lattice is available for viewing.'}
+                    </p>
+
+                    <div className="lattice-public-meta">
+                        <span>
+                            <UserRound size={14} />
+                            {lattice.createdBy?.name || 'Unknown owner'}
+                        </span>
+                    </div>
+
+                    <MembersList members={lattice.members} />
+
+                    {isOwner ? (
+                        <div className="lattice-public-actions">
+                            <Link to={`/lattice/project/${lattice.id}`} className="lattice-public-btn">
+                                Open in workspace
+                                <ExternalLink size={14} />
+                            </Link>
+                        </div>
+                    ) : null}
+                </section>
             </div>
-        </div>
+        </LatticeFrame>
     );
 };

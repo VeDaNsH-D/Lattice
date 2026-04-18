@@ -1,5 +1,6 @@
 import Project from "../models/project.js";
 import ProjectMember from "../models/projectMember.js";
+import User from "../models/user.js";
 
 const normalizeProject = (projectDoc) => ({
     id: projectDoc._id,
@@ -116,6 +117,81 @@ export const getProjectMembership = async (req, res, next) => {
                     }
                     : null,
             }
+        });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+export const getProjectMembers = async (req, res, next) => {
+    try {
+        const userId = req.user.userId;
+        const { projectId } = req.params;
+
+        // Fetch raw project IDs so member list always comes from project.members in DB.
+        const project = await Project.findById(projectId)
+            .select("createdBy members isActive")
+            .lean();
+
+        if (!project || !project.isActive) {
+            return res.status(404).json({
+                success: false,
+                message: "Project not found"
+            });
+        }
+
+        const ownerId = String(project.createdBy || "");
+        const membersArray = Array.isArray(project.members) ? project.members : [];
+        const userIdStr = String(userId);
+
+        const isOwner = ownerId === userIdStr;
+        const isMember = membersArray.some((memberId) => String(memberId) === userIdStr);
+
+        if (!isOwner && !isMember) {
+            return res.status(403).json({
+                success: false,
+                message: "Forbidden: you are not a member of this project"
+            });
+        }
+
+        // Build a stable ordered list: owner first, then members from project.members.
+        const orderedIds = [];
+        const seenIds = new Set();
+
+        if (ownerId) {
+            seenIds.add(ownerId);
+            orderedIds.push(ownerId);
+        }
+
+        membersArray.forEach((memberIdRaw) => {
+            const memberId = String(memberIdRaw || "");
+            if (memberId && !seenIds.has(memberId)) {
+                seenIds.add(memberId);
+                orderedIds.push(memberId);
+            }
+        });
+
+        const users = await User.find({ _id: { $in: orderedIds } })
+            .select("name avatarUrl email")
+            .lean();
+
+        const userMap = new Map(users.map((user) => [String(user._id), user]));
+
+        const members = orderedIds.map((id) => {
+            const userDoc = userMap.get(id);
+
+            return {
+                id,
+                name: userDoc?.name || "Unknown",
+                avatar: userDoc?.avatarUrl || null,
+                email: userDoc?.email || null,
+                isOwner: id === ownerId,
+            };
+        });
+
+        return res.status(200).json({
+            success: true,
+            members,
         });
     } catch (error) {
         return next(error);

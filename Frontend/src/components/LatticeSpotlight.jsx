@@ -1,25 +1,71 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Command, CornerDownLeft, Sparkles, Box, Link as LinkIcon, FileText, CheckCircle2, Loader2 } from 'lucide-react';
+import {
+  Command,
+  Sparkles,
+  Box,
+  Link as LinkIcon,
+  FileText,
+  Loader2,
+  Search,
+  PlusCircle,
+  FolderPlus,
+  ArrowRight,
+  FolderOpen,
+  BrainCircuit,
+  Network,
+  User,
+} from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { searchSpotlight } from '../services/latticeApi';
 import './LatticeSpotlight.css';
 
-export const LatticeSpotlight = ({ isOpen, onClose }) => {
+const getProjectIdFromPath = (pathname = '') => {
+  const match = pathname.match(/^\/lattice\/project\/([^/]+)/);
+  return match?.[1] || '';
+};
+
+export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [query, setQuery] = useState('');
   const [context, setContext] = useState(null);
   const [contexts, setContexts] = useState([]);
   const [results, setResults] = useState([]);
-  const [selectedResultId, setSelectedResultId] = useState('');
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [aiMode, setAiMode] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
   const inputRef = useRef(null);
+  const executeLockRef = useRef(false);
 
   // Keep Spotlight compact on open until the user interacts.
   useEffect(() => {
     if (!isOpen) {
       setIsInputFocused(false);
     }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    setQuery('');
+    setContext(null);
+    setAiMode(false);
+    setError('');
+    setResults([]);
+    setSelectedIndex(0);
+    setLoading(false);
+
+    const focusTimer = window.setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select?.();
+    }, 0);
+
+    return () => window.clearTimeout(focusTimer);
   }, [isOpen]);
 
   useEffect(() => {
@@ -69,7 +115,7 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
 
     if (!trimmed || isSlashMode) {
       setResults([]);
-      setSelectedResultId('');
+      setSelectedIndex(0);
       setLoading(false);
       setError('');
       return;
@@ -96,11 +142,11 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
 
         setContexts(nextContexts);
         setResults(nextResults);
-        setSelectedResultId((previous) => (nextResults.some((item) => item.id === previous) ? previous : (nextResults[0]?.id || '')));
+        setSelectedIndex((previous) => (nextResults.length ? Math.min(previous, nextResults.length - 1) : 0));
       } catch (requestError) {
         if (isMounted) {
           setResults([]);
-          setSelectedResultId('');
+          setSelectedIndex(0);
           setError(requestError.message || 'Search failed.');
         }
       } finally {
@@ -126,6 +172,7 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
         setAiMode(false);
         setError('');
         setIsInputFocused(false);
+        setSelectedIndex(0);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -136,14 +183,124 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
   const isSlashMode = query.startsWith('/');
   const showAiResponse = aiMode && query.length > 5 && !isSlashMode;
   const shouldExpand = query.trim().length > 0;
+  const activeProjectId = getProjectIdFromPath(location.pathname);
+  const isInsideProject = Boolean(activeProjectId);
 
-  const selectedResult = useMemo(() => {
-    if (!results.length) {
+  const filteredResults = useMemo(() => {
+    const trimmedQuery = query.trim().toLowerCase();
+
+    if (!trimmedQuery) {
+      return [];
+    }
+
+    return results.filter((item) => {
+      const title = String(item?.title || '').toLowerCase();
+      const description = String(item?.description || '').toLowerCase();
+      const metadata = String(item?.path || item?.project?.name || '').toLowerCase();
+      return [title, description, metadata].some((value) => value.includes(trimmedQuery));
+    });
+  }, [query, results]);
+
+  const resultCommands = useMemo(() => {
+    return filteredResults.flatMap((item) => {
+      const rawType = String(item?.type || '').toLowerCase();
+      const mappedType = rawType === 'project' ? 'lattice' : rawType === 'link' ? 'link' : '';
+
+      if (!mappedType) {
+        return [];
+      }
+
+      const route = mappedType === 'lattice'
+        ? `/lattice/${item.id}`
+        : '';
+
+      return {
+        id: `result:${item.id}`,
+        itemId: item.id,
+        label: item.title,
+        type: mappedType,
+        route,
+        metadata: item.path || item.project?.name || 'space',
+        description: item.description || 'No preview available.',
+        source: item,
+      };
+    });
+  }, [filteredResults]);
+
+  const actionCommands = useMemo(() => {
+    const commands = [
+      {
+        id: 'action:ask-lattice',
+        type: 'action',
+        label: `Ask Lattice ${query ? `"${query}"` : ''}`,
+        description: 'Generate a focused answer from your workspace',
+        actionKey: 'ask-lattice',
+      },
+      {
+        id: 'action:add-link',
+        type: 'action',
+        label: isInsideProject ? 'Add link to this lattice' : `Add something new to ${context ? context.name : 'your space'}`,
+        description: 'Capture a new idea, note, or reference',
+        actionKey: 'add-link',
+      },
+      {
+        id: 'action:create-lattice',
+        type: 'action',
+        label: 'Create new lattice',
+        description: 'Start a fresh lattice for a new topic',
+        actionKey: 'create-lattice',
+      },
+    ];
+
+    commands.push({
+      id: 'action:go-profile',
+      type: 'action',
+      label: 'Go to profile',
+      description: 'Open your public profile page',
+      actionKey: 'go-profile',
+      route: currentUserId ? `/profile/${currentUserId}` : '',
+    });
+
+    return commands;
+  }, [context, currentUserId, isInsideProject, query]);
+
+  const allCommands = useMemo(() => {
+    if (isSlashMode) {
+      return [];
+    }
+
+    return [...actionCommands, ...resultCommands];
+  }, [actionCommands, resultCommands, isSlashMode]);
+
+  const selectedCommand = useMemo(() => {
+    if (!allCommands.length) {
       return null;
     }
 
-    return results.find((item) => item.id === selectedResultId) || results[0];
-  }, [results, selectedResultId]);
+    return allCommands[selectedIndex] || allCommands[0];
+  }, [allCommands, selectedIndex]);
+
+  const selectedResult = useMemo(() => {
+    if (selectedCommand?.type !== 'lattice' && selectedCommand?.type !== 'link') {
+      return resultCommands[0]?.source || null;
+    }
+
+    return selectedCommand?.source || resultCommands[0]?.source || null;
+  }, [resultCommands, selectedCommand]);
+
+  useEffect(() => {
+    if (!isOpen || isSlashMode || !allCommands.length) {
+      return;
+    }
+
+    setSelectedIndex((previous) => {
+      if (previous >= 0 && previous < allCommands.length) {
+        return previous;
+      }
+
+      return 0;
+    });
+  }, [allCommands, isOpen, isSlashMode]);
 
   const handleInputChange = (e) => {
     setQuery(e.target.value);
@@ -155,9 +312,119 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
     setQuery('');
     setAiMode(false);
     setResults([]);
-    setSelectedResultId('');
+    setSelectedIndex(0);
     if (inputRef.current) {
       inputRef.current.focus();
+    }
+  };
+
+  const closeSpotlight = () => {
+    setQuery('');
+    setContext(null);
+    setAiMode(false);
+    setError('');
+    setSelectedIndex(0);
+    setIsInputFocused(false);
+    onClose();
+  };
+
+  const executeCommand = async (command) => {
+    if (!command || executeLockRef.current) {
+      return;
+    }
+
+    executeLockRef.current = true;
+    setIsExecuting(true);
+
+    try {
+      if ((command.type === 'lattice' || command.type === 'profile') && command.route) {
+        navigate(command.route);
+        closeSpotlight();
+        return;
+      }
+
+      if (command.type === 'action') {
+        if (command.actionKey === 'create-lattice') {
+          window.dispatchEvent(new CustomEvent('lattice:open-create-modal', {
+            detail: { source: 'spotlight' },
+          }));
+          navigate('/lattice/personal');
+          closeSpotlight();
+          return;
+        }
+
+        if (command.actionKey === 'add-link') {
+          const targetProjectId = activeProjectId || context?.id || '';
+          window.dispatchEvent(new CustomEvent('lattice:open-add-link-modal', {
+            detail: {
+              source: 'spotlight',
+              projectId: targetProjectId,
+            },
+          }));
+          if (!targetProjectId) {
+            navigate('/lattice');
+          }
+          closeSpotlight();
+          return;
+        }
+
+        if (command.actionKey === 'ask-lattice') {
+          const trimmedQuery = query.trim();
+          if (!trimmedQuery) {
+            setAiMode(true);
+            return;
+          }
+
+          window.dispatchEvent(new CustomEvent('lattice:open-chat', {
+            detail: {
+              source: 'spotlight',
+              query: trimmedQuery,
+              projectId: activeProjectId || context?.id || '',
+            },
+          }));
+
+          closeSpotlight();
+          return;
+        }
+
+        if (command.actionKey === 'go-profile' && command.route) {
+          navigate(command.route);
+          closeSpotlight();
+          return;
+        }
+      }
+
+      if (command.type === 'link') {
+        const source = command.source || {};
+        const targetProjectId = source?.project?.id || source?.projectId || context?.id || activeProjectId || '';
+
+        if (targetProjectId && String(targetProjectId) !== String(activeProjectId)) {
+          navigate(`/lattice/project/${targetProjectId}`, {
+            state: {
+              projectName: source?.project?.name || '',
+              projectType: source?.project?.kind || 'collaborative',
+              openLinkId: command.itemId,
+            },
+          });
+          closeSpotlight();
+          return;
+        }
+
+        window.dispatchEvent(new CustomEvent('lattice:open-link-modal', {
+          detail: {
+            id: source.id || command.itemId,
+            projectId: targetProjectId,
+            payload: source,
+          },
+        }));
+        closeSpotlight();
+        return;
+      }
+    } finally {
+      window.setTimeout(() => {
+        executeLockRef.current = false;
+        setIsExecuting(false);
+      }, 140);
     }
   };
 
@@ -166,13 +433,73 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
     if (e.key === 'Backspace' && query === '' && context) {
       setContext(null);
     }
+
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && allCommands.length) {
+      e.preventDefault();
+
+      const direction = e.key === 'ArrowDown' ? 1 : -1;
+      const nextIndex = (selectedIndex + direction + allCommands.length) % allCommands.length;
+
+      setSelectedIndex(nextIndex);
+      return;
+    }
+
     if (e.key === 'Enter' && query.length > 0 && !isSlashMode) {
-      if (results.length) {
-        setSelectedResultId(results[0].id);
+      if (selectedCommand) {
+        void executeCommand(selectedCommand);
       } else {
         setAiMode(true);
       }
     }
+  };
+
+  const getItemTypeLabel = (item) => {
+    const type = String(item?.type || '').toLowerCase();
+
+    if (!type) {
+      return 'Item';
+    }
+
+    if (type === 'lattice') {
+      return 'Lattice';
+    }
+
+    if (type === 'link') {
+      return 'Link';
+    }
+
+    return type.charAt(0).toUpperCase() + type.slice(1);
+  };
+
+  const getResultIcon = (itemType) => {
+    const type = String(itemType || '').toLowerCase();
+
+    if (type === 'lattice') {
+      return <Network size={15} />;
+    }
+
+    if (type === 'link') {
+      return <LinkIcon size={15} />;
+    }
+
+    if (type === 'note' || type === 'document') {
+      return <FileText size={15} />;
+    }
+
+    return <BrainCircuit size={15} />;
+  };
+
+  const formatDate = (value) => {
+    if (!value) {
+      return 'Just now';
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return 'Just now';
+    }
+
+    return parsed.toLocaleDateString();
   };
 
   const contextLinkCount = context?.links ?? context?.nodes ?? 0;
@@ -191,26 +518,29 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
           <div className="spotlight-header">
             <div className="spotlight-input-wrapper">
               <div className="spotlight-input-icon">
-                {context ? '🧠' : '🤔'}
+                <Search size={16} />
               </div>
-              <input 
+              <input
                 ref={inputRef}
                 className="spotlight-input"
-                placeholder={context ? `${context.name} · ask anything...` : "Search or ask a question..."}
+                placeholder="Search or ask Lattice..."
                 value={query}
                 onChange={handleInputChange}
                 onKeyDown={handleInputKeyDown}
                 onFocus={() => setIsInputFocused(true)}
                 onBlur={() => setIsInputFocused(false)}
               />
-              <div style={{ color: '#a0a0a0', display: 'flex', alignItems: 'center' }}>
-                <Command size={16} /> <span style={{fontSize:'0.75rem', marginLeft:'2px'}}>K</span>
+              <div className="spotlight-shortcut">
+                <Command size={13} />
+                <span>K</span>
               </div>
             </div>
-            
+
             {context && (
               <div className="spotlight-context-badge">
-                <Box size={12}/> {context.name} <span>• {contextLinkCount} items</span>
+                <Box size={12} />
+                <span className="spotlight-context-name">{context.name}</span>
+                <span className="spotlight-context-meta">{contextLinkCount} items</span>
               </div>
             )}
           </div>
@@ -224,12 +554,12 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
                 </div>
               </div>
             ) : null}
-            
+
             {showAiResponse ? (
               <div className="spotlight-section">
                 <span className="spotlight-section-title">Answer</span>
                 <div className="spotlight-ai-response">
-                  <p>Based on <strong>{context ? context.name : "your space"}</strong>, here’s a simple summary of the most relevant ideas. You can keep searching or open the matching note for more detail.</p>
+                  <p>Based on <strong>{context ? context.name : 'your space'}</strong>, here’s a simple summary of the most relevant ideas. You can keep searching or open the matching note for more detail.</p>
                 </div>
               </div>
             ) : isSlashMode ? (
@@ -241,8 +571,13 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
                     className={`spotlight-row ${index === 0 ? 'active' : ''}`}
                     onClick={() => selectContext(item)}
                   >
-                    <div className="spotlight-action-icon"><Box color={item.kind === 'collaborative' ? '#48bb78' : '#735bf2'} size={16}/></div>
-                    <div className="spotlight-action-text">{item.name}</div>
+                    <div className="spotlight-action-icon">
+                      <FolderOpen size={15} />
+                    </div>
+                    <div className="spotlight-action-content">
+                      <div className="spotlight-action-text">{item.name}</div>
+                      <div className="spotlight-action-meta">{item.kind === 'collaborative' ? 'Collaborative' : 'Personal'}</div>
+                    </div>
                   </div>
                 ))}
                 {!contexts.length ? (
@@ -254,25 +589,38 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
             ) : (
               <>
                 <div className="spotlight-section">
-                  <span className="spotlight-section-title">Quick actions</span>
-                  <div className="spotlight-row active">
-                    <div className="spotlight-action-icon"><Sparkles color="#735bf2" size={18}/></div>
-                    <div className="spotlight-action-text">Ask LATTICE {query ? `"${query}"` : ""}</div>
-                  </div>
-                  <div className="spotlight-row">
-                    <div className="spotlight-action-icon" style={{background:'#48bb78', borderRadius:'50%'}}></div>
-                    <div className="spotlight-action-text">Add something new to {context ? context.name : "your space"}</div>
-                  </div>
-                  {!context && (
-                    <div className="spotlight-row">
-                      <div className="spotlight-action-icon"><PlusCircle size={18} color="#e53e3e"/></div>
-                      <div className="spotlight-action-text">Create a new space</div>
-                    </div>
-                  )}
+                  <span className="spotlight-section-title">Quick Actions</span>
+                  {actionCommands.map((command) => {
+                    const isSelectedAction = selectedCommand?.id === command.id;
+                    const actionIcon = command.actionKey === 'ask-lattice'
+                      ? <Sparkles size={15} />
+                      : command.actionKey === 'add-link'
+                        ? <PlusCircle size={15} />
+                        : command.actionKey === 'create-lattice'
+                          ? <FolderPlus size={15} />
+                          : <User size={15} />;
+
+                    return (
+                      <div
+                        key={command.id}
+                        className={`spotlight-row ${isSelectedAction ? 'active' : ''}`}
+                        onMouseEnter={() => setSelectedIndex(actionCommands.findIndex((item) => item.id === command.id))}
+                        onClick={() => void executeCommand(command)}
+                      >
+                        <div className="spotlight-action-icon">
+                          {actionIcon}
+                        </div>
+                        <div className="spotlight-action-content">
+                          <div className="spotlight-action-text">{command.label}</div>
+                          <div className="spotlight-action-meta">{command.description}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="spotlight-section">
-                  <span className="spotlight-section-title">Suggested matches</span>
+                  <span className="spotlight-section-title">Results</span>
                   {loading ? (
                     <div className="spotlight-row">
                       <div className="spotlight-match-content">
@@ -284,32 +632,33 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
                       </div>
                     </div>
                   ) : null}
-                  
-                  {results.map((item) => (
+
+                  {resultCommands.map((command, index) => (
                     <div
-                      key={item.id}
-                      className="spotlight-row"
-                      onClick={() => setSelectedResultId(item.id)}
-                      style={{ borderColor: selectedResult?.id === item.id ? '#dbeafe' : undefined, background: selectedResult?.id === item.id ? '#f8fbff' : undefined }}
+                      key={command.id}
+                      className={`spotlight-row spotlight-result-row ${selectedIndex === actionCommands.length + index ? 'is-selected' : ''}`}
+                      onMouseEnter={() => setSelectedIndex(actionCommands.length + index)}
+                      onClick={() => void executeCommand(command)}
                     >
-                      <div className="spotlight-match-icon">{item.type === 'project' ? '📁' : item.type === 'link' ? '🔗' : '🧠'}</div>
+                      <div className="spotlight-match-icon">{getResultIcon(command.type)}</div>
                       <div className="spotlight-match-content">
                         <div className="spotlight-match-title-row">
-                          <span className="spotlight-match-title">{item.title}</span>
-                          {item.type === 'node' ? <span className="spotlight-match-badge verified">Node</span> : null}
+                          <span className="spotlight-match-title">{command.label}</span>
+                          <span className="spotlight-match-badge">{getItemTypeLabel(command)}</span>
                         </div>
                         <div className="spotlight-match-path">
-                          <FileText size={12}/> {item.path || item.project?.name || 'space'}
+                          <FileText size={12} />
+                          {command.metadata}
                         </div>
                         <div className="spotlight-match-desc">
-                          {item.description || 'No preview available.'}
+                          {command.description}
                         </div>
                       </div>
-                      <CornerDownLeft size={16} color="#a0a0a0" style={{marginTop:'auto', marginBottom:'auto'}}/>
+                      <ArrowRight size={14} className="spotlight-result-arrow" />
                     </div>
                   ))}
 
-                  {!loading && query.trim() && !results.length ? (
+                  {!loading && query.trim() && !resultCommands.length ? (
                     <div className="spotlight-row">
                       <div className="spotlight-match-content">
                         <div className="spotlight-match-title-row">
@@ -318,7 +667,6 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
                       </div>
                     </div>
                   ) : null}
-
                 </div>
               </>
             )}
@@ -327,12 +675,13 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
 
         {/* RIGHT PANE: PREVIEW */}
         <div className="spotlight-right">
-          <div className="spotlight-right-emoji">{selectedResult?.type === 'project' ? '📁' : selectedResult?.type === 'link' ? '🔗' : '🧠'}</div>
-          <div className="spotlight-right-title">
-            {selectedResult?.title || 'Search results preview'} <LinkIcon size={16} color="#707070"/>
-          </div>
-          <div className="spotlight-right-type">
-            <FileText size={14}/> {selectedResult?.type ? selectedResult.type[0].toUpperCase() + selectedResult.type.slice(1) : 'Item'}
+          <div className="spotlight-right-icon">{selectedResult ? getResultIcon(selectedResult.type) : <Search size={16} />}</div>
+          <div className="spotlight-right-title">{selectedResult?.title || 'Search results preview'}</div>
+          <div className="spotlight-right-type">{selectedResult ? getItemTypeLabel(selectedResult) : 'Item'}</div>
+
+          <div className="spotlight-right-location">
+            <span className="spotlight-meta-label">Location</span>
+            <span className="spotlight-meta-value">{selectedResult?.project?.name || 'Your space'}</span>
           </div>
 
           <div className="spotlight-preview-card faded">
@@ -344,10 +693,10 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
 
           <div className="spotlight-meta-grid">
             <span className="spotlight-meta-label">Saved by</span>
-            <span className="spotlight-meta-value">You <span>·</span> {selectedResult?.project?.name || 'Your space'}</span>
-            
+            <span className="spotlight-meta-value">You</span>
+
             <span className="spotlight-meta-label">Updated</span>
-            <span className="spotlight-meta-value">{selectedResult?.updatedAt ? new Date(selectedResult.updatedAt).toLocaleDateString() : 'Just now'}</span>
+            <span className="spotlight-meta-value">{formatDate(selectedResult?.updatedAt)}</span>
           </div>
         </div>
 
@@ -355,12 +704,3 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
     </div>
   );
 };
-
-/* Auxiliary for the plus icon missed up top */
-const PlusCircle = ({size, color}) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10"></circle>
-    <line x1="12" y1="8" x2="12" y2="16"></line>
-    <line x1="8" y1="12" x2="16" y2="12"></line>
-  </svg>
-);

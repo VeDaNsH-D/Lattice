@@ -1,7 +1,7 @@
 import express from "express";
 import { body } from "express-validator";
 
-import { createProject, getProjectMembership, listProjects } from "../controllers/project.controller.js";
+import { createProject, getProjectMembership, getProjectMembers, listProjects } from "../controllers/project.controller.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 import { validateRequest } from "../middlewares/validate.middleware.js";
 
@@ -13,6 +13,12 @@ router.get(
     "/:projectId/membership",
     authMiddleware,
     getProjectMembership
+);
+
+router.get(
+    "/:projectId/members",
+    authMiddleware,
+    getProjectMembers
 );
 
 router.post(

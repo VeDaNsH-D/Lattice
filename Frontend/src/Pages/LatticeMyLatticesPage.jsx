@@ -144,6 +144,18 @@ export const LatticeMyLatticesPage = () => {
     };
   }, [loadProjects]);
 
+  useEffect(() => {
+    const onOpenCreateModal = () => {
+      openCreateModal('personal');
+    };
+
+    window.addEventListener('lattice:open-create-modal', onOpenCreateModal);
+
+    return () => {
+      window.removeEventListener('lattice:open-create-modal', onOpenCreateModal);
+    };
+  }, []);
+
   const openCreateModal = (projectType) => {
     setModalType(projectType);
     setNewProjectName('');

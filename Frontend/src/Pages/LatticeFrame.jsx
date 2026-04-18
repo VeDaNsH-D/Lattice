@@ -150,7 +150,11 @@ export const LatticeFrame = ({ children }) => {
         </div>
       </main>
 
-      <LatticeSpotlight isOpen={isSpotlightOpen} onClose={() => setIsSpotlightOpen(false)} />
+      <LatticeSpotlight
+        isOpen={isSpotlightOpen}
+        onClose={() => setIsSpotlightOpen(false)}
+        currentUserId={userProfileId}
+      />
     </div>
   );
 };

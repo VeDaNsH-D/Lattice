@@ -28,7 +28,7 @@ const StreamTile = ({ label, stream, muted = false }) => {
   );
 };
 
-export const ProjectRealtimePanel = ({ projectId, projectName, onParticipantsChange }) => {
+export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = [], onParticipantsChange }) => {
   const socketRef = useRef(null);
   const peersRef = useRef(new Map());
   const selfIdRef = useRef('');
@@ -353,6 +353,24 @@ export const ProjectRealtimePanel = ({ projectId, projectName, onParticipantsCha
     });
 
     const ids = new Set(participants.map((participant) => participant.id));
+
+  useEffect(() => {
+    const onOpenChat = (event) => {
+      const nextProjectId = event?.detail?.projectId;
+      const nextQuery = event?.detail?.query;
+
+      if (nextProjectId && String(nextProjectId) !== String(projectId)) {
+        return;
+      }
+
+      if (typeof nextQuery === 'string' && nextQuery.trim()) {
+        setInput(nextQuery.trim());
+      }
+    };
+
+    window.addEventListener('lattice:open-chat', onOpenChat);
+    return () => window.removeEventListener('lattice:open-chat', onOpenChat);
+  }, [projectId]);
     Array.from(peersRef.current.keys()).forEach((id) => {
       if (!ids.has(id)) {
         cleanupPeer(id);
@@ -461,6 +479,8 @@ export const ProjectRealtimePanel = ({ projectId, projectName, onParticipantsCha
   const activeRemoteStreams = Object.entries(remoteStreams).filter(([, stream]) => Boolean(stream));
   const isCallActive = Boolean(localStream);
   const canStartCall = callPermission !== 'view_only';
+  const hasProjectMembers = Array.isArray(projectMembers) && projectMembers.length > 0;
+  const participantCount = hasProjectMembers ? projectMembers.length : participants.length;
 
   return (
     <section className="project-realtime-wrap">
@@ -511,9 +531,25 @@ export const ProjectRealtimePanel = ({ projectId, projectName, onParticipantsCha
 
         <div className="project-realtime-side-col">
           <div className="project-realtime-participants">
-            <h4><Users size={15} /> Participants ({participants.length})</h4>
+            <h4><Users size={15} /> Participants ({participantCount})</h4>
             <div className="project-realtime-participant-list">
-              {participants.length > 0 ? (
+              {hasProjectMembers ? (
+                projectMembers.map((member) => {
+                  const isOnline = participants.some((participant) => {
+                    const participantName = String(participant.username || participant.name || '').trim().toLowerCase();
+                    const memberName = String(member.name || '').trim().toLowerCase();
+                    return participantName && memberName && participantName === memberName;
+                  });
+
+                  return (
+                    <div key={member.id} className="project-realtime-participant-item">
+                      {member.name || member.email || 'Member'}
+                      {member.isOwner ? ' (Owner)' : ''}
+                      {isOnline ? ' • online' : ''}
+                    </div>
+                  );
+                })
+              ) : participants.length > 0 ? (
                 participants.map((participant) => (
                   <div key={participant.id} className="project-realtime-participant-item">
                     {participant.username || participant.name || 'Guest'}

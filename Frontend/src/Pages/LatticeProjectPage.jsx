@@ -99,6 +99,7 @@ export const LatticeProjectPage = () => {
     const reactionOptions = ['👍', '🔥', '❤️', '😂', '👏', '🤯'];
     const { projectId } = useParams();
     const location = useLocation();
+    const pendingOpenLinkIdRef = useRef(location.state?.openLinkId || '');
     const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : '';
     const [links, setLinks] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -134,6 +135,8 @@ export const LatticeProjectPage = () => {
     const [timelineByLinkId, setTimelineByLinkId] = useState({});
     const isRefreshingLinksRef = useRef(false);
     const timelineInFlightRef = useRef(new Set());
+    const [projectMembers, setProjectMembers] = useState([]);
+    const [isMembersLoading, setIsMembersLoading] = useState(false);
 
     const projectName = useMemo(() => {
         if (typeof resolvedProjectName === 'string' && resolvedProjectName.trim()) {
@@ -290,6 +293,24 @@ export const LatticeProjectPage = () => {
         }
     }, [timelineByLinkId]);
 
+    const loadProjectMembers = useCallback(async () => {
+        if (!projectId || !isCollaborativeProject) {
+            return;
+        }
+
+        setIsMembersLoading(true);
+
+        try {
+            const response = await apiRequest(`/projects/${projectId}/members`, { method: 'GET' });
+            setProjectMembers(response?.members || []);
+        } catch (error) {
+            // Silently fail - members are optional
+            setProjectMembers([]);
+        } finally {
+            setIsMembersLoading(false);
+        }
+    }, [projectId, isCollaborativeProject]);
+
     useEffect(() => {
         let isMounted = true;
 
@@ -339,6 +360,18 @@ export const LatticeProjectPage = () => {
     }, [projectId, projectType, resolvedProjectName, projectOwnerId]);
 
     useEffect(() => {
+        if (!pendingOpenLinkIdRef.current || !links.length) {
+            return;
+        }
+
+        const matchedLink = links.find((entry) => String(entry._id || entry.id) === String(pendingOpenLinkIdRef.current));
+        if (matchedLink) {
+            setSelectedLink(matchedLink);
+            pendingOpenLinkIdRef.current = '';
+        }
+    }, [links]);
+
+    useEffect(() => {
         let isMounted = true;
 
         const loadCurrentUser = async () => {
@@ -366,12 +399,13 @@ export const LatticeProjectPage = () => {
     useEffect(() => {
         const timer = window.setTimeout(() => {
             void loadProjectLinks();
+            void loadProjectMembers();
         }, 0);
 
         return () => {
             window.clearTimeout(timer);
         };
-    }, [loadProjectLinks]);
+    }, [loadProjectLinks, loadProjectMembers]);
 
     useEffect(() => {
         const onBookmarkSaved = (event) => {
@@ -397,14 +431,71 @@ export const LatticeProjectPage = () => {
             }
         };
 
+        const onOpenAddLink = (event) => {
+            const incomingProjectId = event?.detail?.projectId;
+            if (incomingProjectId && incomingProjectId !== projectId) {
+                return;
+            }
+
+            const input = document.getElementById('project-bookmark-url');
+            if (input) {
+                input.focus();
+                input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        };
+
+        const onOpenNodeModal = (event) => {
+            const requestedId = event?.detail?.id;
+            if (!requestedId) {
+                return;
+            }
+
+            const matchedLink = links.find((entry) => String(entry._id || entry.id) === String(requestedId));
+            if (matchedLink) {
+                setSelectedLink(matchedLink);
+                return;
+            }
+
+            setErrorMessage('Selected node is not available in this lattice view.');
+        };
+
+        const onOpenLinkModal = (event) => {
+            const requestedId = event?.detail?.id;
+            const requestedProjectId = event?.detail?.projectId;
+
+            if (requestedProjectId && String(requestedProjectId) !== String(projectId)) {
+                return;
+            }
+
+            if (!requestedId) {
+                return;
+            }
+
+            const matchedLink = links.find((entry) => String(entry._id || entry.id) === String(requestedId));
+            if (matchedLink) {
+                setSelectedLink(matchedLink);
+                return;
+            }
+
+            if (event?.detail?.payload) {
+                setSelectedLink(event.detail.payload);
+            }
+        };
+
         window.addEventListener('bookmark:saved', onBookmarkSaved);
         window.addEventListener('storage', onStorage);
+        window.addEventListener('lattice:open-add-link-modal', onOpenAddLink);
+        window.addEventListener('lattice:open-node-modal', onOpenNodeModal);
+        window.addEventListener('lattice:open-link-modal', onOpenLinkModal);
 
         return () => {
             window.removeEventListener('bookmark:saved', onBookmarkSaved);
             window.removeEventListener('storage', onStorage);
+            window.removeEventListener('lattice:open-add-link-modal', onOpenAddLink);
+            window.removeEventListener('lattice:open-node-modal', onOpenNodeModal);
+            window.removeEventListener('lattice:open-link-modal', onOpenLinkModal);
         };
-    }, [projectId, loadProjectLinks]);
+    }, [projectId, loadProjectLinks, links]);
 
     useEffect(() => {
         if (!hasPendingEnrichment) {
@@ -1158,8 +1249,49 @@ export const LatticeProjectPage = () => {
                                 <ProjectRealtimePanel
                                     projectId={projectId}
                                     projectName={projectName}
+                                    projectMembers={projectMembers}
                                     onParticipantsChange={setOnlineParticipants}
                                 />
+
+                                {projectMembers.length > 0 ? (
+                                    <section className="project-members-panel">
+                                        <div className="project-members-panel-head">
+                                            <h3>
+                                                <Users size={16} />
+                                                Team Members
+                                            </h3>
+                                            <p>{projectMembers.length} member{projectMembers.length === 1 ? '' : 's'}</p>
+                                        </div>
+
+                                        <div className="project-members-list">
+                                            {projectMembers.map((member) => (
+                                                <Link
+                                                    key={member.id}
+                                                    to={`/profile/${member.id}`}
+                                                    className="project-member-item"
+                                                    title={`Open ${member.name}'s profile`}
+                                                >
+                                                    <div className="project-member-avatar">
+                                                        {member.avatar ? (
+                                                            <img src={member.avatar} alt={member.name} className="project-member-avatar-img" />
+                                                        ) : (
+                                                            <div className="project-member-avatar-fallback">
+                                                                {member.name.charAt(0).toUpperCase()}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="project-member-info">
+                                                        <div className="project-member-name">
+                                                            {member.name}
+                                                            {member.isOwner ? <span className="project-member-owner-badge">Owner</span> : null}
+                                                        </div>
+                                                        {member.email ? <div className="project-member-email">{member.email}</div> : null}
+                                                    </div>
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    </section>
+                                ) : null}
 
                                 <section className="project-invite-panel">
                                     <div className="project-invite-panel-head">
