@@ -46,7 +46,7 @@ export const loginUser = async (req, res, next) => {
 
         const user = await User.findOne({ email: email.toLowerCase() }).select("+password");
 
-        if (!user) {
+        if (!user || !user.password) {
             return res.status(401).json({
                 success: false,
                 message: "Invalid credentials"
@@ -59,6 +59,33 @@ export const loginUser = async (req, res, next) => {
             return res.status(401).json({
                 success: false,
                 message: "Invalid credentials"
+            });
+        }
+
+        const token = generateToken(user._id);
+
+        return res.status(200).json({
+            success: true,
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email
+            }
+        });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+export const googleAuthCallback = async (req, res, next) => {
+    try {
+        const user = req.user;
+
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: "Google authentication failed"
             });
         }
 

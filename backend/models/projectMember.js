@@ -14,10 +14,13 @@ const projectMemberSchema = new mongoose.Schema(
             required: true,
             index: true
         },
+        role: {
+            type: String,
+            default: "owner"
+        },
         roleId: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: "Role",
-            required: true
+            ref: "Role"
         }
     },
     { timestamps: true }

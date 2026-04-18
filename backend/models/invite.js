@@ -2,17 +2,26 @@ import mongoose from "mongoose";
 
 const inviteSchema = new mongoose.Schema(
     {
-        projectId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Project"
-        },
         email: {
             type: String,
-            required: true
+            required: true,
+            lowercase: true,
+            trim: true
+        },
+        projectId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Project",
+            required: true,
+            index: true
         },
         roleId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Role",
+            required: true
+        },
+        invitedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
             required: true
         },
         status: {
@@ -23,5 +32,7 @@ const inviteSchema = new mongoose.Schema(
     },
     { timestamps: true }
 );
+
+inviteSchema.index({ email: 1, projectId: 1 }, { unique: true });
 
 export default mongoose.model("Invite", inviteSchema);
