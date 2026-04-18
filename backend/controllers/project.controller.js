@@ -121,3 +121,41 @@ export const getProjectMembership = async (req, res, next) => {
         return next(error);
     }
 };
+
+export const updateLatticeVisibility = async (req, res, next) => {
+    try {
+        const userId = req.user.userId;
+        const { latticeId } = req.params;
+        const { isPublic } = req.body;
+
+        const lattice = await Project.findById(latticeId);
+
+        if (!lattice || !lattice.isActive) {
+            return res.status(404).json({
+                success: false,
+                message: "Lattice not found",
+            });
+        }
+
+        if (String(lattice.createdBy) !== String(userId)) {
+            return res.status(403).json({
+                success: false,
+                message: "Forbidden: you cannot modify this lattice",
+            });
+        }
+
+        lattice.isPublic = Boolean(isPublic);
+        await lattice.save();
+
+        const hydratedProject = await Project.findById(lattice._id).populate("createdBy", "name email avatarUrl");
+
+        return res.status(200).json({
+            success: true,
+            lattice: normalizeProject(hydratedProject),
+        });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+export { normalizeProject };
