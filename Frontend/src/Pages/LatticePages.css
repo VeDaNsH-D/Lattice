@@ -1,0 +1,658 @@
+/* =========================================================
+   LATTICE DASHBOARD RESET & VARIABLES
+   ========================================================= */
+
+.lattice-dashboard {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background-color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji";
+  color: #111827;
+}
+
+/* Scrollbar reset */
+.lattice-dashboard ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.lattice-dashboard ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.lattice-dashboard ::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 10px;
+}
+.lattice-dashboard ::-webkit-scrollbar-thumb:hover {
+  background: #d1d5db;
+}
+
+/* =========================================================
+   1. MICRO SIDEBAR (Leftmost Dock)
+   ========================================================= */
+.lattice-micro-sidebar {
+  width: 64px;
+  min-width: 64px;
+  background-color: #f9fafb;
+  border-right: 1px solid #f3f4f6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 0;
+  z-index: 10;
+}
+
+.micro-brand {
+  font-weight: 800;
+  font-size: 1.1rem;
+  margin-bottom: 32px;
+  color: #1f2937;
+}
+
+.micro-icons {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.micro-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: all 0.2s ease;
+}
+
+.micro-icon:hover {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.micro-icon.active {
+  opacity: 1;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #e5e7eb;
+}
+
+.micro-add-btn {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+.micro-add-btn:hover {
+  background-color: #f3f4f6;
+  color: #4b5563;
+}
+
+/* =========================================================
+   2. SECONDARY NAVIGATION
+   ========================================================= */
+.lattice-secondary-sidebar {
+  width: 260px;
+  min-width: 260px;
+  background-color: #fcfcfc;
+  border-right: 1px solid #f3f4f6;
+  display: flex;
+  flex-direction: column;
+}
+
+.secondary-header {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  border-bottom: 1px solid transparent;
+}
+
+.secondary-header h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+  color: #111827;
+}
+
+.secondary-nav-list {
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+}
+
+.secondary-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: #4b5563;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.secondary-nav-item:hover {
+  background-color: #f3f4f6;
+  color: #111827;
+}
+
+.secondary-nav-item.active {
+  background-color: #f3f4f6;
+  color: #111827;
+  font-weight: 600;
+}
+
+.nav-icon {
+  color: #6b7280;
+  display: flex;
+}
+
+.secondary-nav-item.active .nav-icon {
+  color: #111827;
+}
+
+/* =========================================================
+   3. MAIN CONTENT AREA
+   ========================================================= */
+.lattice-main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: #ffffff;
+  min-width: 0; /* Prevents overflow pushing grid */
+}
+
+/* Topbar */
+.main-topbar {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  padding: 6px 16px;
+  border-radius: 20px;
+  width: 400px;
+  color: #9ca3af;
+}
+
+.search-bar input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.9rem;
+  width: 100%;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.action-circle {
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  display: flex;
+  transition: color 0.2s;
+}
+.action-circle:hover {
+  color: #111827;
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #3b82f6);
+}
+
+/* Scroll Area */
+.main-scrollable {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 48px;
+}
+
+/* =========================================================
+   4. CONTEXT PANEL (Right Sidebar)
+   ========================================================= */
+.lattice-context-panel {
+  width: 300px;
+  min-width: 300px;
+  background-color: #ffffff;
+  border-left: 1px solid #f3f4f6;
+  display: flex;
+  flex-direction: column;
+}
+
+.context-header {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+}
+
+.context-header h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 0;
+}
+
+.context-scrollable {
+  padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.bookmark-card {
+  border: 1px solid #f3f4f6;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+  transition: box-shadow 0.2s;
+}
+
+.bookmark-card:hover {
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);
+}
+
+.bookmark-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.bookmark-card h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  color: #1f2937;
+}
+
+.bookmark-card p {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* =========================================================
+   PAGE SPECIFIC LAYOUT (Generate Ideas Dashboard)
+   ========================================================= */
+
+.page-document {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 40px 0 100px 0;
+}
+
+/* Header Config */
+.document-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.document-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.doc-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+}
+
+.doc-setting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.document-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.document-actions button {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  cursor: pointer;
+}
+.document-actions button:hover {
+  background: #f9fafb;
+}
+
+/* Title Block */
+.document-title {
+  font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  font-size: 2.8rem;
+  font-weight: 400;
+  margin: 0 0 8px 0;
+  color: #111827;
+}
+
+.document-subtitle {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin: 0 0 32px 0;
+}
+
+/* Authors */
+.document-authors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin-bottom: 48px;
+}
+
+.author {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.author-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+.author-name {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.author-role {
+  display: block;
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+/* Body Content */
+.document-body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 24px 0;
+  color: #111827;
+}
+
+.document-body p {
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: #374151;
+  margin: 0 0 24px 0;
+}
+
+.document-banner {
+  margin: 32px 0;
+}
+
+.banner-image {
+  width: 100%;
+  height: 240px;
+  border-radius: 12px;
+  background-size: cover;
+  background-position: center;
+}
+
+.document-banner figcaption {
+  text-align: center;
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-top: 12px;
+}
+
+.info-block {
+  background-color: #f9fafb;
+  border-radius: 12px;
+  padding: 24px;
+  margin-top: 32px;
+}
+
+.info-block h4 {
+  margin: 0 0 12px 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.info-block p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* =========================================================
+   DIRECTORY GRID (Lattice Card View)
+   ========================================================= */
+
+.directory-container {
+  padding: 40px 0 100px 0;
+  max-width: 1400px; /* Adjusted to fit the wider grid well */
+  margin: 0 auto;
+}
+
+.directory-header {
+  margin-bottom: 24px;
+}
+
+.directory-header h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.02em;
+}
+
+.directory-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: #f4f5ee; /* Very light beige container for all cards */
+  /* Using borders on the container and children to achieve the explicit sharp lines */
+  border-top: 1px solid #e1e3da;
+  border-left: 1px solid #e1e3da;
+}
+
+.dir-card {
+  position: relative;
+  min-height: 280px; /* Safer than aspect-ratio */
+  border-right: 1px solid #e1e3da;
+  border-bottom: 1px solid #e1e3da;
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  overflow: hidden;
+  background-color: #f4f5ee;
+}
+
+/* Hover Dark Mesh State */
+.dir-hover-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at center, #6b8e23 0%, #293813 100%);
+  filter: blur(20px);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  z-index: 1;
+  transform: scale(1.1); /* Ensure blur bleeds to edges */
+  pointer-events: none;
+}
+
+/* Elements above hover */
+.dir-index {
+  position: relative;
+  z-index: 2;
+  font-size: 0.85rem;
+  color: #a3a3a3;
+  font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  font-weight: 500;
+  transition: color 0.4s ease;
+}
+
+.dir-icon-wrapper {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  margin: 16px 0; /* Breathing room */
+}
+
+.dir-icon-blob {
+  position: absolute;
+  width: 75px;
+  height: 75px;
+  background: #e6edd7;
+  border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+  animation: blobFloat 8s ease-in-out infinite alternate;
+  z-index: -1;
+  transition: opacity 0.4s ease;
+}
+
+@keyframes blobFloat {
+  0% { border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; }
+  100% { border-radius: 60% 40% 30% 70% / 60% 50% 40% 50%; }
+}
+
+.dir-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.4s ease;
+}
+
+.dir-bottom {
+  position: relative;
+  z-index: 2;
+}
+
+.dir-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0 0 12px 0; /* Increased gap */
+  color: #333333;
+  transition: color 0.4s ease;
+  letter-spacing: 0.05em;
+  line-height: 1.25;
+}
+
+.dir-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: #999999;
+  font-weight: 500;
+  transition: color 0.4s ease;
+  white-space: nowrap; /* Stops 'Mina Gallagher' from splitting */
+}
+
+.dir-line {
+  height: 1px;
+  width: 24px;
+  background-color: #d4d4d4;
+  transition: background-color 0.4s ease;
+}
+
+.dir-action-circle {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  width: 44px;
+  height: 44px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  opacity: 0;
+  transform: translate(15px, 15px) scale(0.8);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+/* Hover Triggers */
+.dir-card:hover .dir-hover-bg {
+  opacity: 1;
+}
+
+.dir-card:hover .dir-index,
+.dir-card:hover .dir-title,
+.dir-card:hover .dir-meta {
+  color: #ffffff;
+}
+
+.dir-card:hover .dir-line {
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
+.dir-card:hover .dir-icon-wrapper {
+  opacity: 0;
+}
+
+.dir-card:hover .dir-action-circle {
+  opacity: 1;
+  transform: translate(0, 0) scale(1);
+}
+
+@media (max-width: 1400px) {
+  .directory-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 1100px) {
+  .directory-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

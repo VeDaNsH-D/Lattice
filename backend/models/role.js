@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { PERMISSIONS } from "../constants/permissions.js";
 
 const roleSchema = new mongoose.Schema(
     {
@@ -16,8 +15,9 @@ const roleSchema = new mongoose.Schema(
         },
         permissions: {
             type: String,
-            enum: PERMISSIONS,
-            required: true
+            enum: ["full_access", "restricted_access", "view_only"],
+            required: true,
+            default: "view_only"
         },
         createdBy: {
             type: mongoose.Schema.Types.ObjectId,

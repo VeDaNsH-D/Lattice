@@ -1,0 +1,184 @@
+/* 1. Main Background */
+.auth-wrapper {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: #fdf2f2; /* Soft pastel pink background to match perfectly */
+}
+
+/* 2. Flat Solid Card Container */
+.auth-card {
+  display: flex;
+  width: 100%;
+  max-width: 1000px;
+  height: 650px;
+  border-radius: 20px;
+  position: relative;
+  background: #ffffff; /* Solid white */
+  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+/* LEFT SIDE: Solid Pink Panel */
+.auth-left {
+  flex: 1;
+  padding: 48px;
+  background: linear-gradient(135deg, #ffafbd 0%, #ffc3a0 100%); 
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+}
+
+.auth-brand {
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 1.25rem;
+  margin-bottom: 40px;
+}
+
+.auth-headline {
+  color: white;
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.25;
+  margin-bottom: 2rem;
+  letter-spacing: -0.01em;
+}
+
+.auth-lottie {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 0px;
+  min-height: 0;
+  width: 100%;
+}
+
+/* RIGHT SIDE: Form */
+.auth-right {
+  flex: 1.2;
+  background: #ffffff;
+  padding: 60px 60px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  z-index: 2;
+}
+
+.auth-title {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: #333333;
+  margin-bottom: 48px;
+  letter-spacing: -0.02em;
+  text-align: center; /* Centered like screenshot */
+}
+
+/* 3. Fieldset Form Elements */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-row {
+  display: flex;
+  gap: 16px;
+}
+
+.auth-fieldset {
+  flex: 1;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 4px 16px 8px 16px;
+  margin: 0 0 20px 0;
+  transition: border-color 0.2s ease;
+  position: relative;
+}
+
+.auth-fieldset:focus-within {
+  border-color: #fca5a5;
+  border-width: 2px;
+  padding: 3px 15px 7px 15px; /* Offset the 1px border shift to stop layout jumping */
+}
+
+.auth-fieldset legend {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  padding: 0 4px;
+  margin-left: -4px;
+  display: block; /* Native legend rendering */
+}
+
+.auth-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 2px 0 4px 0;
+  font-size: 1rem;
+  color: #1f2937;
+  outline: none;
+}
+
+/* SUBMIT BUTTON */
+.auth-submitBtn {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 8px;
+  background-color: #fca5a5;
+  color: white;
+  font-size: 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 12px;
+  transition: all 0.2s ease;
+}
+
+.auth-submitBtn:hover {
+  background-color: #f87171;
+}
+
+/* TOGGLE LOGIN LINK */
+.auth-toggleText {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  margin-top: 16px;
+}
+
+.auth-toggleLink {
+  color: #fca5a5;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  margin-left: 2px;
+  transition: color 0.2s;
+}
+
+.auth-toggleLink:hover {
+  text-decoration: underline;
+  color: #f87171;
+}
+
+@media (max-width: 900px) {
+  .auth-card {
+    flex-direction: column;
+    height: auto;
+  }
+  .auth-left {
+    padding: 32px;
+    height: 300px;
+  }
+  .auth-right {
+    padding: 32px;
+  }
+}
