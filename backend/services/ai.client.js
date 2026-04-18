@@ -90,9 +90,27 @@ export async function summarizeLinkToThreeSentences(link) {
     });
 }
 
+function generateDeterministicEmbedding(text) {
+    const dimensions = 64;
+    const normalized = text ? text.trim().toLowerCase() : "";
+    const vector = new Array(dimensions).fill(0);
+    
+    if (normalized) {
+        for (let index = 0; index < normalized.length; index += 1) {
+            const code = normalized.charCodeAt(index);
+            const bucket = index % dimensions;
+            vector[bucket] += Math.sin(code * (index + 1)) + Math.cos(code + index);
+        }
+    }
+    
+    const sumSquare = vector.reduce((sum, val) => sum + (val * val), 0);
+    const norm = sumSquare > 0 ? Math.sqrt(sumSquare) : 1;
+    return vector.map(val => val / norm);
+}
+
 export async function createEmbedding(text) {
     if (embeddingDisabled) {
-        return null;
+        return generateDeterministicEmbedding(text);
     }
 
     assertApiKey("AI_API_KEY/GROQ_API_KEY", AI_API_KEY);
@@ -109,6 +127,8 @@ export async function createEmbedding(text) {
         })
     });
 
+    let generatedEmbedding = null;
+
     if (!response.ok) {
         const message = await parseErrorResponse(response);
         console.error(`Embedding generation failed: ${response.status} ${message}`);
@@ -117,16 +137,33 @@ export async function createEmbedding(text) {
             embeddingDisabled = true;
             console.warn(
                 "Embeddings disabled for this runtime: model unavailable or no access. " +
-                "Set AI_EMBEDDINGS_ENABLED=true and AI_EMBEDDING_MODEL to a supported model to re-enable."
+                "Falling back to deterministic string hashing for graph structural connections."
             );
         }
-
-        return null;
+    } else {
+        const json = await response.json();
+        generatedEmbedding = json?.data?.[0]?.embedding;
     }
 
-    const json = await response.json();
-    const embedding = json?.data?.[0]?.embedding;
-    return Array.isArray(embedding) && embedding.length > 0 ? embedding : null;
+    if (!Array.isArray(generatedEmbedding) || generatedEmbedding.length === 0) {
+        const dimensions = 64;
+        const normalized = text ? text.trim().toLowerCase() : "";
+        const vector = new Array(dimensions).fill(0);
+        
+        if (normalized) {
+            for (let index = 0; index < normalized.length; index += 1) {
+                const code = normalized.charCodeAt(index);
+                const bucket = index % dimensions;
+                vector[bucket] += Math.sin(code * (index + 1)) + Math.cos(code + index);
+            }
+        }
+        
+        const sumSquare = vector.reduce((sum, val) => sum + (val * val), 0);
+        const norm = sumSquare > 0 ? Math.sqrt(sumSquare) : 1;
+        generatedEmbedding = vector.map(val => val / norm);
+    }
+    
+    return generatedEmbedding;
 }
 
 export async function classifyCollision({ incomingText, candidateText }) {

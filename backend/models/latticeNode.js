@@ -7,6 +7,26 @@ const latticeNodeSchema = new mongoose.Schema(
             required: true,
             trim: true,
         },
+        nodeType: {
+            type: String,
+            enum: ['root', 'hub', 'bookmark'],
+            default: 'bookmark',
+        },
+        sourceType: {
+            type: String,
+            enum: ['link', 'bookmark', 'manual', 'system'],
+            default: 'manual',
+        },
+        sourceId: {
+            type: String,
+            default: null,
+            trim: true,
+        },
+        parentHub: {
+            type: String,
+            default: 'General',
+            trim: true,
+        },
         summary: {
             type: String,
             default: "",
@@ -40,6 +60,7 @@ const latticeNodeSchema = new mongoose.Schema(
 );
 
 latticeNodeSchema.index({ latticeId: 1, title: 1 });
+latticeNodeSchema.index({ latticeId: 1, sourceType: 1, sourceId: 1 });
 latticeNodeSchema.index({ latticeId: 1, summary: "text", tags: "text", title: "text" });
 
 export default mongoose.model("LatticeNode", latticeNodeSchema);

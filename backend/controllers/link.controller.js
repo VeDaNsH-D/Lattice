@@ -235,14 +235,15 @@ export const createLink = async (req, res, next) => {
                 ? resolvedDeadline
                 : null;
 
-        // Generate AI content (tags, summary, vibe) if not provided
-        let aiContent = { summary: null, tags: [], vibe: null };
-        if (!tags || tags.length === 0 || !vibe) {
-            aiContent = await generateAIContent(resolvedTitle, resolvedDescription);
+        // Generate AI content (tags, vibe, parent hub) if not provided
+        let aiContent = { summary: null, tags: [], vibe: null, parentHub: "General" };
+        if (!tags || tags.length === 0 || !vibe || !req.body.parentHub) {
+            aiContent = await generateAIContent(resolvedTitle, resolvedDescription, url);
         }
 
         const finalTags = tags && tags.length > 0 ? tags : aiContent.tags;
         const finalVibe = vibe || aiContent.vibe;
+        const finalParentHub = req.body.parentHub || aiContent.parentHub || "General";
 
         const link = await Link.create({
             projectId,
@@ -252,6 +253,7 @@ export const createLink = async (req, res, next) => {
             image: resolvedImage,
             tags: finalTags,
             vibe: finalVibe,
+            parentHub: finalParentHub,
             deadline: normalizedDeadline,
             accessType,
             allowedRoles,
@@ -266,11 +268,14 @@ export const createLink = async (req, res, next) => {
                 .then(() => processNewLinkForCollision(link))
                 .then(() => buildGraphNode({
                     _id: link._id,
+                    sourceId: String(link._id),
+                    sourceType: "link",
                     title: link.title || link.url,
                     summary: link.summary || link.description || "",
                     tags: link.tags || [],
                     embedding: link.embedding,
                     latticeId: link.projectId,
+                    parentHub: link.parentHub || finalParentHub,
                 }))
                 .catch((error) => {
                     console.error("Link background enrichment failed:", error.message);

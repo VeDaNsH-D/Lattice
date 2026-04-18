@@ -69,14 +69,19 @@ async function ensureSummaryAndEmbedding(link) {
         }
     }
 
-    // Generate AI tags if they're missing
-    if (!link.tags || link.tags.length === 0) {
-        const aiContent = await generateAIContent(link.title, link.description);
-        if (aiContent.tags && aiContent.tags.length > 0) {
-            updates.tags = aiContent.tags;
+    // Generate AI metadata if missing
+    if (!link.tags || link.tags.length === 0 || !link.parentHub) {
+        const aiContent = await generateAIContent(link.title, link.description, link.url);
+        if (!link.tags || link.tags.length === 0) {
+            if (aiContent.tags && aiContent.tags.length > 0) {
+                updates.tags = aiContent.tags;
+            }
         }
         if (!link.vibe && aiContent.vibe) {
             updates.vibe = aiContent.vibe;
+        }
+        if (!link.parentHub && aiContent.parentHub) {
+            updates.parentHub = aiContent.parentHub;
         }
     }
 
