@@ -1266,7 +1266,6 @@
   .directory-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-<<<<<<< HEAD
 }
 
 @media (max-width: 700px) {
