@@ -187,6 +187,7 @@ export const LatticeActivityPage = () => {
 
       try {
         window.localStorage.setItem(LAST_SEEN_STORAGE_KEY, new Date().toISOString());
+        window.dispatchEvent(new CustomEvent('lattice:activity-seen'));
       } catch (error) {
         // Ignore storage write failures.
       }

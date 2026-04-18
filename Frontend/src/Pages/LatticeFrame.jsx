@@ -17,8 +17,10 @@ import {
 } from 'lucide-react';
 import { LatticeSpotlight } from '../components/LatticeSpotlight';
 import { NotificationDropdown } from '../components/NotificationDropdown';
-import { getCurrentSessionUser } from '../services/latticeApi';
+import { getCurrentSessionUser, getForkActivity } from '../services/latticeApi';
 import './LatticePages.css';
+
+const LAST_SEEN_ACTIVITY_KEY = 'latticeActivityLastSeenAt';
 
 const navItems = [
   { label: 'Home', to: '/lattice', icon: <LayoutDashboard size={16} />, end: true },
@@ -36,7 +38,72 @@ export const LatticeFrame = ({ children }) => {
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [userAvatarUrl, setUserAvatarUrl] = useState(null);
   const [userProfileId, setUserProfileId] = useState('');
+  const [hasUnreadActivity, setHasUnreadActivity] = useState(false);
   const notificationWrapRef = useRef(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const syncUnreadActivity = async () => {
+      if (window.location.pathname === '/lattice/activity') {
+        if (isMounted) {
+          setHasUnreadActivity(false);
+        }
+        return;
+      }
+
+      const lastSeen = window.localStorage.getItem(LAST_SEEN_ACTIVITY_KEY);
+      if (!lastSeen) {
+        if (isMounted) {
+          setHasUnreadActivity(false);
+        }
+        return;
+      }
+
+      try {
+        const response = await getForkActivity();
+        const events = Array.isArray(response?.events) ? response.events : [];
+        const newestEvent = events[0];
+        const newestEventTime = newestEvent?.createdAt ? new Date(newestEvent.createdAt).getTime() : 0;
+        const lastSeenTime = new Date(lastSeen).getTime();
+        const hasUnread = Number.isFinite(newestEventTime)
+          && Number.isFinite(lastSeenTime)
+          && newestEventTime > lastSeenTime;
+
+        if (isMounted) {
+          setHasUnreadActivity(hasUnread);
+        }
+      } catch {
+        // Ignore unread check failures so nav stays responsive.
+      }
+    };
+
+    void syncUnreadActivity();
+
+    const intervalId = window.setInterval(() => {
+      void syncUnreadActivity();
+    }, 15000);
+
+    const onSeen = () => {
+      if (isMounted) {
+        setHasUnreadActivity(false);
+      }
+    };
+
+    const onFocus = () => {
+      void syncUnreadActivity();
+    };
+
+    window.addEventListener('lattice:activity-seen', onSeen);
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener('lattice:activity-seen', onSeen);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, []);
 
   useEffect(() => {
     const handleGlobalKeyDown = (event) => {
@@ -140,6 +207,7 @@ export const LatticeFrame = ({ children }) => {
                 >
                   <span className="nav-icon">{item.icon}</span>
                   <span className="nav-label">{item.label}</span>
+                  {item.to === '/lattice/activity' && hasUnreadActivity ? <span className="topbar-nav-unread-dot" aria-label="Unread activity" /> : null}
                 </NavLink>
               ))}
             </nav>

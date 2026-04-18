@@ -266,6 +266,16 @@
   font-weight: 600;
 }
 
+.topbar-nav-unread-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #ef4444;
+  box-shadow: 0 0 0 2px #fcfcfc;
+  margin-left: 2px;
+  flex: 0 0 auto;
+}
+
 .topbar-actions {
   display: flex;
   align-items: center;
