@@ -44,12 +44,21 @@ function extractBookmarksFromTree(tree) {
     return extracted;
 }
 
-function buildBookmarkDocument({ projectId, url, title, userId }) {
+function buildBookmarkDocument({ projectId, url, title, userId, accessType, allowedRoles }) {
     const document = {
         projectId,
         url,
         title: typeof title === "string" ? title.trim() : "",
     };
+
+    if (Bookmark.schema.path("accessType") && ["public", "role_based"].includes(accessType)) {
+        document.accessType = accessType;
+    }
+
+    if (Bookmark.schema.path("allowedRoles")) {
+        const normalizedAllowedRoles = Array.isArray(allowedRoles) ? allowedRoles.filter(Boolean) : [];
+        document.allowedRoles = document.accessType === "role_based" ? normalizedAllowedRoles : [];
+    }
 
     if (Bookmark.schema.path("source")) {
         document.source = "chrome_import";
@@ -74,7 +83,7 @@ function buildBookmarkDocument({ projectId, url, title, userId }) {
 
 export async function importBookmarks(req, res) {
     try {
-        const { projectId, bookmarks, tree } = req.body || {};
+        const { projectId, bookmarks, tree, accessType, allowedRoles } = req.body || {};
         const userId = req.user?.id || req.user?.userId;
         const hasBookmarks = Array.isArray(bookmarks);
         const hasTree = Array.isArray(tree);
@@ -109,6 +118,12 @@ export async function importBookmarks(req, res) {
         if (!project) {
             return res.status(404).json({
                 message: "Project not found",
+            });
+        }
+
+        if (accessType === "role_based" && (!Array.isArray(allowedRoles) || allowedRoles.length === 0)) {
+            return res.status(400).json({
+                message: "allowedRoles is required when accessType is role_based",
             });
         }
 
@@ -150,6 +165,8 @@ export async function importBookmarks(req, res) {
                 url: item.url,
                 title: item.title,
                 userId,
+                accessType,
+                allowedRoles,
             }));
 
         if (toInsert.length > 0) {

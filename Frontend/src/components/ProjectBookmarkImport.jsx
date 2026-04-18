@@ -28,12 +28,14 @@ function extractBookmarksFromNodes(nodes) {
     return flattened;
 }
 
-export default function ProjectBookmarkImport({ projectId, token, onImportCompleted }) {
+export default function ProjectBookmarkImport({ projectId, token, isCollaborativeProject = false, roles = [], onImportCompleted }) {
     const [bookmarks, setBookmarks] = useState([]);
     const [selected, setSelected] = useState([]);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
     const [requested, setRequested] = useState(false);
+    const [accessType, setAccessType] = useState('public');
+    const [selectedRoleIds, setSelectedRoleIds] = useState([]);
     const responseTimeoutRef = useRef(null);
 
     useEffect(() => {
@@ -130,6 +132,11 @@ export default function ProjectBookmarkImport({ projectId, token, onImportComple
             return;
         }
 
+        if (isCollaborativeProject && accessType === 'role_based' && selectedRoleIds.length === 0) {
+            setMessage('Select at least one role for role-based access.');
+            return;
+        }
+
         setLoading(true);
         setMessage('Importing selected bookmarks...');
 
@@ -145,6 +152,8 @@ export default function ProjectBookmarkImport({ projectId, token, onImportComple
                 body: JSON.stringify({
                     projectId,
                     bookmarks: selected,
+                    accessType: isCollaborativeProject ? accessType : 'public',
+                    allowedRoles: isCollaborativeProject && accessType === 'role_based' ? selectedRoleIds : [],
                 }),
             });
 
@@ -173,6 +182,16 @@ export default function ProjectBookmarkImport({ projectId, token, onImportComple
 
             setLoading(false);
         }
+    };
+
+    const onRoleToggle = (roleId) => {
+        setSelectedRoleIds((previous) => {
+            if (previous.includes(roleId)) {
+                return previous.filter((currentRoleId) => currentRoleId !== roleId);
+            }
+
+            return [...previous, roleId];
+        });
     };
 
     return (
@@ -228,6 +247,54 @@ export default function ProjectBookmarkImport({ projectId, token, onImportComple
                             {loading ? 'Importing...' : 'Import to Project'}
                         </button>
                     </div>
+
+                    {isCollaborativeProject ? (
+                        <div style={{ marginTop: '12px' }}>
+                            <div className="bookmark-field">
+                                <label htmlFor="import-access-type">Access type</label>
+                                <div className="bookmark-select-wrap">
+                                    <select
+                                        id="import-access-type"
+                                        value={accessType}
+                                        onChange={(event) => {
+                                            const nextValue = event.target.value;
+                                            setAccessType(nextValue);
+                                            if (nextValue !== 'role_based') {
+                                                setSelectedRoleIds([]);
+                                            }
+                                        }}
+                                        disabled={loading}
+                                    >
+                                        <option value="public">Public (all project members)</option>
+                                        <option value="role_based" disabled={roles.length === 0}>Role-based access</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {accessType === 'role_based' ? (
+                                <div className="bookmark-role-section project-bookmark-roles">
+                                    <p className="bookmark-role-label">Roles with access</p>
+                                    {roles.length ? (
+                                        <div className="bookmark-role-list">
+                                            {roles.map((role) => (
+                                                <label key={role.id} className="bookmark-role-chip">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedRoleIds.includes(role.id)}
+                                                        onChange={() => onRoleToggle(role.id)}
+                                                        disabled={loading}
+                                                    />
+                                                    <span>{role.name}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="bookmark-role-empty">No roles exist for this project yet.</p>
+                                    )}
+                                </div>
+                            ) : null}
+                        </div>
+                    ) : null}
                 </div>
             ) : null}
 

@@ -8,6 +8,8 @@ import ProjectBookmarkImport from '../components/ProjectBookmarkImport';
 import { apiRequest } from '../utils/api';
 import './LatticePages.css';
 
+const BOOKMARK_SIGNAL_KEY = 'bookmarkSaveSignal';
+
 export const LatticeProjectPage = () => {
     const { projectId } = useParams();
     const location = useLocation();
@@ -112,6 +114,39 @@ export const LatticeProjectPage = () => {
     useEffect(() => {
         void loadProjectLinks();
     }, [loadProjectLinks]);
+
+    useEffect(() => {
+        const onBookmarkSaved = (event) => {
+            const incomingProjectId = event?.detail?.projectId;
+            if (!incomingProjectId || incomingProjectId === projectId) {
+                void loadProjectLinks();
+            }
+        };
+
+        const onStorage = (event) => {
+            if (event.key !== BOOKMARK_SIGNAL_KEY || !event.newValue) {
+                return;
+            }
+
+            try {
+                const parsed = JSON.parse(event.newValue);
+                const incomingProjectId = parsed?.projectId;
+                if (!incomingProjectId || incomingProjectId === projectId) {
+                    void loadProjectLinks();
+                }
+            } catch {
+                // Ignore malformed storage payloads.
+            }
+        };
+
+        window.addEventListener('bookmark:saved', onBookmarkSaved);
+        window.addEventListener('storage', onStorage);
+
+        return () => {
+            window.removeEventListener('bookmark:saved', onBookmarkSaved);
+            window.removeEventListener('storage', onStorage);
+        };
+    }, [projectId, loadProjectLinks]);
 
     useEffect(() => {
         let isMounted = true;
@@ -520,7 +555,13 @@ export const LatticeProjectPage = () => {
                         </form>
                     </section>
 
-                    <ProjectBookmarkImport projectId={projectId} token={token} onImportCompleted={loadProjectLinks} />
+                    <ProjectBookmarkImport
+                        projectId={projectId}
+                        token={token}
+                        isCollaborativeProject={isCollaborativeProject}
+                        roles={roles}
+                        onImportCompleted={loadProjectLinks}
+                    />
                 </div>
 
                 {isLoading ? <p className="directory-status">Loading bookmarks...</p> : null}

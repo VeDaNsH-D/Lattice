@@ -7,7 +7,8 @@
 }
 
 .mainCard {
-  margin: 0; /* Full bleed layout */
+  margin: 0;
+  /* Full bleed layout */
   padding-bottom: 0;
   display: flex;
   flex-direction: column;
@@ -138,7 +139,8 @@
 .scattered_section {
   width: 100%;
   padding: 120px 4vw;
-  background-color: var(--bg-pale); /* Continue pale wash */
+  background-color: var(--bg-pale);
+  /* Continue pale wash */
   position: relative;
   border-bottom: 1px solid var(--border-color);
 }
@@ -254,8 +256,10 @@
   border-radius: 12px;
   padding: 32px;
   width: 280px;
-  box-shadow: 0 12px 24px -12px rgba(0, 0, 0, 0.08); /* tighter drop shadow */
-  border: 1px solid rgba(0, 0, 0, 0.06); /* sharp border */
+  box-shadow: 0 12px 24px -12px rgba(0, 0, 0, 0.08);
+  /* tighter drop shadow */
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  /* sharp border */
   transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
   font-family: var(--font-body);
 }
@@ -263,7 +267,8 @@
 .scattered_card:hover {
   transform: translateY(-8px) rotate(0deg) !important;
   box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.12);
-  border-color: var(--brand-primary); /* subtle brand highlight */
+  border-color: var(--brand-primary);
+  /* subtle brand highlight */
   z-index: 20 !important;
 }
 
@@ -399,7 +404,8 @@
 .feature_featuresSection {
   position: relative;
   padding: 120px 32px;
-  background-color: var(--bg-color); /* Stark White */
+  background-color: var(--bg-color);
+  /* Stark White */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -788,7 +794,8 @@
   position: relative;
   width: 100%;
   padding: 120px 64px;
-  background-color: var(--bg-pale); /* Pale */
+  background-color: var(--bg-pale);
+  /* Pale */
   display: flex;
   justify-content: center;
 }
@@ -872,7 +879,8 @@
   position: relative;
   width: 100%;
   padding: 100px 32px 120px 32px;
-  background-color: var(--bg-pale); /* Continue Pale */
+  background-color: var(--bg-pale);
+  /* Continue Pale */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -950,11 +958,14 @@
 
 .test_card {
   width: 420px;
-  background: var(--bg-color); /* White card on pale background */
+  background: var(--bg-color);
+  /* White card on pale background */
   border-radius: 12px;
   padding: 40px;
-  border: 1px solid var(--border-color); /* Add a light border for contrast */
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03); /* Add subtle shadow */
+  border: 1px solid var(--border-color);
+  /* Add a light border for contrast */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
+  /* Add subtle shadow */
   display: flex;
   flex-direction: column;
   transition: transform 0.3s ease;

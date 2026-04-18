@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Bookmark Importer",
+  "name": "Save Current Bookmark",
   "version": "1.0.0",
-  "description": "Imports Chrome bookmarks to backend",
-  "permissions": ["bookmarks"],
+  "description": "Save current webpage to a selected project",
+  "permissions": ["tabs", "activeTab", "scripting", "storage", "bookmarks"],
   "host_permissions": [
     "http://localhost:8000/*",
     "http://localhost/*",
@@ -14,9 +14,12 @@
   },
   "content_scripts": [
     {
-      "matches": ["http://localhost/*", "http://127.0.0.1/*"],
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
       "js": ["content.js"],
-      "run_at": "document_start"
+      "run_at": "document_idle"
     }
   ],
   "action": {
