@@ -1,5 +1,25 @@
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
+const clearStoredAuth = () => {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    window.localStorage.removeItem('token');
+    window.localStorage.removeItem('latticeToken');
+};
+
+const redirectToLogin = () => {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    const onAuthPage = window.location.pathname === '/login' || window.location.pathname === '/signup';
+    if (!onAuthPage) {
+        window.location.assign('/login');
+    }
+};
+
 export async function apiRequest(endpoint, options = {}) {
     const token = localStorage.getItem('token');
     const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
@@ -30,6 +50,11 @@ export async function apiRequest(endpoint, options = {}) {
     }
 
     if (!response.ok) {
+        if (response.status === 401) {
+            clearStoredAuth();
+            redirectToLogin();
+        }
+
         const error = new Error(data?.message || `Request failed with status ${response.status}`);
         error.status = response.status;
         error.data = data;

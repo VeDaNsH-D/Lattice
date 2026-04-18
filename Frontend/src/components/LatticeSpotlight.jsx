@@ -1,10 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { CloudLightning, Search, Command, ArrowRight, CornerDownLeft, Sparkles, Box, Link, FileText, CheckCircle2 } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Command, CornerDownLeft, Sparkles, Box, Link as LinkIcon, FileText, CheckCircle2, Loader2 } from 'lucide-react';
+import { searchSpotlight } from '../services/latticeApi';
 import './LatticeSpotlight.css';
 
 export const LatticeSpotlight = ({ isOpen, onClose }) => {
   const [query, setQuery] = useState('');
-  const [context, setContext] = useState(null); // { name: 'ai-research', links: 42 }
+  const [context, setContext] = useState(null);
+  const [contexts, setContexts] = useState([]);
+  const [results, setResults] = useState([]);
+  const [selectedResultId, setSelectedResultId] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [aiMode, setAiMode] = useState(false);
   const inputRef = useRef(null);
 
@@ -16,6 +22,100 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
   }, [isOpen]);
 
   useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadInitial = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const response = await searchSpotlight({ query: '', limit: 8 });
+
+        if (!isMounted) {
+          return;
+        }
+
+        setContexts(Array.isArray(response.contexts) ? response.contexts : []);
+        setResults([]);
+      } catch (requestError) {
+        if (isMounted) {
+          setError(requestError.message || 'Could not load spotlight.');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadInitial();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const trimmed = query.trim();
+    const isSlashMode = trimmed.startsWith('/');
+
+    if (!trimmed || isSlashMode) {
+      setResults([]);
+      setSelectedResultId('');
+      setLoading(false);
+      setError('');
+      return;
+    }
+
+    let isMounted = true;
+    const timeout = window.setTimeout(async () => {
+      try {
+        setLoading(true);
+        setError('');
+
+        const response = await searchSpotlight({
+          query: trimmed,
+          latticeId: context?.id || '',
+          limit: 10,
+        });
+
+        if (!isMounted) {
+          return;
+        }
+
+        const nextContexts = Array.isArray(response.contexts) ? response.contexts : [];
+        const nextResults = Array.isArray(response.results) ? response.results : [];
+
+        setContexts(nextContexts);
+        setResults(nextResults);
+        setSelectedResultId((previous) => (nextResults.some((item) => item.id === previous) ? previous : (nextResults[0]?.id || '')));
+      } catch (requestError) {
+        if (isMounted) {
+          setResults([]);
+          setSelectedResultId('');
+          setError(requestError.message || 'Search failed.');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }, 280);
+
+    return () => {
+      isMounted = false;
+      window.clearTimeout(timeout);
+    };
+  }, [isOpen, query, context?.id]);
+
+  useEffect(() => {
     const handleKeyDown = (e) => {
       // Close on escape
       if (e.key === 'Escape' && isOpen) {
@@ -23,17 +123,23 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
         setQuery('');
         setContext(null);
         setAiMode(false);
+        setError('');
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
-
   // Derive state logic
   const isSlashMode = query.startsWith('/');
   const showAiResponse = aiMode && query.length > 5 && !isSlashMode;
+  const selectedResult = useMemo(() => {
+    if (!results.length) {
+      return null;
+    }
+
+    return results.find((item) => item.id === selectedResultId) || results[0];
+  }, [results, selectedResultId]);
 
   const handleInputChange = (e) => {
     setQuery(e.target.value);
@@ -44,7 +150,11 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
     setContext(ctx);
     setQuery('');
     setAiMode(false);
-    inputRef.current.focus();
+    setResults([]);
+    setSelectedResultId('');
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
   };
 
   const handleInputKeyDown = (e) => {
@@ -53,9 +163,17 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
       setContext(null);
     }
     if (e.key === 'Enter' && query.length > 0 && !isSlashMode) {
-      setAiMode(true);
+      if (results.length) {
+        setSelectedResultId(results[0].id);
+      } else {
+        setAiMode(true);
+      }
     }
   };
+
+  const contextLinkCount = context?.links ?? context?.nodes ?? 0;
+
+  if (!isOpen) return null;
 
   return (
     <div className="spotlight-overlay" onClick={onClose}>
@@ -83,12 +201,20 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
             
             {context && (
               <div className="spotlight-context-badge">
-                <Box size={12}/> {context.name} <span>• {context.links} links</span>
+                <Box size={12}/> {context.name} <span>• {contextLinkCount} items</span>
               </div>
             )}
           </div>
 
           <div className="spotlight-scroll">
+            {error ? (
+              <div className="spotlight-section">
+                <span className="spotlight-section-title" style={{ color: '#b91c1c' }}>Error</span>
+                <div className="spotlight-ai-response">
+                  <p>{error}</p>
+                </div>
+              </div>
+            ) : null}
             
             {showAiResponse ? (
               <div className="spotlight-section">
@@ -100,18 +226,21 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
             ) : isSlashMode ? (
               <div className="spotlight-section">
                 <span className="spotlight-section-title">Choose a space</span>
-                <div className="spotlight-row active" onClick={() => selectContext({name: 'ideas', links: 42})}>
-                  <div className="spotlight-action-icon"><Box color="#735bf2" size={16}/></div>
-                  <div className="spotlight-action-text">ideas</div>
-                </div>
-                <div className="spotlight-row" onClick={() => selectContext({name: 'shared space', links: 12})}>
-                  <div className="spotlight-action-icon"><Box color="#48bb78" size={16}/></div>
-                  <div className="spotlight-action-text">shared space</div>
-                </div>
-                <div className="spotlight-row" onClick={() => selectContext({name: 'learning', links: 18})}>
-                  <div className="spotlight-action-icon"><Box color="#ed64a6" size={16}/></div>
-                  <div className="spotlight-action-text">learning</div>
-                </div>
+                {contexts.map((item, index) => (
+                  <div
+                    key={item.id}
+                    className={`spotlight-row ${index === 0 ? 'active' : ''}`}
+                    onClick={() => selectContext(item)}
+                  >
+                    <div className="spotlight-action-icon"><Box color={item.kind === 'collaborative' ? '#48bb78' : '#735bf2'} size={16}/></div>
+                    <div className="spotlight-action-text">{item.name}</div>
+                  </div>
+                ))}
+                {!contexts.length ? (
+                  <div className="spotlight-row">
+                    <div className="spotlight-action-text">No spaces found.</div>
+                  </div>
+                ) : null}
               </div>
             ) : (
               <>
@@ -135,48 +264,51 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
 
                 <div className="spotlight-section">
                   <span className="spotlight-section-title">Suggested matches</span>
-                  
-                  <div className="spotlight-row">
-                    <div className="spotlight-match-icon">🤔</div>
-                    <div className="spotlight-match-content">
-                      <div className="spotlight-match-title-row">
-                        <span className="spotlight-match-title">Memory and context</span>
-                        <span className="spotlight-match-badge verified">Verified</span>
-                      </div>
-                      <div className="spotlight-match-path">
-                        <FileText size={12}/> ideas / architecture / memory
-                      </div>
-                      <div className="spotlight-match-desc">
-                        A note that connects memory, focus, and how you revisit important ideas.
+                  {loading ? (
+                    <div className="spotlight-row">
+                      <div className="spotlight-match-content">
+                        <div className="spotlight-match-title-row">
+                          <span className="spotlight-match-title" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                            <Loader2 size={14} className="lat-spinner" /> Searching...
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    <CornerDownLeft size={16} color="#a0a0a0" style={{marginTop:'auto', marginBottom:'auto'}}/>
-                  </div>
+                  ) : null}
+                  
+                  {results.map((item) => (
+                    <div
+                      key={item.id}
+                      className="spotlight-row"
+                      onClick={() => setSelectedResultId(item.id)}
+                      style={{ borderColor: selectedResult?.id === item.id ? '#dbeafe' : undefined, background: selectedResult?.id === item.id ? '#f8fbff' : undefined }}
+                    >
+                      <div className="spotlight-match-icon">{item.type === 'project' ? '📁' : item.type === 'link' ? '🔗' : '🧠'}</div>
+                      <div className="spotlight-match-content">
+                        <div className="spotlight-match-title-row">
+                          <span className="spotlight-match-title">{item.title}</span>
+                          {item.type === 'node' ? <span className="spotlight-match-badge verified">Node</span> : null}
+                        </div>
+                        <div className="spotlight-match-path">
+                          <FileText size={12}/> {item.path || item.project?.name || 'space'}
+                        </div>
+                        <div className="spotlight-match-desc">
+                          {item.description || 'No preview available.'}
+                        </div>
+                      </div>
+                      <CornerDownLeft size={16} color="#a0a0a0" style={{marginTop:'auto', marginBottom:'auto'}}/>
+                    </div>
+                  ))}
 
-                  <div className="spotlight-row">
-                    <div className="spotlight-match-icon"><img src="https://upload.wikimedia.org/wikipedia/commons/6/63/Wikipedia-logo.png" width={16}/></div>
-                    <div className="spotlight-match-content">
-                      <div className="spotlight-match-title-row">
-                        <span className="spotlight-match-title">Learning basics</span>
-                      </div>
-                      <div className="spotlight-match-path">
-                        Reference
+                  {!loading && query.trim() && !results.length ? (
+                    <div className="spotlight-row">
+                      <div className="spotlight-match-content">
+                        <div className="spotlight-match-title-row">
+                          <span className="spotlight-match-title">No matches for "{query.trim()}"</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  <div className="spotlight-row">
-                    <div className="spotlight-match-icon"><img src="https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg" width={16}/></div>
-                    <div className="spotlight-match-content">
-                      <div className="spotlight-match-title-row">
-                        <span className="spotlight-match-title">How teams work together</span>
-                        <span className="spotlight-match-badge popular">Popular</span>
-                      </div>
-                      <div className="spotlight-match-path">
-                        Reference
-                      </div>
-                    </div>
-                  </div>
+                  ) : null}
 
                 </div>
               </>
@@ -186,27 +318,27 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
 
         {/* RIGHT PANE: PREVIEW */}
         <div className="spotlight-right">
-          <div className="spotlight-right-emoji">🤔</div>
+          <div className="spotlight-right-emoji">{selectedResult?.type === 'project' ? '📁' : selectedResult?.type === 'link' ? '🔗' : '🧠'}</div>
           <div className="spotlight-right-title">
-            Memory and context <Link size={16} color="#707070"/>
+            {selectedResult?.title || 'Search results preview'} <LinkIcon size={16} color="#707070"/>
           </div>
           <div className="spotlight-right-type">
-            <FileText size={14}/> Note
+            <FileText size={14}/> {selectedResult?.type ? selectedResult.type[0].toUpperCase() + selectedResult.type.slice(1) : 'Item'}
           </div>
 
           <div className="spotlight-preview-card faded">
-            <h3>Memory and context</h3>
-            <p>This note helps you understand how ideas connect and why some pieces deserve to stay close.</p>
-            <p>It’s designed to be easy to revisit later, even when you’ve been away from it for a while.</p>
-            <p>Keep the important pieces near the top of your thinking.</p>
+            <h3>{selectedResult?.title || 'Pick a result to preview'}</h3>
+            <p>{selectedResult?.description || 'Search across your spaces to see links and notes here.'}</p>
+            <p>{selectedResult?.path || 'Use / to pick a space and narrow down results.'}</p>
+            {selectedResult?.url ? <p>{selectedResult.url}</p> : null}
           </div>
 
           <div className="spotlight-meta-grid">
             <span className="spotlight-meta-label">Saved by</span>
-            <span className="spotlight-meta-value">You <span>·</span> Today</span>
+            <span className="spotlight-meta-value">You <span>·</span> {selectedResult?.project?.name || 'Your space'}</span>
             
             <span className="spotlight-meta-label">Updated</span>
-            <span className="spotlight-meta-value">Just now</span>
+            <span className="spotlight-meta-value">{selectedResult?.updatedAt ? new Date(selectedResult.updatedAt).toLocaleDateString() : 'Just now'}</span>
           </div>
         </div>
 

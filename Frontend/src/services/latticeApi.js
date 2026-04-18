@@ -1,11 +1,32 @@
-const BACKEND_BASE_URL = (import.meta.env.VITE_LATTICE_API_URL || 'http://localhost:8000').replace(/\/$/, '');
-const API_BASE_URL = BACKEND_BASE_URL.endsWith('/api') ? BACKEND_BASE_URL : `${BACKEND_BASE_URL}/api`;
+import { API_BASE_URL } from '../utils/api';
+
+const BACKEND_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '');
 
 const getAuthToken = () => {
   try {
-    return window.localStorage.getItem('latticeToken') || '';
+    return window.localStorage.getItem('token') || window.localStorage.getItem('latticeToken') || '';
   } catch (error) {
     return '';
+  }
+};
+
+const clearStoredAuth = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.removeItem('token');
+  window.localStorage.removeItem('latticeToken');
+};
+
+const redirectToLogin = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const onAuthPage = window.location.pathname === '/login' || window.location.pathname === '/signup';
+  if (!onAuthPage) {
+    window.location.assign('/login');
   }
 };
 
@@ -22,11 +43,20 @@ const requestJson = async (path, options = {}) => {
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
+    if (response.status === 401) {
+      clearStoredAuth();
+      redirectToLogin();
+    }
+
     const message = payload?.message || payload?.error || `Request failed with status ${response.status}`;
     throw new Error(message);
   }
 
-  return payload;
+  if (payload?.success === false) {
+    throw new Error(payload?.message || payload?.error || 'Request failed.');
+  }
+
+  return payload || {};
 };
 
 export const getLatticeGraph = (latticeId) => {
@@ -46,6 +76,25 @@ export const queryLattice = (latticeId, question) => {
 
 export const getLattices = () => {
   return requestJson('/lattices', { method: 'GET' });
+};
+
+export const searchSpotlight = ({ query = '', latticeId = '', limit = 8 } = {}) => {
+  const params = new URLSearchParams();
+
+  if (query) {
+    params.set('q', query);
+  }
+
+  if (latticeId) {
+    params.set('latticeId', latticeId);
+  }
+
+  if (limit) {
+    params.set('limit', String(limit));
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+  return requestJson(`/search/spotlight${suffix}`, { method: 'GET' });
 };
 
 export const getBackendBaseUrl = () => BACKEND_BASE_URL;

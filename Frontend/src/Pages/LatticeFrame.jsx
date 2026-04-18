@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
-  Command, LayoutDashboard, Folder, Users, Activity, Settings, 
-  Search, Bell, Plus, Menu, X, Network
+  Command, LayoutDashboard, Folder, Users, Activity, Settings,
+  Search, Bell, Plus, Network, PanelLeftClose, PanelLeftOpen,
+  Leaf, User
 } from 'lucide-react';
 import { LatticeSpotlight } from '../components/LatticeSpotlight';
 import './LatticePages.css';
 
 export const LatticeFrame = ({ children }) => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSpotlightOpen, setIsSpotlightOpen] = useState(false);
 
   // Global Cmd+K Listener
@@ -25,83 +26,69 @@ export const LatticeFrame = ({ children }) => {
   }, []);
 
   return (
-    <div className="lat-dashboard-wrapper">
-      
-      {/* Mobile Overlay */}
-      {sidebarOpen && <div className="lat-sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>}
-
-      {/* Left Sidebar */}
-      <aside className={`lat-sidebar ${sidebarOpen ? 'open' : ''}`}>
-        <div className="lat-sidebar-header">
-          <div className="lat-logo-container">
-            <Command size={20} strokeWidth={2.5} color="#2d3748" />
-            <span className="lat-logo-text">LATTICE</span>
+    <div className="lattice-dashboard">
+      <aside className={`lattice-secondary-sidebar${isSidebarCollapsed ? ' collapsed' : ''}`}>
+        <div className="secondary-header">
+          <div className="secondary-brand">
+            <Command size={22} strokeWidth={2.4} />
+            <h2>LATTICE</h2>
           </div>
-          <button className="lat-mobile-close" onClick={() => setSidebarOpen(false)}>
-            <X size={20} />
+          <button
+            type="button"
+            className="secondary-toggle-btn"
+            onClick={() => setIsSidebarCollapsed((prev) => !prev)}
+            aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {isSidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
           </button>
         </div>
 
-        <div className="lat-sidebar-search">
-          <Search size={16} color="#a0aec0" />
-          <input type="text" placeholder="Search your lattices" />
-        </div>
+        <nav className="secondary-nav-list">
+          <NavLink to="/lattice" end className={({ isActive }) => isActive ? 'secondary-nav-item active' : 'secondary-nav-item'}>
+            <span className="nav-icon"><LayoutDashboard size={16} /></span>
+            <span className="nav-label">Dashboard</span>
+          </NavLink>
+          <NavLink to="/lattice/compost" className={({ isActive }) => isActive ? 'secondary-nav-item active' : 'secondary-nav-item'}>
+            <span className="nav-icon"><Leaf size={16} /></span>
+            <span className="nav-label">Compost</span>
+          </NavLink>
+          <NavLink to="/lattice/community" className={({ isActive }) => isActive ? 'secondary-nav-item active' : 'secondary-nav-item'}>
+            <span className="nav-icon"><Users size={16} /></span>
+            <span className="nav-label">Community</span>
+          </NavLink>
+          
+          <div style={{ flex: 1 }}></div>
 
-        <nav className="lat-sidebar-nav">
-          <div className="lat-nav-group">
-            <NavLink to="/lattice" end className={({isActive}) => isActive ? "lat-nav-item active" : "lat-nav-item"}>
-              <LayoutDashboard size={16} /> Home
-            </NavLink>
-            <NavLink to="/lattice/graph" className={({isActive}) => isActive ? "lat-nav-item active" : "lat-nav-item"}>
-              <Network size={16} /> Lattice Map
-            </NavLink>
-            <NavLink to="/lattice/personal" className={({isActive}) => isActive ? "lat-nav-item active" : "lat-nav-item"}>
-              <Folder size={16} /> My Lattices
-            </NavLink>
-            <NavLink to="/lattice/shared" className={({isActive}) => isActive ? "lat-nav-item active" : "lat-nav-item"}>
-              <Users size={16} /> Shared Spaces
-            </NavLink>
-            <NavLink to="/lattice/activity" className={({isActive}) => isActive ? "lat-nav-item active" : "lat-nav-item"}>
-              <Activity size={16} /> Recent Activity
-            </NavLink>
-          </div>
-
-          <div className="lat-nav-group" style={{marginTop: 'auto'}}>
-            <NavLink to="/lattice/settings" className={({isActive}) => isActive ? "lat-nav-item active" : "lat-nav-item"}>
-              <Settings size={16} /> Settings
-            </NavLink>
-          </div>
+          <NavLink to="/lattice/profile" className={({ isActive }) => isActive ? 'secondary-nav-item active' : 'secondary-nav-item'}>
+            <span className="nav-icon"><User size={16} /></span>
+            <span className="nav-label">Profile</span>
+          </NavLink>
+          <NavLink to="/lattice/settings" className={({ isActive }) => isActive ? 'secondary-nav-item active' : 'secondary-nav-item'}>
+            <span className="nav-icon"><Settings size={16} /></span>
+            <span className="nav-label">Settings</span>
+          </NavLink>
         </nav>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="lat-main">
-        {/* Top Header */}
-        <header className="lat-header">
-          <div className="lat-header-left">
-            <button className="lat-mobile-toggle" onClick={() => setSidebarOpen(true)}>
-              <Menu size={22} />
-            </button>
-            <div className="lat-global-search" onClick={() => setIsSpotlightOpen(true)} style={{cursor: 'pointer'}}>
-              <Search size={16} color="#a0aec0" />
-              <input type="text" placeholder="Search your lattices..." readOnly style={{cursor: 'pointer'}} />
-              <kbd className="lat-shortcut">⌘K</kbd>
-            </div>
+      <main className="lattice-main-content">
+        <header className="main-topbar">
+          <div className="search-bar" onClick={() => setIsSpotlightOpen(true)} style={{ cursor: 'pointer' }}>
+            <Search size={16} color="#9ca3af" />
+            <input type="text" placeholder="Search your lattices..." readOnly style={{ cursor: 'pointer' }} />
+            <span style={{ fontSize: '0.85rem', color: '#6b7280', marginLeft: '8px' }}>⌘K</span>
           </div>
-          <div className="lat-header-right">
-            <button className="lat-btn-primary">
-              <Plus size={16} /> New Lattice
+
+          <div className="topbar-actions">
+            <button className="action-circle" aria-label="Create">
+              <Plus size={18} />
             </button>
-            <button className="lat-icon-btn">
+            <button className="action-circle" aria-label="Notifications">
               <Bell size={18} />
-              <span className="lat-notification-dot"></span>
             </button>
-            <div className="lat-avatar"></div>
           </div>
         </header>
 
-        {/* Scrollable Canvas for Children */}
-        <div className="lat-content-scroll">
+        <div className="main-scrollable">
           {children}
         </div>
       </main>
