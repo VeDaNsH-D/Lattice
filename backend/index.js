@@ -1,11 +1,17 @@
-require("dotenv").config();
+import "dotenv/config";
 
-const http = require("http");
-const express = require("express");
-const cors = require("cors");
-const mongoose = require("mongoose");
-const os = require("os");
-const { Server } = require("socket.io");
+import http from "http";
+import cors from "cors";
+import express from "express";
+import mongoose from "mongoose";
+import os from "os";
+import { Server } from "socket.io";
+
+import {
+    globalErrorHandler,
+    notFoundHandler
+} from "./middlewares/error.middleware.js";
+import authRoutes from "./routes/auth.routes.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -330,9 +336,15 @@ io.on("connection", (socket) => {
     });
 });
 
+/* App routes */
+app.use("/api/auth", authRoutes);
+
+/* Not found + global errors */
+app.use(notFoundHandler);
+app.use(globalErrorHandler);
+
 /* Start server */
 server.listen(PORT, () => {
-
     const networkInterfaces = os.networkInterfaces();
     let networkIP = "localhost";
 
