@@ -1,8 +1,10 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { Hero } from './components/Hero';
 import { LandingBody } from './components/LandingBody';
 import { AuthPage } from './components/AuthPage';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { PublicOnlyRoute } from './components/PublicOnlyRoute';
 import { LatticeHomePage } from './Pages/LatticeHomePage';
 import { LatticeFeaturesPage } from './Pages/LatticeFeaturesPage';
 import { LatticeStackPage } from './Pages/LatticeStackPage';
@@ -21,8 +23,16 @@ function App() {
     <div className="app-container">
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/auth" element={<AuthPage />} />
-        <Route path="/lattice" element={<LatticeHomePage />} />
+        <Route element={<PublicOnlyRoute />}>
+          <Route path="/signup" element={<AuthPage mode="signup" />} />
+          <Route path="/login" element={<AuthPage mode="login" />} />
+          <Route path="/auth" element={<Navigate to="/signup" replace />} />
+        </Route>
+
+        <Route element={<ProtectedRoute />}>
+          <Route path="/lattice" element={<LatticeHomePage />} />
+        </Route>
+
         <Route path="/lattice/features" element={<LatticeFeaturesPage />} />
         <Route path="/lattice/stack" element={<LatticeStackPage />} />
         <Route path="/lattice/demo" element={<LatticeDemoPage />} />

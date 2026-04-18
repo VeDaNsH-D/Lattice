@@ -7,7 +7,8 @@
   justify-content: center;
   padding: 24px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: #fdf2f2; /* Soft pastel pink background to match perfectly */
+  background: #fdf2f2;
+  /* Soft pastel pink background to match perfectly */
 }
 
 /* 2. Flat Solid Card Container */
@@ -18,7 +19,8 @@
   height: 650px;
   border-radius: 20px;
   position: relative;
-  background: #ffffff; /* Solid white */
+  background: #ffffff;
+  /* Solid white */
   box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.1);
   overflow: hidden;
 }
@@ -27,7 +29,7 @@
 .auth-left {
   flex: 1;
   padding: 48px;
-  background: linear-gradient(135deg, #ffafbd 0%, #ffc3a0 100%); 
+  background: linear-gradient(135deg, #ffafbd 0%, #ffc3a0 100%);
   display: flex;
   flex-direction: column;
   position: relative;
@@ -81,7 +83,8 @@
   color: #333333;
   margin-bottom: 48px;
   letter-spacing: -0.02em;
-  text-align: center; /* Centered like screenshot */
+  text-align: center;
+  /* Centered like screenshot */
 }
 
 /* 3. Fieldset Form Elements */
@@ -108,7 +111,8 @@
 .auth-fieldset:focus-within {
   border-color: #fca5a5;
   border-width: 2px;
-  padding: 3px 15px 7px 15px; /* Offset the 1px border shift to stop layout jumping */
+  padding: 3px 15px 7px 15px;
+  /* Offset the 1px border shift to stop layout jumping */
 }
 
 .auth-fieldset legend {
@@ -116,7 +120,8 @@
   color: #9ca3af;
   padding: 0 4px;
   margin-left: -4px;
-  display: block; /* Native legend rendering */
+  display: block;
+  /* Native legend rendering */
 }
 
 .auth-input {
@@ -144,8 +149,74 @@
   transition: all 0.2s ease;
 }
 
+.auth-submitBtn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 .auth-submitBtn:hover {
   background-color: #f87171;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.auth-dividerLine {
+  flex: 1;
+  height: 1px;
+  background: #e5e7eb;
+}
+
+.auth-dividerText {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.auth-googleBtn {
+  width: 100%;
+  margin-top: 16px;
+  padding: 15px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.auth-googleBtn:hover {
+  background: #f9fafb;
+  border-color: #cbd5e1;
+}
+
+.auth-googleBtn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.auth-googleMark {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #4285f4;
+  border: 1px solid #e5e7eb;
 }
 
 /* TOGGLE LOGIN LINK */
@@ -153,6 +224,20 @@
   font-size: 0.85rem;
   color: #9ca3af;
   margin-top: 16px;
+}
+
+.auth-feedback {
+  margin-top: 12px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.auth-feedback-error {
+  color: #dc2626;
+}
+
+.auth-feedback-success {
+  color: #059669;
 }
 
 .auth-toggleLink {
@@ -174,10 +259,12 @@
     flex-direction: column;
     height: auto;
   }
+
   .auth-left {
     padding: 32px;
     height: 300px;
   }
+
   .auth-right {
     padding: 32px;
   }

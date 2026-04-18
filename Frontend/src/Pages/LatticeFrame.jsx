@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { 
-  SquarePlus, Lightbulb, Users, Target, Activity, Zap, 
-  Search, PanelLeftClose, Upload
+import {
+  Command,
+  SquarePlus, Lightbulb, Users, Target, Activity, Zap,
+  Search, PanelLeftClose, PanelLeftOpen, Bell, CircleUserRound
 } from 'lucide-react';
+import { apiRequest } from '../utils/api';
 import './LatticePages.css';
 
 const navItems = [
-  { label: 'Generate Ideas', to: '/lattice', icon: <Lightbulb size={18} /> },
+  { label: 'Home', to: '/lattice', icon: <Lightbulb size={18} /> },
   { label: 'Problem-Solving', to: '/lattice/problem', icon: <Zap size={18} /> },
   { label: 'Iterate and Refine', to: '/lattice/iterate', icon: <Activity size={18} /> },
   { label: 'Industry Trends', to: '/lattice/trends', icon: <Users size={18} /> },
@@ -18,31 +20,56 @@ const navItems = [
 ];
 
 export const LatticeFrame = ({ children }) => {
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [userAvatarUrl, setUserAvatarUrl] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCurrentUser = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        return;
+      }
+
+      try {
+        const response = await apiRequest('/auth/me', { method: 'GET' });
+
+        if (isMounted) {
+          setUserAvatarUrl(response?.user?.avatarUrl || null);
+        }
+      } catch {
+        if (isMounted) {
+          setUserAvatarUrl(null);
+        }
+      }
+    };
+
+    loadCurrentUser();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
     <div className="lattice-dashboard">
-      
-      {/* 1. Micro Sidebar */}
-      <aside className="lattice-micro-sidebar">
-        <div className="micro-brand">L W</div>
-        <div className="micro-icons">
-          <div className="micro-icon active" style={{background: 'linear-gradient(135deg, #a6c1ee, #fbc2eb)'}}></div>
-          <div className="micro-icon" style={{background: 'linear-gradient(135deg, #ffafbd, #ffc3a0)'}}></div>
-          <div className="micro-icon" style={{background: 'linear-gradient(135deg, #2af598, #009efd)'}}></div>
-          <div className="micro-icon" style={{background: 'linear-gradient(135deg, #a18cd1, #fbc2eb)'}}></div>
-          <div className="micro-icon" style={{background: 'linear-gradient(135deg, #ff9a9e, #fecfef)'}}></div>
-          <div className="micro-icon" style={{background: 'linear-gradient(135deg, #f6d365, #fda085)'}}></div>
-          <div className="micro-icon" style={{background: 'linear-gradient(135deg, #ff0844, #ffb199)'}}></div>
-        </div>
-        <button className="micro-add-btn">
-          <SquarePlus size={20} />
-        </button>
-      </aside>
 
       {/* 2. Secondary Navigation */}
-      <aside className="lattice-secondary-sidebar">
+      <aside className={`lattice-secondary-sidebar${isSidebarCollapsed ? ' collapsed' : ''}`}>
         <div className="secondary-header">
-          <h2>LatticeWriter™</h2>
-          <PanelLeftClose size={18} color="#9ca3af" />
+          <div className="secondary-brand">
+            <Command size={22} strokeWidth={2.4} />
+            <h2>Lattice</h2>
+          </div>
+          <button
+            type="button"
+            className="secondary-toggle-btn"
+            onClick={() => setIsSidebarCollapsed((previous) => !previous)}
+            aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {isSidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          </button>
         </div>
         <nav className="secondary-nav-list">
           {navItems.map((item, idx) => (
@@ -69,8 +96,14 @@ export const LatticeFrame = ({ children }) => {
             <input type="text" placeholder="Search" />
           </div>
           <div className="topbar-actions">
-            <button className="action-circle"><Upload size={18} /></button>
-            <div className="user-avatar"></div>
+            <button className="action-circle" aria-label="Notifications"><Bell size={18} /></button>
+            <div className="user-avatar" aria-label="User profile">
+              {userAvatarUrl ? (
+                <img src={userAvatarUrl} alt="User profile" className="user-avatar-image" />
+              ) : (
+                <CircleUserRound size={20} strokeWidth={1.8} />
+              )}
+            </div>
           </div>
         </header>
 
@@ -78,28 +111,6 @@ export const LatticeFrame = ({ children }) => {
           {children}
         </div>
       </main>
-
-      {/* 4. Context Panel (Bookmarks) */}
-      <aside className="lattice-context-panel">
-        <div className="context-header">
-          <h3>Bookmarks</h3>
-        </div>
-        <div className="context-scrollable">
-          
-          <div className="bookmark-card">
-            <div className="bookmark-icon" style={{background: 'linear-gradient(135deg, #f6d365, #fda085)'}}></div>
-            <h4>Problem-Solving</h4>
-            <p>Focus on solving real-world problems rather than chasing trends or gimmicks. Encourage team members to think critically.</p>
-          </div>
-
-          <div className="bookmark-card">
-            <div className="bookmark-icon" style={{background: 'linear-gradient(135deg, #ff0844, #ffb199)'}}></div>
-            <h4>Iterate and Refine</h4>
-            <p>Embrace an iterative approach to idea generation, where concepts are refined through feedback and iteration.</p>
-          </div>
-
-        </div>
-      </aside>
 
     </div>
   );

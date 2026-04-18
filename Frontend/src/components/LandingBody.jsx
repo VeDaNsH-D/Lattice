@@ -384,7 +384,7 @@ export const LandingBody = () => {
             <h2 className={styles.cta_headline}>Bring your bookmarks back to life.</h2>
             <p className={styles.cta_subtitle}>Join thousands of forward-thinking users turning passive saving into active knowledge curation.</p>
             <div className={styles.cta_buttonGroup}>
-              <Link to="/auth" style={{ textDecoration: 'none' }}><button className={styles.cta_buttonSolid}>Start for free</button></Link>
+              <Link to="/signup" style={{ textDecoration: 'none' }}><button className={styles.cta_buttonSolid}>Start for free</button></Link>
               <button className={styles.cta_buttonOutline}>View Demo</button>
             </div>
           </div>

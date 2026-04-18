@@ -24,18 +24,24 @@ import projectRoutes from "./routes/project.routes.js";
 import searchRoutes from "./routes/search.routes.js";
 import roleRoutes from "./routes/role.routes.js";
 
+const allowedOrigins = ["http://localhost:5173", "http://localhost:5174"];
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "*",
+        origin: allowedOrigins,
         methods: ["GET", "POST"],
     },
 });
 
 const rooms = new Map();
 
-app.use(cors());
+app.use(
+    cors({
+        origin: allowedOrigins,
+    })
+);
 app.use(express.json());
 app.use("/media", express.static(path.join(process.cwd(), "generated")));
 app.use(
@@ -48,7 +54,7 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-const PORT = process.env.PORT || 8000;
+const PORT = 8000;
 
 function getRoom(roomId) {
     if (!rooms.has(roomId)) {
@@ -151,6 +157,10 @@ app.get("/", (req, res) => {
 
 app.get("/health", (req, res) => {
     res.json({ ok: true });
+});
+
+app.get("/api/health", (req, res) => {
+    res.json({ status: "Backend is running 🚀" });
 });
 
 io.on("connection", (socket) => {
@@ -388,4 +398,5 @@ server.listen(PORT, () => {
     console.log("🚀 Backend running on:");
     console.log(`   Local:   http://localhost:${PORT}`);
     console.log(`   Network: http://${networkIP}:${PORT}`);
+    console.log("Backend server started successfully.");
 });
