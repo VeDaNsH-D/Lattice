@@ -1,28 +1,65 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { 
-  Command, LayoutDashboard, Folder, Users, Activity, Settings,
-  Search, Bell, Plus, Network, PanelLeftClose, PanelLeftOpen,
-  Leaf, User
+import {
+  Command,
+  LayoutDashboard,
+  Folder,
+  Users,
+  Activity,
+  Settings,
+  Search,
+  Bell,
+  Plus,
+  Network,
+  PanelLeftClose,
+  PanelLeftOpen,
+  CircleUserRound,
 } from 'lucide-react';
 import { LatticeSpotlight } from '../components/LatticeSpotlight';
+import { apiRequest } from '../utils/api';
 import './LatticePages.css';
+
+const navItems = [
+  { label: 'Home', to: '/lattice', icon: <LayoutDashboard size={16} />, end: true },
+  { label: 'Lattice Map', to: '/lattice/graph', icon: <Network size={16} /> },
+  { label: 'My Lattices', to: '/lattice/personal', icon: <Folder size={16} /> },
+  { label: 'Shared Spaces', to: '/lattice/shared', icon: <Users size={16} /> },
+  { label: 'Recent Activity', to: '/lattice/activity', icon: <Activity size={16} /> },
+  { label: 'Settings', to: '/lattice/settings', icon: <Settings size={16} /> },
+];
 
 export const LatticeFrame = ({ children }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSpotlightOpen, setIsSpotlightOpen] = useState(false);
+  const [userAvatarUrl, setUserAvatarUrl] = useState(null);
 
-  // Global Cmd+K Listener
   useEffect(() => {
-    const handleGlobalKeyDown = (e) => {
-      // Cmd/Ctrl + K
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setIsSpotlightOpen(prev => !prev);
+    let isMounted = true;
+
+    const loadCurrentUser = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        return;
+      }
+
+      try {
+        const response = await apiRequest('/auth/me', { method: 'GET' });
+
+        if (isMounted) {
+          setUserAvatarUrl(response?.user?.avatarUrl || null);
+        }
+      } catch {
+        if (isMounted) {
+          setUserAvatarUrl(null);
+        }
       }
     };
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+
+    loadCurrentUser();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (
@@ -36,7 +73,7 @@ export const LatticeFrame = ({ children }) => {
           <button
             type="button"
             className="secondary-toggle-btn"
-            onClick={() => setIsSidebarCollapsed((prev) => !prev)}
+            onClick={() => setIsSidebarCollapsed((previous) => !previous)}
             aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {isSidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
@@ -44,29 +81,17 @@ export const LatticeFrame = ({ children }) => {
         </div>
 
         <nav className="secondary-nav-list">
-          <NavLink to="/lattice" end className={({ isActive }) => isActive ? 'secondary-nav-item active' : 'secondary-nav-item'}>
-            <span className="nav-icon"><LayoutDashboard size={16} /></span>
-            <span className="nav-label">Dashboard</span>
-          </NavLink>
-          <NavLink to="/lattice/compost" className={({ isActive }) => isActive ? 'secondary-nav-item active' : 'secondary-nav-item'}>
-            <span className="nav-icon"><Leaf size={16} /></span>
-            <span className="nav-label">Compost</span>
-          </NavLink>
-          <NavLink to="/lattice/community" className={({ isActive }) => isActive ? 'secondary-nav-item active' : 'secondary-nav-item'}>
-            <span className="nav-icon"><Users size={16} /></span>
-            <span className="nav-label">Community</span>
-          </NavLink>
-          
-          <div style={{ flex: 1 }}></div>
-
-          <NavLink to="/lattice/profile" className={({ isActive }) => isActive ? 'secondary-nav-item active' : 'secondary-nav-item'}>
-            <span className="nav-icon"><User size={16} /></span>
-            <span className="nav-label">Profile</span>
-          </NavLink>
-          <NavLink to="/lattice/settings" className={({ isActive }) => isActive ? 'secondary-nav-item active' : 'secondary-nav-item'}>
-            <span className="nav-icon"><Settings size={16} /></span>
-            <span className="nav-label">Settings</span>
-          </NavLink>
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className={({ isActive }) => (isActive ? 'secondary-nav-item active' : 'secondary-nav-item')}
+            >
+              <span className="nav-icon">{item.icon}</span>
+              <span className="nav-label">{item.label}</span>
+            </NavLink>
+          ))}
         </nav>
       </aside>
 
@@ -85,6 +110,13 @@ export const LatticeFrame = ({ children }) => {
             <button className="action-circle" aria-label="Notifications">
               <Bell size={18} />
             </button>
+            <div className="user-avatar" aria-label="User profile">
+              {userAvatarUrl ? (
+                <img src={userAvatarUrl} alt="User profile" className="user-avatar-image" />
+              ) : (
+                <CircleUserRound size={20} strokeWidth={1.8} />
+              )}
+            </div>
           </div>
         </header>
 
