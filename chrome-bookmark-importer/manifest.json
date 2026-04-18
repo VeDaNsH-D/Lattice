@@ -1,28 +1,36 @@
 {
-  "manifest_version": 3,
-  "name": "Save Current Bookmark",
-  "version": "1.0.0",
-  "description": "Save current webpage to a selected project",
-  "permissions": ["tabs", "activeTab", "scripting", "storage", "bookmarks"],
-  "host_permissions": [
-    "http://localhost:8000/*",
-    "http://localhost/*",
-    "http://127.0.0.1/*"
-  ],
-  "background": {
-    "service_worker": "background.js"
-  },
-  "content_scripts": [
-    {
-      "matches": [
+    "manifest_version": 3,
+    "name": "Save Current Bookmark",
+    "version": "1.0.0",
+    "description": "Save current webpage to a selected project",
+    "permissions": [
+        "tabs",
+        "activeTab",
+        "scripting",
+        "storage",
+        "bookmarks"
+    ],
+    "host_permissions": [
+        "http://localhost:8000/*",
         "http://localhost/*",
         "http://127.0.0.1/*"
-      ],
-      "js": ["content.js"],
-      "run_at": "document_idle"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "http://localhost/*",
+                "http://127.0.0.1/*"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "run_at": "document_idle"
+        }
+    ],
+    "action": {
+        "default_popup": "popup.html"
     }
-  ],
-  "action": {
-    "default_popup": "popup.html"
-  }
 }

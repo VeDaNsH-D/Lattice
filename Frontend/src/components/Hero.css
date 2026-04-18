@@ -9,8 +9,10 @@
   overflow: hidden;
   background-color: #ffffff;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  padding-top: 180px;      /* Protect absolute navbar */
-  padding-bottom: 80px;  /* Space below the trust bar */
+  padding-top: 180px;
+  /* Protect absolute navbar */
+  padding-bottom: 80px;
+  /* Space below the trust bar */
 }
 
 /* Background Glow Effect */
@@ -33,10 +35,12 @@
     transform: translate(-50%, -50%) scale(1);
     opacity: 0.7;
   }
+
   50% {
     transform: translate(-50%, -50%) scale(1.15);
     opacity: 1;
   }
+
   100% {
     transform: translate(-50%, -50%) scale(1);
     opacity: 0.7;
@@ -56,7 +60,7 @@
   z-index: 50;
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(8px);
-  border-bottom: 1px solid rgba(0,0,0,0.05);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .hero-nav-brand {
@@ -209,14 +213,30 @@
   top: 50%;
   left: 50%;
   border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.12); /* Increased from 0.04 to 0.12 for better visibility */
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  /* Increased from 0.04 to 0.12 for better visibility */
   transform: translate(-50%, -50%);
 }
 
-.ring-2 { width: 750px; height: 750px; }
-.ring-3 { width: 1000px; height: 1000px; }
-.ring-4 { width: 1250px; height: 1250px; }
-.ring-5 { width: 1500px; height: 1500px; }
+.ring-2 {
+  width: 750px;
+  height: 750px;
+}
+
+.ring-3 {
+  width: 1000px;
+  height: 1000px;
+}
+
+.ring-4 {
+  width: 1250px;
+  height: 1250px;
+}
+
+.ring-5 {
+  width: 1500px;
+  height: 1500px;
+}
 
 /* Partial colored rings */
 .ring-accent {
@@ -227,19 +247,24 @@
   transform: translate(-50%, -50%);
   border: 1px solid transparent;
 }
+
 .ring-accent-1 {
-  width: 750px; height: 750px;
+  width: 750px;
+  height: 750px;
   border-left-color: #fca5a5;
   border-top-color: #fca5a5;
-  opacity: 0.5; /* Increased from 0.3 */
+  opacity: 0.5;
+  /* Increased from 0.3 */
   transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 .ring-accent-2 {
-  width: 1000px; height: 1000px;
+  width: 1000px;
+  height: 1000px;
   border-right-color: #fca5a5;
   border-bottom-color: #fca5a5;
-  opacity: 0.4; /* Increased from 0.2 */
+  opacity: 0.4;
+  /* Increased from 0.2 */
   transform: translate(-50%, -50%) rotate(15deg);
 }
 
@@ -251,7 +276,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.02);
   transition: transform 0.3s ease, filter 0.3s ease;
   cursor: pointer;
   pointer-events: auto;
@@ -262,7 +287,8 @@
   z-index: 10;
 }
 
-.floating-icon img, .floating-icon svg {
+.floating-icon img,
+.floating-icon svg {
   width: 55%;
   height: 55%;
   object-fit: contain;
@@ -295,10 +321,17 @@
 }
 
 .rating-star {
-  color: #ffb800; /* Default star color */
+  color: #ffb800;
+  /* Default star color */
 }
-.rating-item.google .rating-star { color: #ea4335; }
-.rating-item.trustpilot .rating-star { color: #00b67a; }
+
+.rating-item.google .rating-star {
+  color: #ea4335;
+}
+
+.rating-item.trustpilot .rating-star {
+  color: #00b67a;
+}
 
 /* Main Typography */
 .hero-title {
@@ -326,7 +359,8 @@
   gap: 1rem;
 }
 
-.btn-primary, .btn-secondary {
+.btn-primary,
+.btn-secondary {
   padding: 0.8rem 1.75rem;
   border-radius: 30px;
   font-weight: 500;
@@ -352,7 +386,7 @@
   background: white;
   color: #333;
   border: 1px solid #eaeaea;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
 }
 
 .btn-secondary:hover {
@@ -376,7 +410,7 @@
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 0 8px 30px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.03);
   border-radius: 12px;
   padding: 1rem 1.25rem;
   display: flex;
@@ -415,12 +449,14 @@
   border-radius: 50%;
   flex-shrink: 0;
 }
+
 .card-avatar img {
   width: 100%;
   height: 100%;
   border-radius: 50%;
   object-fit: cover;
 }
+
 .card-avatar-badge {
   position: absolute;
   bottom: -2px;
@@ -433,8 +469,14 @@
   align-items: center;
   justify-content: center;
 }
-.badge-blue { background: #0066ff; }
-.badge-green { background: #00b67a; }
+
+.badge-blue {
+  background: #0066ff;
+}
+
+.badge-green {
+  background: #00b67a;
+}
 
 .card-content {
   flex: 1;
@@ -505,8 +547,10 @@
   .hero-title {
     font-size: 3rem;
   }
+
   .notification-stack {
-    display: none; /* Hide complex stacking on very small mobile for simplicity, or scale it */
+    display: none;
+    /* Hide complex stacking on very small mobile for simplicity, or scale it */
   }
 }
 

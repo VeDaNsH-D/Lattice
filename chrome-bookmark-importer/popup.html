@@ -1,119 +1,122 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Save Bookmark</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 12px;
-      width: 320px;
-      color: #1f2937;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Save Bookmark</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 12px;
+            width: 320px;
+            color: #1f2937;
+        }
 
-    h3 {
-      margin: 0 0 10px;
-      font-size: 18px;
-    }
+        h3 {
+            margin: 0 0 10px;
+            font-size: 18px;
+        }
 
-    .block {
-      margin-bottom: 10px;
-      font-size: 13px;
-    }
+        .block {
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
 
-    .label {
-      display: block;
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
+        .label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
 
-    .url {
-      color: #4b5563;
-      word-break: break-all;
-      font-size: 12px;
-    }
+        .url {
+            color: #4b5563;
+            word-break: break-all;
+            font-size: 12px;
+        }
 
-    select,
-    button {
-      width: 100%;
-      padding: 8px;
-      box-sizing: border-box;
-      font-size: 13px;
-    }
+        select,
+        button {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            font-size: 13px;
+        }
 
-    fieldset {
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
-      padding: 8px;
-      margin: 0 0 10px;
-    }
+        fieldset {
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 8px;
+            margin: 0 0 10px;
+        }
 
-    legend {
-      font-size: 12px;
-      font-weight: 600;
-    }
+        legend {
+            font-size: 12px;
+            font-weight: 600;
+        }
 
-    .roles-list {
-      max-height: 120px;
-      overflow: auto;
-      border: 1px solid #e5e7eb;
-      border-radius: 6px;
-      padding: 8px;
-      background: #ffffff;
-    }
+        .roles-list {
+            max-height: 120px;
+            overflow: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 8px;
+            background: #ffffff;
+        }
 
-    .role-item {
-      display: block;
-      margin-bottom: 6px;
-      font-size: 12px;
-    }
+        .role-item {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
 
-    .roles-empty {
-      font-size: 12px;
-      color: #6b7280;
-      margin: 0;
-    }
+        .roles-empty {
+            font-size: 12px;
+            color: #6b7280;
+            margin: 0;
+        }
 
-    .status {
-      margin-top: 10px;
-      font-size: 12px;
-      min-height: 16px;
-    }
-  </style>
+        .status {
+            margin-top: 10px;
+            font-size: 12px;
+            min-height: 16px;
+        }
+    </style>
 </head>
+
 <body>
-  <h3>Save Bookmark</h3>
+    <h3>Save Bookmark</h3>
 
-  <div class="block">
-    <span class="label">Current Page</span>
-    <div id="pageTitle">Loading title...</div>
-    <div id="pageUrl" class="url"></div>
-  </div>
+    <div class="block">
+        <span class="label">Current Page</span>
+        <div id="pageTitle">Loading title...</div>
+        <div id="pageUrl" class="url"></div>
+    </div>
 
-  <div class="block">
-    <label class="label" for="projectSelect">Project</label>
-    <select id="projectSelect"></select>
-  </div>
+    <div class="block">
+        <label class="label" for="projectSelect">Project</label>
+        <select id="projectSelect"></select>
+    </div>
 
-  <fieldset id="accessSection" style="display:none;">
-    <legend>Access Type</legend>
-    <select id="accessTypeSelect">
-      <option value="public">Public</option>
-      <option value="role_based">Role-based</option>
-    </select>
-  </fieldset>
+    <fieldset id="accessSection" style="display:none;">
+        <legend>Access Type</legend>
+        <select id="accessTypeSelect">
+            <option value="public">Public</option>
+            <option value="role_based">Role-based</option>
+        </select>
+    </fieldset>
 
-  <fieldset id="rolesSection" style="display:none;">
-    <legend>Roles with Access</legend>
-    <div id="rolesContainer" class="roles-list"></div>
-    <p id="rolesEmptyText" class="roles-empty" style="display:none;">No roles available for this project.</p>
-  </fieldset>
+    <fieldset id="rolesSection" style="display:none;">
+        <legend>Roles with Access</legend>
+        <div id="rolesContainer" class="roles-list"></div>
+        <p id="rolesEmptyText" class="roles-empty" style="display:none;">No roles available for this project.</p>
+    </fieldset>
 
-  <button id="saveBtn">Save Bookmark</button>
-  <div id="status" class="status" aria-live="polite"></div>
+    <button id="saveBtn">Save Bookmark</button>
+    <div id="status" class="status" aria-live="polite"></div>
 
-  <script src="popup.js"></script>
+    <script src="popup.js"></script>
 </body>
+
 </html>
