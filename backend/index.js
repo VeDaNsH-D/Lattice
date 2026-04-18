@@ -5,6 +5,7 @@ import cors from "cors";
 import express from "express";
 import mongoose from "mongoose";
 import os from "os";
+import path from "path";
 import { Server } from "socket.io";
 
 import {
@@ -12,6 +13,9 @@ import {
     notFoundHandler
 } from "./middlewares/error.middleware.js";
 import authRoutes from "./routes/auth.routes.js";
+import linkRoutes from "./routes/link.routes.js";
+import pulseRoutes from "./routes/pulse.routes.js";
+import { scheduleDailyPulseJob } from "./services/daily-pulse.service.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -26,6 +30,7 @@ const rooms = new Map();
 
 app.use(cors());
 app.use(express.json());
+app.use("/media", express.static(path.join(process.cwd(), "generated")));
 
 const PORT = process.env.PORT || 8000;
 
@@ -338,12 +343,16 @@ io.on("connection", (socket) => {
 
 /* App routes */
 app.use("/api/auth", authRoutes);
+app.use("/api/links", linkRoutes);
+app.use("/api/pulse", pulseRoutes);
 
 /* Not found + global errors */
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
 
 /* Start server */
+scheduleDailyPulseJob();
+
 server.listen(PORT, () => {
     const networkInterfaces = os.networkInterfaces();
     let networkIP = "localhost";

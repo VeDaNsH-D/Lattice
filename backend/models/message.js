@@ -16,8 +16,25 @@ const messageSchema = new mongoose.Schema(
 
         type: {
             type: String,
-            enum: ["text", "system"],
+            enum: ["text", "system", "ai"],
             default: "text"
+        },
+        linkIds: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Link"
+            }
+        ],
+        meta: {
+            collisionType: {
+                type: String,
+                enum: ["overlap", "conflict", "mixed", "none"],
+                default: "none"
+            },
+            collisionScore: {
+                type: Number,
+                default: 0
+            }
         }
     },
     { timestamps: true }
