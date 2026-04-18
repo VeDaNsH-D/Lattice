@@ -6205,6 +6205,12 @@
   margin-top: 6px;
 }
 
+.settings-inline-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .settings-btn {
   padding: 10px 20px;
   border: none;
@@ -6267,6 +6273,35 @@
   border: 1px solid #7dd3fc;
 }
 
+.telegram-token-block {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #dbe4ef;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.telegram-token-label {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #334155;
+  font-weight: 700;
+}
+
+.telegram-token-value,
+.telegram-command-value {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.9rem;
+  background: #ffffff;
+  border: 1px solid #d7e0eb;
+  border-radius: 8px;
+  padding: 10px;
+  color: #0f172a;
+  word-break: break-all;
+}
+
 .directory-status {
   text-align: center;
   padding: 20px;
@@ -6304,6 +6339,11 @@
 
   .settings-actions {
     margin-top: 2px;
+  }
+
+  .settings-inline-actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .settings-btn {

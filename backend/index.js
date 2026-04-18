@@ -33,6 +33,7 @@ import userRoutes from "./routes/user.routes.js";
 import { recordActivity } from "./services/activityLog.service.js";
 import aiRoutes from "./routes/ai.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
+import telegramRoutes from "./routes/telegram.js";
 
 const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
 const configuredOrigins = (process.env.FRONTEND_ORIGINS || frontendUrl)
@@ -434,6 +435,7 @@ app.use("/api/roles", roleRoutes);
 app.use("/api/remix", remixRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/telegram", telegramRoutes);
 app.use("/api", latticeRoutes);
 app.use("/api", graphRoutes);
 app.use("/api/users", userRoutes);

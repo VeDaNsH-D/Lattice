@@ -20,6 +20,12 @@ const userSchema = new mongoose.Schema(
             sparse: true,
             trim: true
         },
+        telegramId: {
+            type: String,
+            unique: true,
+            sparse: true,
+            trim: true
+        },
         avatarUrl: {
             type: String,
             trim: true

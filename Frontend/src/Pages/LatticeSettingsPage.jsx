@@ -4,6 +4,7 @@ import { SlidersHorizontal } from 'lucide-react';
 import { LatticeFrame } from './LatticeFrame';
 import { ProfileIdentityFields } from '../components/ProfileIdentityFields';
 import { getCurrentSessionUser, updateCurrentUserProfile } from '../services/latticeApi';
+import { apiRequest } from '../utils/api';
 import './LatticePages.css';
 
 const clampNumber = (value, min, max, fallback) => {
@@ -20,6 +21,10 @@ export const LatticeSettingsPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [isGeneratingTelegramToken, setIsGeneratingTelegramToken] = useState(false);
+  const [telegramToken, setTelegramToken] = useState('');
+  const [telegramError, setTelegramError] = useState('');
+  const [telegramSuccess, setTelegramSuccess] = useState('');
 
   const [form, setForm] = useState({
     name: '',
@@ -123,6 +128,60 @@ export const LatticeSettingsPage = () => {
     }
   };
 
+  const extractToken = (payload) => {
+    if (!payload) {
+      return '';
+    }
+
+    return payload.token || payload.telegramToken || payload.loginToken || payload?.data?.token || '';
+  };
+
+  const onGenerateTelegramToken = async () => {
+    if (isGeneratingTelegramToken) {
+      return;
+    }
+
+    setIsGeneratingTelegramToken(true);
+    setTelegramError('');
+    setTelegramSuccess('');
+
+    try {
+      const response = await apiRequest('/telegram/generate-token', {
+        method: 'POST',
+      });
+
+      const token = extractToken(response);
+      if (!token) {
+        throw new Error('Token was not returned by the server.');
+      }
+
+      setTelegramToken(token);
+      setTelegramSuccess('Telegram token generated.');
+    } catch (error) {
+      if (error?.status === 401) {
+        setTelegramError('You are not authorized. Please log in again.');
+      } else {
+        setTelegramError(error.message || 'Unable to generate Telegram token.');
+      }
+    } finally {
+      setIsGeneratingTelegramToken(false);
+    }
+  };
+
+  const onCopyTelegramToken = async () => {
+    if (!telegramToken) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(telegramToken);
+      setTelegramError('');
+      setTelegramSuccess('Token copied to clipboard.');
+    } catch {
+      setTelegramError('Unable to copy token. Please copy manually.');
+    }
+  };
+
   const socialFields = [
     { key: 'linkedinUrl', label: 'LinkedIn URL', placeholder: 'https://linkedin.com/in/...' },
     { key: 'githubUrl', label: 'GitHub URL', placeholder: 'https://github.com/...' },
@@ -178,6 +237,47 @@ export const LatticeSettingsPage = () => {
                       />
                     </label>
                   ))}
+                </section>
+
+                <section className="settings-card">
+                  <h3>Telegram Integration</h3>
+                  <p className="settings-note">
+                    Connect your Telegram account to save bookmarks directly from Telegram.
+                  </p>
+
+                  <div className="settings-inline-actions">
+                    <button
+                      type="button"
+                      className="settings-btn settings-btn-primary"
+                      onClick={onGenerateTelegramToken}
+                      disabled={isGeneratingTelegramToken}
+                    >
+                      {isGeneratingTelegramToken ? 'Generating...' : telegramToken ? 'Regenerate Token' : 'Connect Telegram'}
+                    </button>
+                  </div>
+
+                  {telegramError ? <p className="settings-status settings-status-error">{telegramError}</p> : null}
+                  {telegramSuccess ? <p className="settings-status settings-status-success">{telegramSuccess}</p> : null}
+
+                  {telegramToken ? (
+                    <div className="telegram-token-block">
+                      <p className="telegram-token-label">Your login token:</p>
+                      <div className="telegram-token-value">{telegramToken}</div>
+
+                      <p className="telegram-token-label">Use this command in Telegram:</p>
+                      <div className="telegram-command-value">/login {telegramToken}</div>
+
+                      <div className="settings-inline-actions">
+                        <button
+                          type="button"
+                          className="settings-btn settings-btn-ghost"
+                          onClick={onCopyTelegramToken}
+                        >
+                          Copy Token
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                 </section>
               </div>
 
