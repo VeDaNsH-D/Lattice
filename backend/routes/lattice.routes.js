@@ -1,11 +1,16 @@
 import express from "express";
 import Project from "../models/project.js";
+import { authMiddleware } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-router.get("/lattices", async (req, res, next) => {
+router.get("/lattices", authMiddleware, async (req, res, next) => {
     try {
-        const projects = await Project.find({})
+        const userId = req.user.userId;
+        const projects = await Project.find({
+            isActive: true,
+            $or: [{ createdBy: userId }, { members: userId }],
+        })
             .populate("createdBy", "name email")
             .populate("members", "name email")
             .sort({ updatedAt: -1 })

@@ -197,6 +197,7 @@ export const searchSpotlight = async (req, res, next) => {
             Link.find({
                 projectId: { $in: projectScope },
                 $or: [
+                    { url: regexQuery },
                     { title: regexQuery },
                     { summary: regexQuery },
                     { description: regexQuery },
@@ -233,7 +234,7 @@ export const searchSpotlight = async (req, res, next) => {
 
         const linkResults = linkMatches.map((link) => {
             const project = projectMap.get(String(link.projectId));
-            const haystack = `${link.title || ""} ${link.summary || ""} ${link.description || ""} ${(link.tags || []).join(" ")}`.toLowerCase();
+            const haystack = `${link.url || ""} ${link.title || ""} ${link.summary || ""} ${link.description || ""} ${(link.tags || []).join(" ")}`.toLowerCase();
             const score = haystack.includes(query.toLowerCase()) ? 0.9 : 0.6;
 
             return {
