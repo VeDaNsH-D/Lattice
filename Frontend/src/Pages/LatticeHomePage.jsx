@@ -413,9 +413,13 @@ export const LatticeHomePage = () => {
   );
 
   const isBookmarkNewProject = bookmarkProjectSelection === '__new__';
+  const selectedBookmarkProject = !isBookmarkNewProject
+    ? allProjects.find((project) => project.id === bookmarkProjectSelection) || null
+    : null;
   const selectedProjectRoles = !isBookmarkNewProject
     ? rolesByProject[bookmarkProjectSelection] || []
     : [];
+  const showRoleAccessControls = Boolean(selectedBookmarkProject && selectedBookmarkProject.projectType === 'collaborative');
 
   const selectedDiscoverUser = useMemo(
     () => discoverUsers.find((user) => user.id === selectedDiscoverUserId) || null,
@@ -1090,6 +1094,44 @@ export const LatticeHomePage = () => {
                   )}
                 </div>
               </div>
+
+              {showRoleAccessControls && (
+                <div className="lattice-hero-access-panel">
+                  <div className="lattice-hero-access-topline">
+                    <p className="lattice-hero-access-title">Link access</p>
+                    <div className="lattice-hero-select-wrap lattice-hero-access-select-wrap">
+                      <select
+                        value={bookmarkAccessType}
+                        onChange={(event) => setBookmarkAccessType(event.target.value)}
+                        className="lattice-hero-select-subtle"
+                      >
+                        <option value="public">Public to project members</option>
+                        <option value="role_based" disabled={selectedProjectRoles.length === 0}>Role based</option>
+                      </select>
+                      <ChevronDown size={14} className="hero-select-chevron" />
+                    </div>
+                  </div>
+
+                  {bookmarkAccessType === 'role_based' && (
+                    selectedProjectRoles.length ? (
+                      <div className="lattice-hero-role-list" role="group" aria-label="Select roles for link access">
+                        {selectedProjectRoles.map((role) => (
+                          <label key={role.id} className="lattice-hero-role-chip">
+                            <input
+                              type="checkbox"
+                              checked={selectedRoleIds.includes(role.id)}
+                              onChange={() => onRoleToggle(role.id)}
+                            />
+                            <span>{role.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="lattice-hero-role-empty">No roles found for this project. Create roles first to use role-based access.</p>
+                    )
+                  )}
+                </div>
+              )}
 
               <button type="submit" className="lattice-hero-submit" disabled={bookmarkSubmitting}>
                 {bookmarkSubmitting ? 'Saving...' : 'Add Link \u2192'}

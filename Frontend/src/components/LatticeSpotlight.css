@@ -454,6 +454,72 @@
   margin: 0;
 }
 
+.spotlight-ai-answer-list {
+  margin: 0;
+  padding-left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.spotlight-ai-answer-item {
+  color: #374151;
+  line-height: 1.45;
+}
+
+.spotlight-ai-answer-item-title {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 2px;
+}
+
+.spotlight-ai-answer-item-body {
+  display: block;
+  font-size: 0.81rem;
+  color: #475569;
+}
+
+.spotlight-ai-answer-paragraphs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.spotlight-ai-answer-paragraphs p {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.48;
+  color: #374151;
+}
+
+.spotlight-ai-answer-list.compact,
+.spotlight-ai-answer-paragraphs.compact {
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.spotlight-ai-warning-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.spotlight-ai-warning-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #f5d0a9;
+  background: #fff8ed;
+  color: #9a3412;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
 @media (max-width: 860px) {
   .spotlight-modal.expanded {
     width: min(94vw, 760px);

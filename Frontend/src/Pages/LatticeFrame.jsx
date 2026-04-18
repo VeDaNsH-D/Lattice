@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import {
   Command,
@@ -16,6 +16,7 @@ import {
   CircleUserRound,
 } from 'lucide-react';
 import { LatticeSpotlight } from '../components/LatticeSpotlight';
+import { NotificationDropdown } from '../components/NotificationDropdown';
 import { getCurrentSessionUser } from '../services/latticeApi';
 import './LatticePages.css';
 
@@ -31,8 +32,11 @@ const navItems = [
 export const LatticeFrame = ({ children }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSpotlightOpen, setIsSpotlightOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [userAvatarUrl, setUserAvatarUrl] = useState(null);
   const [userProfileId, setUserProfileId] = useState('');
+  const notificationWrapRef = useRef(null);
 
   useEffect(() => {
     const handleGlobalKeyDown = (event) => {
@@ -90,6 +94,32 @@ export const LatticeFrame = ({ children }) => {
     return () => window.removeEventListener('lattice:current-user-updated', handleProfileUpdate);
   }, []);
 
+  useEffect(() => {
+    if (!isNotificationOpen) {
+      return undefined;
+    }
+
+    const handleOutsideClick = (event) => {
+      if (!notificationWrapRef.current?.contains(event.target)) {
+        setIsNotificationOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setIsNotificationOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isNotificationOpen]);
+
   return (
     <div className="lattice-dashboard">
       <main className="lattice-main-content">
@@ -122,9 +152,27 @@ export const LatticeFrame = ({ children }) => {
             <button className="action-circle" aria-label="Create">
               <Plus size={18} />
             </button>
-            <button className="action-circle" aria-label="Notifications">
-              <Bell size={18} />
-            </button>
+            <div className="topbar-notification-wrap" ref={notificationWrapRef}>
+              <button
+                className="action-circle"
+                aria-label="Notifications"
+                aria-expanded={isNotificationOpen}
+                onClick={() => setIsNotificationOpen((previous) => !previous)}
+              >
+                <Bell size={18} />
+                {unreadNotificationCount > 0 ? (
+                  <span className="notification-badge" aria-label={`${unreadNotificationCount} unread notifications`}>
+                    {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                  </span>
+                ) : null}
+              </button>
+              <NotificationDropdown
+                isOpen={isNotificationOpen}
+                onUnreadCountChange={setUnreadNotificationCount}
+                onRequestClose={() => setIsNotificationOpen(false)}
+                prefetchOnMount
+              />
+            </div>
             {userProfileId ? (
               <Link to={`/profile/${userProfileId}`} className="user-avatar user-avatar-link" aria-label="Open your profile">
                 {userAvatarUrl ? (

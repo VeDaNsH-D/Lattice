@@ -4,7 +4,7 @@ import path from "path";
 const AI_BASE_URL = process.env.AI_BASE_URL || "https://api.groq.com/openai/v1";
 const AI_API_KEY = process.env.AI_API_KEY || process.env.GROQ_API_KEY;
 
-const CHAT_MODEL = process.env.AI_CHAT_MODEL || "llama-3.3-70b-versatile";
+const CHAT_MODEL = process.env.GROQ_MODEL || process.env.AI_CHAT_MODEL || "llama-3.1-8b-instant";
 const EMBEDDING_MODEL = process.env.AI_EMBEDDING_MODEL || "nomic-embed-text-v1.5";
 const EMBEDDINGS_ENABLED = process.env.AI_EMBEDDINGS_ENABLED !== "false";
 let embeddingDisabled = !EMBEDDINGS_ENABLED;

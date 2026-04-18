@@ -211,5 +211,15 @@ export const markLinkViewed = (linkId) => {
   return requestJson(`/links/${linkId}/view`, { method: 'POST' });
 };
 
+export const getNotifications = () => {
+  return requestJson('/notifications', { method: 'GET', cache: 'no-store' });
+};
+
+export const markNotificationAsRead = (notificationId) => {
+  return requestJson(`/notifications/${notificationId}/read`, {
+    method: 'PATCH',
+  });
+};
+
 export const getBackendBaseUrl = () => BACKEND_BASE_URL;
 export const getBackendOrigin = () => BACKEND_BASE_URL;

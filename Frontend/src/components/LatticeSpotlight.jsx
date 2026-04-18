@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { searchSpotlight } from '../services/latticeApi';
+import { askLatticeAI, parseAIResponse } from '../services/aiQuery';
 import './LatticeSpotlight.css';
 
 const getProjectIdFromPath = (pathname = '') => {
@@ -35,6 +36,11 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [aiMode, setAiMode] = useState(false);
+  const [aiAnswer, setAiAnswer] = useState('');
+  const [aiWarnings, setAiWarnings] = useState([]);
+  const [aiError, setAiError] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiContextsResolved, setAiContextsResolved] = useState(0);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
   const inputRef = useRef(null);
@@ -55,6 +61,11 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
     setQuery('');
     setContext(null);
     setAiMode(false);
+    setAiAnswer('');
+    setAiWarnings([]);
+    setAiError('');
+    setAiLoading(false);
+    setAiContextsResolved(0);
     setError('');
     setResults([]);
     setSelectedIndex(0);
@@ -181,10 +192,29 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
 
   // Derive state logic
   const isSlashMode = query.startsWith('/');
-  const showAiResponse = aiMode && query.length > 5 && !isSlashMode;
+  const trimmedQuery = query.trim();
+  const isAtMode = trimmedQuery.startsWith('@');
+  const mentionToken = isAtMode ? trimmedQuery.slice(1).split(/\s+/)[0] : '';
+  const mentionHasOnlyContext = /^@[^\s]*$/.test(trimmedQuery);
+  const showAiResponse = aiLoading || Boolean(aiAnswer) || Boolean(aiError);
   const shouldExpand = query.trim().length > 0;
   const activeProjectId = getProjectIdFromPath(location.pathname);
   const isInsideProject = Boolean(activeProjectId);
+
+  const contextSuggestions = useMemo(() => {
+    if (!isAtMode) {
+      return [];
+    }
+
+    const normalizedToken = String(mentionToken || '').toLowerCase();
+
+    return contexts
+      .filter((item) => {
+        const name = String(item?.name || '').toLowerCase();
+        return !normalizedToken || name.startsWith(normalizedToken) || name.includes(normalizedToken);
+      })
+      .slice(0, 8);
+  }, [contexts, isAtMode, mentionToken]);
 
   const filteredResults = useMemo(() => {
     const trimmedQuery = query.trim().toLowerCase();
@@ -309,7 +339,7 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
 
   const selectContext = (ctx) => {
     setContext(ctx);
-    setQuery('');
+    setQuery(`@${ctx.name} `);
     setAiMode(false);
     setResults([]);
     setSelectedIndex(0);
@@ -322,10 +352,48 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
     setQuery('');
     setContext(null);
     setAiMode(false);
+    setAiAnswer('');
+    setAiWarnings([]);
+    setAiError('');
+    setAiLoading(false);
+    setAiContextsResolved(0);
     setError('');
     setSelectedIndex(0);
     setIsInputFocused(false);
     onClose();
+  };
+
+  const runAiQuery = async (rawQuery) => {
+    const trimmedQuery = String(rawQuery || '').trim();
+
+    if (!trimmedQuery) {
+      return;
+    }
+
+    setAiMode(true);
+    setAiLoading(true);
+    setAiError('');
+    setAiAnswer('');
+    setAiWarnings([]);
+    setAiContextsResolved(0);
+
+    try {
+      const response = await askLatticeAI(trimmedQuery, activeProjectId || context?.id || '');
+      const parsed = parseAIResponse(response);
+
+      if (!parsed.success) {
+        setAiError(parsed.response || 'Unable to generate an answer.');
+        return;
+      }
+
+      setAiAnswer(parsed.response || 'No response generated.');
+      setAiWarnings(Array.isArray(parsed.warnings) ? parsed.warnings : []);
+      setAiContextsResolved(Number(parsed.contextsResolved || 0));
+    } catch (requestError) {
+      setAiError(requestError?.message || 'Unable to generate an answer.');
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const executeCommand = async (command) => {
@@ -372,6 +440,11 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
           const trimmedQuery = query.trim();
           if (!trimmedQuery) {
             setAiMode(true);
+            return;
+          }
+
+          if (/@([a-zA-Z0-9\-_]+)/.test(trimmedQuery)) {
+            await runAiQuery(trimmedQuery);
             return;
           }
 
@@ -444,7 +517,29 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
       return;
     }
 
+    if (e.key === 'Enter' && isAtMode && mentionHasOnlyContext) {
+      e.preventDefault();
+
+      const selectedContext = contextSuggestions[0] || null;
+      if (!selectedContext) {
+        setAiError('No matching context found. Try / to browse spaces.');
+        setAiMode(true);
+        return;
+      }
+
+      const aiQuery = `@${selectedContext.name} summarise all links`;
+      setQuery(aiQuery);
+      void runAiQuery(aiQuery);
+      return;
+    }
+
     if (e.key === 'Enter' && query.length > 0 && !isSlashMode) {
+      if (/@([a-zA-Z0-9\-_]+)/.test(query.trim())) {
+        e.preventDefault();
+        void runAiQuery(query.trim());
+        return;
+      }
+
       if (selectedCommand) {
         void executeCommand(selectedCommand);
       } else {
@@ -502,6 +597,67 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
     return parsed.toLocaleDateString();
   };
 
+  const normalizedAiAnswer = useMemo(() => {
+    const raw = String(aiAnswer || '').trim();
+
+    if (!raw) {
+      return {
+        items: [],
+        paragraphs: [],
+      };
+    }
+
+    // Remove common markdown noise so output reads cleanly in the panel.
+    const cleaned = raw
+      .replace(/\*\*/g, '')
+      .replace(/`/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const looksLikeNumberedList = /\b1\.\s/.test(cleaned) && /\b2\.\s/.test(cleaned);
+
+    if (looksLikeNumberedList) {
+      const chunks = cleaned
+        .split(/(?=\d+\.\s)/)
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+        .slice(0, 8);
+
+      const items = chunks.map((chunk) => {
+        const withoutIndex = chunk.replace(/^\d+\.\s*/, '').trim();
+        const separatorIndex = withoutIndex.indexOf(' - ');
+
+        if (separatorIndex === -1) {
+          return {
+            title: '',
+            body: withoutIndex,
+          };
+        }
+
+        return {
+          title: withoutIndex.slice(0, separatorIndex).trim(),
+          body: withoutIndex.slice(separatorIndex + 3).trim(),
+        };
+      });
+
+      return {
+        items,
+        paragraphs: [],
+      };
+    }
+
+    const paragraphs = cleaned
+      .split(/(?<=[.!?])\s+(?=[A-Z])/)
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .slice(0, 8);
+
+    return {
+      items: [],
+      paragraphs,
+    };
+  }, [aiAnswer]);
+
   const contextLinkCount = context?.links ?? context?.nodes ?? 0;
 
   if (!isOpen) return null;
@@ -557,15 +713,24 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
 
             {showAiResponse ? (
               <div className="spotlight-section">
-                <span className="spotlight-section-title">Answer</span>
+                <span className="spotlight-section-title">AI Status</span>
                 <div className="spotlight-ai-response">
-                  <p>Based on <strong>{context ? context.name : 'your space'}</strong>, here’s a simple summary of the most relevant ideas. You can keep searching or open the matching note for more detail.</p>
+                  {aiLoading ? (
+                    <p style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+                      <Loader2 size={14} className="lat-spinner" />
+                      Generating answer...
+                    </p>
+                  ) : aiError ? (
+                    <p>{aiError}</p>
+                  ) : (
+                    <p>Answer generated. See the right panel for full response.</p>
+                  )}
                 </div>
               </div>
-            ) : isSlashMode ? (
+            ) : isSlashMode || (isAtMode && mentionHasOnlyContext) ? (
               <div className="spotlight-section">
                 <span className="spotlight-section-title">Choose a space</span>
-                {contexts.map((item, index) => (
+                {contextSuggestions.map((item, index) => (
                   <div
                     key={item.id}
                     className={`spotlight-row ${index === 0 ? 'active' : ''}`}
@@ -580,9 +745,9 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
                     </div>
                   </div>
                 ))}
-                {!contexts.length ? (
+                {!contextSuggestions.length ? (
                   <div className="spotlight-row">
-                    <div className="spotlight-action-text">No spaces found.</div>
+                    <div className="spotlight-action-text">No spaces found for this context.</div>
                   </div>
                 ) : null}
               </div>
@@ -675,29 +840,84 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
 
         {/* RIGHT PANE: PREVIEW */}
         <div className="spotlight-right">
-          <div className="spotlight-right-icon">{selectedResult ? getResultIcon(selectedResult.type) : <Search size={16} />}</div>
-          <div className="spotlight-right-title">{selectedResult?.title || 'Search results preview'}</div>
-          <div className="spotlight-right-type">{selectedResult ? getItemTypeLabel(selectedResult) : 'Item'}</div>
+          {showAiResponse ? (
+            <>
+              <div className="spotlight-right-icon"><Sparkles size={16} /></div>
+              <div className="spotlight-right-title">AI Answer</div>
+              <div className="spotlight-right-type">Context Query</div>
 
-          <div className="spotlight-right-location">
-            <span className="spotlight-meta-label">Location</span>
-            <span className="spotlight-meta-value">{selectedResult?.project?.name || 'Your space'}</span>
-          </div>
+              <div className="spotlight-preview-card">
+                <h3>{query.trim() || 'Query'}</h3>
+                {aiLoading ? (
+                  <p style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <Loader2 size={14} className="lat-spinner" />
+                    Generating answer from selected contexts...
+                  </p>
+                ) : aiError ? (
+                  <p>{aiError}</p>
+                ) : normalizedAiAnswer.items.length > 0 ? (
+                  <div className="spotlight-ai-answer-list compact">
+                    {normalizedAiAnswer.items.map((item, index) => (
+                      <div key={`right-ai-item-${index}`} className="spotlight-ai-answer-item">
+                        {item.title ? <span className="spotlight-ai-answer-item-title">{item.title}</span> : null}
+                        <span className="spotlight-ai-answer-item-body">{item.body}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : normalizedAiAnswer.paragraphs.length > 0 ? (
+                  <div className="spotlight-ai-answer-paragraphs compact">
+                    {normalizedAiAnswer.paragraphs.map((paragraph, index) => (
+                      <p key={`right-ai-paragraph-${index}`}>{paragraph}</p>
+                    ))}
+                  </div>
+                ) : (
+                  <p>{aiAnswer || 'No answer generated.'}</p>
+                )}
 
-          <div className="spotlight-preview-card faded">
-            <h3>{selectedResult?.title || 'Pick a result to preview'}</h3>
-            <p>{selectedResult?.description || 'Search across your spaces to see links and notes here.'}</p>
-            <p>{selectedResult?.path || 'Use / to pick a space and narrow down results.'}</p>
-            {selectedResult?.url ? <p>{selectedResult.url}</p> : null}
-          </div>
+                {!aiLoading && aiWarnings.length > 0 ? (
+                  <div className="spotlight-ai-warning-list">
+                    {aiWarnings.map((warning, index) => (
+                      <span key={`ai-warning-${index}`} className="spotlight-ai-warning-chip">{warning}</span>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
 
-          <div className="spotlight-meta-grid">
-            <span className="spotlight-meta-label">Saved by</span>
-            <span className="spotlight-meta-value">You</span>
+              <div className="spotlight-meta-grid">
+                <span className="spotlight-meta-label">Contexts</span>
+                <span className="spotlight-meta-value">{aiContextsResolved || 0}</span>
 
-            <span className="spotlight-meta-label">Updated</span>
-            <span className="spotlight-meta-value">{formatDate(selectedResult?.updatedAt)}</span>
-          </div>
+                <span className="spotlight-meta-label">Updated</span>
+                <span className="spotlight-meta-value">{formatDate(new Date())}</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="spotlight-right-icon">{selectedResult ? getResultIcon(selectedResult.type) : <Search size={16} />}</div>
+              <div className="spotlight-right-title">{selectedResult?.title || 'Search results preview'}</div>
+              <div className="spotlight-right-type">{selectedResult ? getItemTypeLabel(selectedResult) : 'Item'}</div>
+
+              <div className="spotlight-right-location">
+                <span className="spotlight-meta-label">Location</span>
+                <span className="spotlight-meta-value">{selectedResult?.project?.name || 'Your space'}</span>
+              </div>
+
+              <div className="spotlight-preview-card faded">
+                <h3>{selectedResult?.title || 'Pick a result to preview'}</h3>
+                <p>{selectedResult?.description || 'Search across your spaces to see links and notes here.'}</p>
+                <p>{selectedResult?.path || 'Use / to pick a space and narrow down results.'}</p>
+                {selectedResult?.url ? <p>{selectedResult.url}</p> : null}
+              </div>
+
+              <div className="spotlight-meta-grid">
+                <span className="spotlight-meta-label">Saved by</span>
+                <span className="spotlight-meta-value">You</span>
+
+                <span className="spotlight-meta-label">Updated</span>
+                <span className="spotlight-meta-value">{formatDate(selectedResult?.updatedAt)}</span>
+              </div>
+            </>
+          )}
         </div>
 
       </div>

@@ -4,6 +4,7 @@ import ProjectMember from "../models/projectMember.js";
 import Role from "../models/role.js";
 import User from "../models/user.js";
 import Project from "../models/project.js";
+import Notification from "../models/notification.js";
 import { sendInviteEmail } from "../services/email.service.js";
 import { recordActivity } from "../services/activityLog.service.js";
 
@@ -35,7 +36,7 @@ export const inviteUser = async (req, res, next) => {
         }
 
         // 2. AUTHORIZATION: Check if user has access to the project
-        const project = await Project.findById(projectId).select("_id projectType createdBy members isActive");
+        const project = await Project.findById(projectId).select("_id name projectType createdBy members isActive");
 
         if (!project || !project.isActive) {
             return res.status(404).json({
@@ -165,7 +166,21 @@ export const inviteUser = async (req, res, next) => {
             console.error("Error preparing email data:", emailError.message);
         }
 
-        // 8. RESPONSE
+        // 8. CREATE IN-APP NOTIFICATION FOR REGISTERED USERS
+        if (existingUser?._id) {
+            const inviter = await User.findById(requesterId).select("name email");
+            const inviterName = inviter?.name || inviter?.email || "Someone";
+            const projectName = project?.name || "a lattice";
+
+            await Notification.create({
+                userId: existingUser._id,
+                type: "invite",
+                message: `${inviterName} invited you to ${projectName}`,
+                link: `/invite/${invite._id}`
+            });
+        }
+
+        // 9. RESPONSE
         return res.status(201).json({
             success: true,
             invite: populatedInvite
