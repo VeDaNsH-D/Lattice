@@ -6,6 +6,7 @@ import { AuthPage } from './components/AuthPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { PublicOnlyRoute } from './components/PublicOnlyRoute';
 import { LatticeHomePage } from './Pages/LatticeHomePage';
+import { LatticeMyLatticesPage } from './Pages/LatticeMyLatticesPage';
 import { LatticeProjectPage } from './Pages/LatticeProjectPage';
 import { LatticeFeaturesPage } from './Pages/LatticeFeaturesPage';
 import { LatticeStackPage } from './Pages/LatticeStackPage';
@@ -34,6 +35,8 @@ function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route path="/lattice" element={<LatticeHomePage />} />
+          <Route path="/lattice/personal" element={<LatticeMyLatticesPage />} />
+          <Route path="/lattice/shared" element={<LatticeMyLatticesPage />} />
           <Route path="/lattice/project/:projectId" element={<LatticeProjectPage />} />
           <Route path="/lattice/project/:projectId/graph" element={<LatticeGraphPage />} />
           <Route path="/lattice/graph" element={<Navigate to="/lattice" replace />} />

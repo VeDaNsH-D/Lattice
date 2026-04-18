@@ -79,7 +79,7 @@ export const LatticeFrame = ({ children }) => {
           <div className="topbar-left" style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
             <div className="topbar-brand" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#111827' }}>
               <Command size={22} strokeWidth={2.4} />
-              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, letterSpacing: '-0.025em' }}>LATTICE</h2>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, letterSpacing: '-0.025em', fontFamily: 'var(--font-display)' }}>LATTICE</h2>
             </div>
             
             <nav className="topbar-nav-list" style={{ display: 'flex', gap: '6px' }}>

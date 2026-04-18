@@ -24,7 +24,7 @@
   --brand-primary: #000000;
   --brand-primary-hover: #333333;
   --brand-soft: #f1f5f9;
-  --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: "PP Editorial New", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
   --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 

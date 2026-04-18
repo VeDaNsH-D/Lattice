@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LatticeFrame } from './LatticeFrame';
-import { BookOpen, PenTool, Code2, Share2, ArrowUpRight, Atom, Blocks, Plus, X, Link as LinkIcon, ChevronDown, SlidersHorizontal, ArrowDownUp, LayoutGrid } from 'lucide-react';
+import { BookOpen, PenTool, Code2, Share2, ArrowUpRight, Atom, Blocks, Plus, X, Link as LinkIcon, ChevronDown, SlidersHorizontal, ArrowDownUp, LayoutGrid, Command } from 'lucide-react';
 import { apiRequest } from '../utils/api';
 import './LatticePages.css';
 
@@ -184,58 +184,6 @@ export const LatticeHomePage = () => {
     };
   }, [bookmarkProjectSelection, loadRolesForProject]);
 
-  const openCreateModal = (projectType) => {
-    setModalType(projectType);
-    setNewProjectName('');
-    setModalError('');
-  };
-
-  const closeCreateModal = () => {
-    if (creatingType !== null) {
-      return;
-    }
-
-    setModalType(null);
-    setNewProjectName('');
-    setModalError('');
-  };
-
-  const onCreateProject = async (event) => {
-    event.preventDefault();
-
-    if (!modalType) {
-      return;
-    }
-
-    const trimmedName = newProjectName.trim();
-    if (!trimmedName) {
-      setModalError('Project name is required.');
-      return;
-    }
-
-    setCreatingType(modalType);
-    setErrorMessage('');
-    setModalError('');
-
-    try {
-      await apiRequest('/projects', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: trimmedName,
-          projectType: modalType,
-        }),
-      });
-
-      closeCreateModal();
-      await loadProjects();
-    } catch (error) {
-      const message = error.message || 'Unable to create project.';
-      setModalError(message);
-      setErrorMessage(message);
-    } finally {
-      setCreatingType(null);
-    }
-  };
 
   const onSubmitBookmark = async (event) => {
     event.preventDefault();
@@ -348,260 +296,75 @@ export const LatticeHomePage = () => {
 
   return (
     <LatticeFrame>
-      <div className="directory-container">
-        <section className="bookmark-entry-panel">
-          <div className="bookmark-entry-head">
-            <div className="bookmark-entry-title-wrap">
-              <span className="bookmark-entry-icon"><LinkIcon size={16} /></span>
-              <h3>Add New Bookmark</h3>
-            </div>
-            <p>Capture a link and assign access in one step.</p>
-          </div>
+      <div className="lattice-home-hero">
+        <div className="lattice-home-mesh" />
 
-          <form className="bookmark-entry-form" onSubmit={onSubmitBookmark}>
-            <div className="bookmark-grid">
-              <div className="bookmark-field bookmark-field-wide">
-                <label htmlFor="bookmark-url">Link URL</label>
-                <input
-                  id="bookmark-url"
-                  type="url"
-                  placeholder="https://example.com/interesting-article"
+        <div className="lattice-home-hero-content">
+          <div className="lattice-hero-rings" style={{ marginBottom: '16px' }}>
+            <Command size={64} strokeWidth={1.2} color="#111" />
+          </div>
+          
+          <p className="lattice-hero-subtitle">Capture a link and assign access in one step.</p>
+          <h1 className="lattice-hero-title">Data-Powered<br />Workspace Intelligence.</h1>
+
+          <form className="lattice-hero-form" onSubmit={onSubmitBookmark}>
+             <div className="lattice-hero-input-group tall">
+                <input 
+                  type="url" 
+                  placeholder="Type a link or URL..." 
                   value={bookmarkUrl}
-                  onChange={(event) => setBookmarkUrl(event.target.value)}
-                  disabled={bookmarkSubmitting}
+                  onChange={(e) => setBookmarkUrl(e.target.value)}
+                  className="lattice-hero-input"
                   required
                 />
-              </div>
-
-              <div className="bookmark-field">
-                <label htmlFor="bookmark-project-select">Project</label>
-                <div className="bookmark-select-wrap">
-                  <select
-                    id="bookmark-project-select"
-                    value={bookmarkProjectSelection}
-                    onChange={(event) => setBookmarkProjectSelection(event.target.value)}
-                    disabled={bookmarkSubmitting}
-                  >
-                    <option value="">Select project</option>
-                    {allProjects.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.name}
-                      </option>
-                    ))}
-                    <option value="__new__">+ Add to new project</option>
-                  </select>
-                  <ChevronDown size={16} className="bookmark-select-chevron" />
+                
+                <div className="lattice-hero-options-inline">
+                  <div className="lattice-hero-select-wrap" style={{width: '200px', flexShrink: 0}}>
+                    <select
+                      value={bookmarkProjectSelection}
+                      onChange={(e) => setBookmarkProjectSelection(e.target.value)}
+                      className="lattice-hero-select-subtle"
+                    >
+                      <option value="">Select project...</option>
+                      {allProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      <option value="__new__">+ New project...</option>
+                    </select>
+                    <ChevronDown size={14} className="hero-select-chevron" />
+                  </div>
+                  
+                  {isBookmarkNewProject && (
+                    <>
+                      <input 
+                        type="text" 
+                        placeholder="Project name"
+                        value={bookmarkNewProjectName}
+                        onChange={(e) => setBookmarkNewProjectName(e.target.value)}
+                        className="lattice-hero-select-subtle name-input"
+                      />
+                      <div className="lattice-hero-select-wrap" style={{width: '120px', flexShrink: 0}}>
+                        <select
+                          value={bookmarkProjectType}
+                          onChange={(e) => setBookmarkProjectType(e.target.value)}
+                          className="lattice-hero-select-subtle"
+                        >
+                          <option value="personal">Personal</option>
+                          <option value="collaborative">Group</option>
+                        </select>
+                        <ChevronDown size={14} className="hero-select-chevron" />
+                      </div>
+                    </>
+                  )}
                 </div>
-              </div>
+             </div>
 
-              {isBookmarkNewProject ? (
-                <>
-                  <div className="bookmark-field">
-                    <label htmlFor="bookmark-new-project-name">New project name</label>
-                    <input
-                      id="bookmark-new-project-name"
-                      type="text"
-                      placeholder="Project name"
-                      value={bookmarkNewProjectName}
-                      onChange={(event) => setBookmarkNewProjectName(event.target.value)}
-                      disabled={bookmarkSubmitting}
-                    />
-                  </div>
-                  <div className="bookmark-field">
-                    <label htmlFor="bookmark-new-project-type">Project type</label>
-                    <div className="bookmark-select-wrap">
-                      <select
-                        id="bookmark-new-project-type"
-                        value={bookmarkProjectType}
-                        onChange={(event) => setBookmarkProjectType(event.target.value)}
-                        disabled={bookmarkSubmitting}
-                      >
-                        <option value="personal">Personal</option>
-                        <option value="collaborative">Collaborative</option>
-                      </select>
-                      <ChevronDown size={16} className="bookmark-select-chevron" />
-                    </div>
-                  </div>
-                </>
-              ) : null}
+             <button type="submit" className="lattice-hero-submit" disabled={bookmarkSubmitting}>
+               {bookmarkSubmitting ? 'Saving...' : 'Add Link \u2192'}
+             </button>
 
-              <div className="bookmark-field">
-                <label htmlFor="bookmark-access-type">Access type</label>
-                <div className="bookmark-select-wrap">
-                  <select
-                    id="bookmark-access-type"
-                    value={bookmarkAccessType}
-                    onChange={(event) => setBookmarkAccessType(event.target.value)}
-                    disabled={bookmarkSubmitting || isBookmarkNewProject}
-                  >
-                    <option value="public">Public (all project members)</option>
-                    <option value="role_based" disabled={selectedProjectRoles.length === 0}>
-                      Role-based access
-                    </option>
-                  </select>
-                  <ChevronDown size={16} className="bookmark-select-chevron" />
-                </div>
-              </div>
-            </div>
-
-            {bookmarkAccessType === 'role_based' && !isBookmarkNewProject ? (
-              <div className="bookmark-role-section">
-                <p className="bookmark-role-label">Roles with access</p>
-                {selectedProjectRoles.length ? (
-                  <div className="bookmark-role-list">
-                    {selectedProjectRoles.map((role) => (
-                      <label key={role.id} className="bookmark-role-chip">
-                        <input
-                          type="checkbox"
-                          checked={selectedRoleIds.includes(role.id)}
-                          onChange={() => onRoleToggle(role.id)}
-                          disabled={bookmarkSubmitting}
-                        />
-                        <span>{role.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="bookmark-role-empty">No roles exist for this project yet.</p>
-                )}
-              </div>
-            ) : null}
-
-            {bookmarkError ? <p className="bookmark-feedback bookmark-feedback-error">{bookmarkError}</p> : null}
-            {bookmarkSuccess ? <p className="bookmark-feedback bookmark-feedback-success">{bookmarkSuccess}</p> : null}
-
-            <div className="bookmark-actions">
-              <button
-                type="submit"
-                className="bookmark-submit-btn"
-                disabled={bookmarkSubmitting}
-              >
-                {bookmarkSubmitting ? 'Saving bookmark...' : 'Add Bookmark'}
-              </button>
-            </div>
+             {bookmarkError && <p className="hero-feedback-error">{bookmarkError}</p>}
+             {bookmarkSuccess && <p className="hero-feedback-success">{bookmarkSuccess}</p>}
           </form>
-        </section>
-
-        <header className="directory-dashboard-header">
-          <div className="dash-header-title">
-            <h2>Personal Projects</h2>
-            <span className="dash-header-count">{personalProjects.length}</span>
-          </div>
-
-          <div className="dash-header-controls">
-            <button 
-              className="dash-control-btn" 
-              onClick={() => openCreateModal('personal')} 
-              disabled={creatingType !== null}
-              style={{ background: '#111827', color: '#fff', border: 'none' }}
-            >
-              <Plus size={14} /> New Personal Project
-            </button>
-            <div style={{width: 1, height: 24, background: 'rgba(0,0,0,0.1)', margin: '0 6px'}} />
-            <button className="dash-control-btn">
-              <SlidersHorizontal size={14} /> Filter
-            </button>
-            <button className="dash-control-btn">
-              <ArrowDownUp size={14} /> Sort
-            </button>
-            <button className="dash-control-btn-icon">
-              <LayoutGrid size={16} />
-            </button>
-          </div>
-        </header>
-
-        {loading ? <p className="directory-status">Loading projects...</p> : renderProjectCards(personalProjects, personalIcons, onProjectOpen)}
-
-        <header className="directory-dashboard-header" style={{ marginTop: '50px' }}>
-          <div className="dash-header-title">
-            <h2>Group Projects</h2>
-            <span className="dash-header-count">{collaborativeProjects.length}</span>
-          </div>
-
-          <div className="dash-header-controls">
-            <button 
-              className="dash-control-btn" 
-              onClick={() => openCreateModal('collaborative')} 
-              disabled={creatingType !== null}
-              style={{ background: '#111827', color: '#fff', border: 'none' }}
-            >
-              <Plus size={14} /> New Group Project
-            </button>
-            <div style={{width: 1, height: 24, background: 'rgba(0,0,0,0.1)', margin: '0 6px'}} />
-            <button className="dash-control-btn">
-              <SlidersHorizontal size={14} /> Filter
-            </button>
-            <button className="dash-control-btn">
-              <ArrowDownUp size={14} /> Sort
-            </button>
-            <button className="dash-control-btn-icon">
-              <LayoutGrid size={16} />
-            </button>
-          </div>
-        </header>
-
-        {loading ? null : renderProjectCards(collaborativeProjects, collaborativeIcons, onProjectOpen, 50)}
-
-        {errorMessage ? <p className="directory-status directory-status-error">{errorMessage}</p> : null}
-        {!loading && !hasProjects ? <p className="directory-status">Create your first project to get started.</p> : null}
-
-        {isModalOpen ? (
-          <div className="project-modal-backdrop" onClick={closeCreateModal}>
-            <div className="project-modal" onClick={(event) => event.stopPropagation()}>
-              <button
-                type="button"
-                className="project-modal-close"
-                onClick={closeCreateModal}
-                aria-label="Close create project dialog"
-              >
-                <X size={16} />
-              </button>
-
-              <h3 className="project-modal-title">
-                {modalType === 'collaborative' ? 'Create collaborative project' : 'Create personal project'}
-              </h3>
-              <p className="project-modal-subtitle">
-                Give your project a clear name. You can refine details later.
-              </p>
-
-              <form onSubmit={onCreateProject} className="project-modal-form">
-                <label htmlFor="project-name" className="project-modal-label">Project name</label>
-                <input
-                  id="project-name"
-                  className="project-modal-input"
-                  type="text"
-                  placeholder={modalType === 'collaborative' ? 'Growth Sprint Q2' : 'AI Research Notes'}
-                  value={newProjectName}
-                  onChange={(event) => setNewProjectName(event.target.value)}
-                  maxLength={80}
-                  autoFocus
-                  disabled={creatingType !== null}
-                />
-
-                {modalError ? <p className="project-modal-error">{modalError}</p> : null}
-
-                <div className="project-modal-actions">
-                  <button
-                    type="button"
-                    className="project-modal-btn project-modal-btn-ghost"
-                    onClick={closeCreateModal}
-                    disabled={creatingType !== null}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="project-modal-btn project-modal-btn-primary"
-                    disabled={creatingType !== null}
-                  >
-                    {creatingType === modalType ? 'Creating...' : 'Create Project'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        ) : null}
-
+        </div>
       </div>
     </LatticeFrame>
   );
