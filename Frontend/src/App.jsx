@@ -9,6 +9,7 @@ import { LatticeHomePage } from './Pages/LatticeHomePage';
 import { LatticeFeaturesPage } from './Pages/LatticeFeaturesPage';
 import { LatticeStackPage } from './Pages/LatticeStackPage';
 import { LatticeDemoPage } from './Pages/LatticeDemoPage';
+import { LatticeGraphPage } from './Pages/LatticeGraphPage';
 import './App.css';
 
 const LandingPage = () => (
@@ -31,8 +32,8 @@ function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route path="/lattice" element={<LatticeHomePage />} />
+          <Route path="/lattice/graph" element={<LatticeGraphPage />} />
         </Route>
-
         <Route path="/lattice/features" element={<LatticeFeaturesPage />} />
         <Route path="/lattice/stack" element={<LatticeStackPage />} />
         <Route path="/lattice/demo" element={<LatticeDemoPage />} />

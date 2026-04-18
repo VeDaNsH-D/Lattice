@@ -23,6 +23,8 @@ import linkRoutes from "./routes/link.routes.js";
 import projectRoutes from "./routes/project.routes.js";
 import searchRoutes from "./routes/search.routes.js";
 import roleRoutes from "./routes/role.routes.js";
+import graphRoutes from "./routes/graph.routes.js";
+import latticeRoutes from "./routes/lattice.routes.js";
 
 const allowedOrigins = ["http://localhost:5173", "http://localhost:5174"];
 
@@ -375,6 +377,8 @@ app.use("/api/invites", inviteRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/search", searchRoutes);
 app.use("/api/roles", roleRoutes);
+app.use("/api", latticeRoutes);
+app.use("/api", graphRoutes);
 
 /* Not found + global errors */
 app.use(notFoundHandler);
