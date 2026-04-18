@@ -31,6 +31,12 @@ export const getUserProfile = async (req, res, next) => {
                 name: user.name,
                 bio: user.bio || "",
                 avatar: user.avatarUrl || null,
+                linkedinUrl: user.linkedinUrl || "",
+                githubUrl: user.githubUrl || "",
+                websiteUrl: user.websiteUrl || "",
+                xUrl: user.xUrl || "",
+                linkDecayStartDays: Number.isFinite(user.linkDecayStartDays) ? user.linkDecayStartDays : 14,
+                linkGraveyardDays: Number.isFinite(user.linkGraveyardDays) ? user.linkGraveyardDays : 30,
             },
             lattices: lattices.map((project) => normalizeProject(project)),
         });
@@ -42,7 +48,18 @@ export const getUserProfile = async (req, res, next) => {
 export const updateCurrentUserProfile = async (req, res, next) => {
     try {
         const userId = req.user.userId;
-        const { name, bio, avatar, avatarUrl } = req.body;
+        const {
+            name,
+            bio,
+            avatar,
+            avatarUrl,
+            linkedinUrl,
+            githubUrl,
+            websiteUrl,
+            xUrl,
+            linkDecayStartDays,
+            linkGraveyardDays,
+        } = req.body;
 
         const user = await User.findById(userId);
 
@@ -69,6 +86,44 @@ export const updateCurrentUserProfile = async (req, res, next) => {
             user.avatarUrl = nextAvatar;
         }
 
+        if (typeof linkedinUrl === "string") {
+            user.linkedinUrl = linkedinUrl.trim();
+        }
+
+        if (typeof githubUrl === "string") {
+            user.githubUrl = githubUrl.trim();
+        }
+
+        if (typeof websiteUrl === "string") {
+            user.websiteUrl = websiteUrl.trim();
+        }
+
+        if (typeof xUrl === "string") {
+            user.xUrl = xUrl.trim();
+        }
+
+        const nextDecayStart = Number.isFinite(Number(linkDecayStartDays))
+            ? Number(linkDecayStartDays)
+            : user.linkDecayStartDays;
+        const nextGraveyardDays = Number.isFinite(Number(linkGraveyardDays))
+            ? Number(linkGraveyardDays)
+            : user.linkGraveyardDays;
+
+        if (nextGraveyardDays <= nextDecayStart) {
+            return res.status(400).json({
+                success: false,
+                message: "Graveyard days must be greater than decay start days",
+            });
+        }
+
+        if (Number.isFinite(Number(linkDecayStartDays))) {
+            user.linkDecayStartDays = nextDecayStart;
+        }
+
+        if (Number.isFinite(Number(linkGraveyardDays))) {
+            user.linkGraveyardDays = nextGraveyardDays;
+        }
+
         await user.save();
 
         return res.status(200).json({
@@ -78,6 +133,12 @@ export const updateCurrentUserProfile = async (req, res, next) => {
                 name: user.name,
                 bio: user.bio || "",
                 avatar: user.avatarUrl || null,
+                linkedinUrl: user.linkedinUrl || "",
+                githubUrl: user.githubUrl || "",
+                websiteUrl: user.websiteUrl || "",
+                xUrl: user.xUrl || "",
+                linkDecayStartDays: Number.isFinite(user.linkDecayStartDays) ? user.linkDecayStartDays : 14,
+                linkGraveyardDays: Number.isFinite(user.linkGraveyardDays) ? user.linkGraveyardDays : 30,
             },
         });
     } catch (error) {

@@ -34,7 +34,13 @@ export const registerUser = async (req, res, next) => {
                 name: user.name,
                 email: user.email,
                 avatarUrl: user.avatarUrl || null,
-                bio: user.bio || ""
+                bio: user.bio || "",
+                linkedinUrl: user.linkedinUrl || "",
+                githubUrl: user.githubUrl || "",
+                websiteUrl: user.websiteUrl || "",
+                xUrl: user.xUrl || "",
+                linkDecayStartDays: Number.isFinite(user.linkDecayStartDays) ? user.linkDecayStartDays : 14,
+                linkGraveyardDays: Number.isFinite(user.linkGraveyardDays) ? user.linkGraveyardDays : 30,
             }
         });
     } catch (error) {
@@ -74,7 +80,13 @@ export const loginUser = async (req, res, next) => {
                 name: user.name,
                 email: user.email,
                 avatarUrl: user.avatarUrl || null,
-                bio: user.bio || ""
+                bio: user.bio || "",
+                linkedinUrl: user.linkedinUrl || "",
+                githubUrl: user.githubUrl || "",
+                websiteUrl: user.websiteUrl || "",
+                xUrl: user.xUrl || "",
+                linkDecayStartDays: Number.isFinite(user.linkDecayStartDays) ? user.linkDecayStartDays : 14,
+                linkGraveyardDays: Number.isFinite(user.linkGraveyardDays) ? user.linkGraveyardDays : 30,
             }
         });
     } catch (error) {
@@ -100,7 +112,13 @@ export const getCurrentUser = async (req, res, next) => {
                 name: user.name,
                 email: user.email,
                 avatarUrl: user.avatarUrl || null,
-                bio: user.bio || ""
+                bio: user.bio || "",
+                linkedinUrl: user.linkedinUrl || "",
+                githubUrl: user.githubUrl || "",
+                websiteUrl: user.websiteUrl || "",
+                xUrl: user.xUrl || "",
+                linkDecayStartDays: Number.isFinite(user.linkDecayStartDays) ? user.linkDecayStartDays : 14,
+                linkGraveyardDays: Number.isFinite(user.linkGraveyardDays) ? user.linkGraveyardDays : 30,
             }
         });
     } catch (error) {

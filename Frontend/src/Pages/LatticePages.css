@@ -3859,6 +3859,123 @@
   cursor: not-allowed;
 }
 
+.activity-page-container,
+.settings-page-container {
+  padding-bottom: 42px;
+}
+
+.activity-head h1,
+.settings-head h1 {
+  margin: 0;
+  font-size: clamp(1.9rem, 3.5vw, 2.8rem);
+  line-height: 1;
+  font-family: var(--font-display, "PP Editorial New", serif);
+}
+
+.activity-head p,
+.settings-head p {
+  margin: 8px 0 22px;
+  color: #64748b;
+}
+
+.activity-feed-list {
+  display: grid;
+  gap: 10px;
+}
+
+.activity-feed-item {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 10px;
+  border: 1px solid #dce3eb;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 12px 14px;
+}
+
+.activity-feed-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: #f3f6fb;
+  color: #1e3a8a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.activity-feed-title {
+  margin: 0;
+  color: #111827;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.activity-feed-meta {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+.settings-form {
+  display: grid;
+  gap: 14px;
+}
+
+.settings-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.settings-card h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 1rem;
+}
+
+.settings-card label {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-card label span {
+  font-size: 0.78rem;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.settings-card input,
+.settings-card textarea {
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #fff;
+  color: #111827;
+  font-size: 0.9rem;
+  padding: 10px 12px;
+  outline: none;
+}
+
+.settings-card input:focus,
+.settings-card textarea:focus {
+  border-color: #334155;
+  box-shadow: 0 0 0 3px rgba(51, 65, 85, 0.12);
+}
+
+.settings-note {
+  margin: 2px 0 0;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* =========================================================
    MODERN PROJECT CARDS (My Lattices)
    ========================================================= */

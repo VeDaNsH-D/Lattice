@@ -22,7 +22,7 @@ import './LatticePages.css';
 const navItems = [
   { label: 'Home', to: '/lattice', icon: <LayoutDashboard size={16} />, end: true },
   { label: 'My Lattices', to: '/lattice/personal', icon: <Folder size={16} /> },
-  { label: 'Shared Spaces', to: '/lattice/shared', icon: <Users size={16} /> },
+  { label: 'Forked Lattices', to: '/lattice/shared', icon: <Users size={16} /> },
   { label: 'Recent Activity', to: '/lattice/activity', icon: <Activity size={16} /> },
   { label: 'Graveyard', to: '/lattice/graveyard', icon: <Skull size={16} /> },
   { label: 'Settings', to: '/lattice/settings', icon: <Settings size={16} /> },

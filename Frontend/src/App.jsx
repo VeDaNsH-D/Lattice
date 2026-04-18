@@ -9,6 +9,8 @@ import { LatticeHomePage } from './Pages/LatticeHomePage';
 import { LatticeMyLatticesPage } from './Pages/LatticeMyLatticesPage';
 import { LatticeProjectPage } from './Pages/LatticeProjectPage';
 import { LatticeGraveyardPage } from './Pages/LatticeGraveyardPage';
+import { LatticeActivityPage } from './Pages/LatticeActivityPage';
+import { LatticeSettingsPage } from './Pages/LatticeSettingsPage';
 import { LatticeProfilePage } from './Pages/LatticeProfilePage';
 import { LatticePublicPage } from './Pages/LatticePublicPage';
 import { LatticeFeaturesPage } from './Pages/LatticeFeaturesPage';
@@ -40,6 +42,8 @@ function App() {
           <Route path="/lattice" element={<LatticeHomePage />} />
           <Route path="/lattice/personal" element={<LatticeMyLatticesPage />} />
           <Route path="/lattice/shared" element={<LatticeMyLatticesPage />} />
+          <Route path="/lattice/activity" element={<LatticeActivityPage />} />
+          <Route path="/lattice/settings" element={<LatticeSettingsPage />} />
           <Route path="/lattice/graveyard" element={<LatticeGraveyardPage />} />
           <Route path="/lattice/project/:projectId" element={<LatticeProjectPage />} />
           <Route path="/lattice/project/:projectId/graph" element={<LatticeGraphPage />} />

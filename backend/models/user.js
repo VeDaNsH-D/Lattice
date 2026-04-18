@@ -29,6 +29,38 @@ const userSchema = new mongoose.Schema(
             trim: true,
             default: ""
         },
+        linkedinUrl: {
+            type: String,
+            trim: true,
+            default: ""
+        },
+        githubUrl: {
+            type: String,
+            trim: true,
+            default: ""
+        },
+        websiteUrl: {
+            type: String,
+            trim: true,
+            default: ""
+        },
+        xUrl: {
+            type: String,
+            trim: true,
+            default: ""
+        },
+        linkDecayStartDays: {
+            type: Number,
+            default: 14,
+            min: 1,
+            max: 365
+        },
+        linkGraveyardDays: {
+            type: Number,
+            default: 30,
+            min: 2,
+            max: 730
+        },
         password: {
             type: String,
             required: function requiredPassword() {

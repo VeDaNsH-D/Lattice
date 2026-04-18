@@ -270,3 +270,107 @@ export const getProjectLineage = async (req, res, next) => {
         return next(error);
     }
 };
+
+export const getForkActivity = async (req, res, next) => {
+    try {
+        const userId = req.user.userId;
+
+        const myProjects = await Project.find({
+            isActive: true,
+            createdBy: userId,
+        })
+            .select("_id name")
+            .lean();
+
+        const myProjectIds = myProjects.map((project) => project._id);
+        const myProjectById = new Map(myProjects.map((project) => [String(project._id), project]));
+
+        const [forkedByMe, forksOfMine] = await Promise.all([
+            Project.find({
+                isActive: true,
+                createdBy: userId,
+                parentProjectId: { $ne: null },
+            })
+                .populate("createdBy", "name email avatarUrl")
+                .populate("parentProjectId", "name createdBy")
+                .sort({ createdAt: -1 })
+                .limit(80)
+                .lean(),
+            Project.find({
+                isActive: true,
+                parentProjectId: { $in: myProjectIds },
+                createdBy: { $ne: userId },
+            })
+                .populate("createdBy", "name email avatarUrl")
+                .populate("parentProjectId", "name createdBy")
+                .sort({ createdAt: -1 })
+                .limit(80)
+                .lean(),
+        ]);
+
+        const events = [];
+
+        for (const project of forkedByMe) {
+            events.push({
+                id: `forked-by-me-${project._id}`,
+                type: "forked_by_you",
+                createdAt: project.createdAt,
+                project: toProjectSummary(project),
+                source: project.parentProjectId
+                    ? {
+                        id: String(project.parentProjectId._id),
+                        name: project.parentProjectId.name,
+                    }
+                    : null,
+            });
+
+            events.push({
+                id: `updated-by-me-${project._id}`,
+                type: "updated_fork",
+                createdAt: project.updatedAt,
+                project: toProjectSummary(project),
+                source: project.parentProjectId
+                    ? {
+                        id: String(project.parentProjectId._id),
+                        name: project.parentProjectId.name,
+                    }
+                    : null,
+            });
+        }
+
+        for (const fork of forksOfMine) {
+            const parentId = String(fork.parentProjectId?._id || "");
+            const parent = myProjectById.get(parentId);
+
+            events.push({
+                id: `forked-from-you-${fork._id}`,
+                type: "forked_from_you",
+                createdAt: fork.createdAt,
+                project: toProjectSummary(fork),
+                source: parent
+                    ? {
+                        id: String(parent._id),
+                        name: parent.name,
+                    }
+                    : null,
+                actor: fork.createdBy
+                    ? {
+                        id: String(fork.createdBy._id),
+                        name: fork.createdBy.name,
+                        avatarUrl: fork.createdBy.avatarUrl || null,
+                    }
+                    : null,
+            });
+        }
+
+        events.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        return res.status(200).json({
+            success: true,
+            count: events.length,
+            events: events.slice(0, 120),
+        });
+    } catch (error) {
+        return next(error);
+    }
+};

@@ -4,6 +4,7 @@ import { body, param, query } from "express-validator";
 import {
     forkProject,
     getProjectLineage,
+    getForkActivity,
     listPublicProjects,
     updateProjectVisibility,
 } from "../controllers/remix.controller.js";
@@ -47,6 +48,12 @@ router.get(
     [param("projectId").isMongoId().withMessage("Valid projectId is required")],
     validateRequest,
     getProjectLineage
+);
+
+router.get(
+    "/activity",
+    authMiddleware,
+    getForkActivity
 );
 
 export default router;

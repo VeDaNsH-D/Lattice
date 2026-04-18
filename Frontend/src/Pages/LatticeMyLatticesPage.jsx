@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { LatticeFrame } from './LatticeFrame';
 import { BookOpen, PenTool, Code2, Share2, ArrowUpRight, Atom, Blocks, Plus, X, Link as LinkIcon, ChevronDown, SlidersHorizontal, ArrowDownUp, LayoutGrid, Lock, Unlock } from 'lucide-react';
 import { apiRequest } from '../utils/api';
@@ -87,6 +87,7 @@ const renderProjectCards = (projects, icons, onProjectClick, onVisibilityToggle,
 };
 
 export const LatticeMyLatticesPage = () => {
+  const location = useLocation();
   const navigate = useNavigate();
   const [personalProjects, setPersonalProjects] = useState([]);
   const [collaborativeProjects, setCollaborativeProjects] = useState([]);
@@ -99,6 +100,7 @@ export const LatticeMyLatticesPage = () => {
   const [visibilityLoadingId, setVisibilityLoadingId] = useState('');
 
   const isModalOpen = modalType !== null;
+  const isForkedView = location.pathname === '/lattice/shared';
 
   const hasProjects = useMemo(
     () => personalProjects.length > 0 || collaborativeProjects.length > 0,
@@ -108,6 +110,11 @@ export const LatticeMyLatticesPage = () => {
   const allProjects = useMemo(
     () => [...personalProjects, ...collaborativeProjects],
     [personalProjects, collaborativeProjects]
+  );
+
+  const forkedProjects = useMemo(
+    () => allProjects.filter((project) => Boolean(project.parentProjectId)),
+    [allProjects]
   );
 
   const loadProjects = useCallback(async () => {
@@ -236,6 +243,32 @@ export const LatticeMyLatticesPage = () => {
       },
     });
   };
+
+  if (isForkedView) {
+    return (
+      <LatticeFrame>
+        <div className="directory-container">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
+            <div>
+              <h1 style={{ fontSize: '2rem', fontFamily: 'var(--font-display)', margin: 0, letterSpacing: '-0.02em', color: '#111827' }}>Forked Lattices</h1>
+              <p style={{ margin: '4px 0 0 0', color: '#6b7280', fontSize: '0.95rem' }}>Projects you forked from other authors.</p>
+            </div>
+          </div>
+
+          <header className="directory-dashboard-header">
+            <div className="dash-header-title">
+              <h2>Forked Repositories</h2>
+              <span className="dash-header-count">{forkedProjects.length}</span>
+            </div>
+          </header>
+
+          {loading ? <p className="directory-status">Loading forked lattices...</p> : renderProjectCards(forkedProjects, collaborativeIcons, onProjectOpen, null, visibilityLoadingId)}
+          {!loading && forkedProjects.length === 0 ? <p className="directory-status">No forked lattices yet. Fork a public project from Home.</p> : null}
+          {errorMessage ? <p className="directory-status directory-status-error">{errorMessage}</p> : null}
+        </div>
+      </LatticeFrame>
+    );
+  }
 
   return (
     <LatticeFrame>

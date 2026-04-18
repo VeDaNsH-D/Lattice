@@ -3,24 +3,42 @@ import Comment from "../models/comment.js";
 import Message from "../models/message.js";
 import Project from "../models/project.js";
 import Room from "../models/room.js";
+import User from "../models/user.js";
 import { fetchMetadata } from "../services/metadata.service.js";
 import { generateAIContent } from "../services/ai.service.js";
 import { ensureLinkEnrichment, processNewLinkForCollision } from "../services/link-intelligence.service.js";
 import { buildGraphNode } from "../services/graph.service.js";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
-const DECAY_START_DAYS = 14;
-const COMPOST_DAYS = 30;
+const DEFAULT_DECAY_START_DAYS = 14;
+const DEFAULT_COMPOST_DAYS = 30;
 
-const toLinkWithAgingMeta = (linkDoc) => {
+const resolveDecaySettings = (userDoc) => {
+    const decayStartDays = Number.isFinite(Number(userDoc?.linkDecayStartDays))
+        ? Number(userDoc.linkDecayStartDays)
+        : DEFAULT_DECAY_START_DAYS;
+    const graveyardDaysRaw = Number.isFinite(Number(userDoc?.linkGraveyardDays))
+        ? Number(userDoc.linkGraveyardDays)
+        : DEFAULT_COMPOST_DAYS;
+    const graveyardDays = graveyardDaysRaw > decayStartDays
+        ? graveyardDaysRaw
+        : decayStartDays + 1;
+
+    return {
+        decayStartDays,
+        graveyardDays,
+    };
+};
+
+const toLinkWithAgingMeta = (linkDoc, settings = resolveDecaySettings(null)) => {
     const link = linkDoc?.toObject ? linkDoc.toObject() : linkDoc;
     const lastViewedAt = link.lastClickedAt || link.createdAt;
     const lastTouchedAt = new Date(lastViewedAt || Date.now());
     const inactiveDays = Math.max(0, Math.floor((Date.now() - lastTouchedAt.getTime()) / DAY_IN_MS));
 
-    const isDecayWindow = inactiveDays >= DECAY_START_DAYS && inactiveDays < COMPOST_DAYS;
+    const isDecayWindow = inactiveDays >= settings.decayStartDays && inactiveDays < settings.graveyardDays;
     const decayProgress = isDecayWindow
-        ? (inactiveDays - DECAY_START_DAYS) / (COMPOST_DAYS - DECAY_START_DAYS)
+        ? (inactiveDays - settings.decayStartDays) / (settings.graveyardDays - settings.decayStartDays)
         : 0;
 
     return {
@@ -30,60 +48,132 @@ const toLinkWithAgingMeta = (linkDoc) => {
         inactiveDays,
         isDecayWindow,
         decayProgress: Number(decayProgress.toFixed(3)),
+        decayStartDays: settings.decayStartDays,
+        graveyardDays: settings.graveyardDays,
     };
 };
 
-const updateAgingStatusesForProjects = async (projectIds) => {
-    if (!Array.isArray(projectIds) || projectIds.length === 0) {
-        return;
+const getLinkCreatorId = (linkDoc) => String(linkDoc?.createdBy?._id || linkDoc?.createdBy || "");
+
+const resolveSettingsForLink = (linkDoc, agingContext) => {
+    if (!agingContext) {
+        return resolveDecaySettings(null);
     }
 
-    const compostThreshold = new Date(Date.now() - COMPOST_DAYS * DAY_IN_MS);
-    const decayThreshold = new Date(Date.now() - DECAY_START_DAYS * DAY_IN_MS);
+    const creatorId = getLinkCreatorId(linkDoc);
+    return agingContext.settingsByCreatorId.get(creatorId) || agingContext.defaultSettings;
+};
 
-    await Link.updateMany(
-        {
-            projectId: { $in: projectIds },
-            status: { $ne: "dead" },
-            lastClickedAt: { $lte: compostThreshold },
-        },
-        {
-            $set: {
-                status: "dead",
-                movedToCompostAt: new Date(),
-                graveyardReason: "expired",
-            },
-        }
+const updateAgingStatusesForProjects = async (projectIds, userId) => {
+    const currentUser = userId ? await User.findById(userId).select("linkDecayStartDays linkGraveyardDays") : null;
+    const defaultSettings = resolveDecaySettings(currentUser);
+
+    if (!Array.isArray(projectIds) || projectIds.length === 0) {
+        return {
+            defaultSettings,
+            settingsByCreatorId: new Map(),
+        };
+    }
+
+    const now = Date.now();
+
+    const links = await Link.find({
+        projectId: { $in: projectIds },
+    }).select("_id createdBy status lastClickedAt createdAt movedToCompostAt graveyardReason deletedAt");
+
+    const creatorIds = Array.from(new Set(
+        links.map((link) => getLinkCreatorId(link)).filter(Boolean)
+    ));
+
+    const creatorDocs = creatorIds.length > 0
+        ? await User.find({ _id: { $in: creatorIds } }).select("linkDecayStartDays linkGraveyardDays")
+        : [];
+
+    const settingsByCreatorId = new Map(
+        creatorDocs.map((doc) => [String(doc._id), resolveDecaySettings(doc)])
     );
 
-    await Link.updateMany(
-        {
-            projectId: { $in: projectIds },
-            status: { $ne: "dead" },
-            lastClickedAt: { $lte: decayThreshold, $gt: compostThreshold },
-        },
-        {
-            $set: {
-                status: "decaying",
-            },
-        }
-    );
+    const updates = links
+        .map((link) => {
+            const settings = resolveSettingsForLink(link, {
+                defaultSettings,
+                settingsByCreatorId,
+            });
+            const lastTouchedAt = new Date(link.lastClickedAt || link.createdAt || Date.now());
+            const inactiveDays = Math.max(0, Math.floor((now - lastTouchedAt.getTime()) / DAY_IN_MS));
 
-    await Link.updateMany(
-        {
-            projectId: { $in: projectIds },
-            status: "decaying",
-            lastClickedAt: { $gt: decayThreshold },
-        },
-        {
-            $set: {
-                status: "active",
-            },
-            $unset: {
-                movedToCompostAt: 1,
-            },
-        }
-    );
+            if (link.status === "dead" && link.graveyardReason === "deleted") {
+                return null;
+            }
+
+            if (inactiveDays >= settings.graveyardDays) {
+                if (link.status !== "dead" || link.graveyardReason !== "expired") {
+                    return {
+                        updateOne: {
+                            filter: { _id: link._id },
+                            update: {
+                                $set: {
+                                    status: "dead",
+                                    movedToCompostAt: new Date(),
+                                    graveyardReason: "expired",
+                                },
+                            },
+                        },
+                    };
+                }
+
+                return null;
+            }
+
+            if (inactiveDays >= settings.decayStartDays) {
+                if (link.status !== "decaying") {
+                    return {
+                        updateOne: {
+                            filter: { _id: link._id },
+                            update: {
+                                $set: {
+                                    status: "decaying",
+                                },
+                                $unset: {
+                                    movedToCompostAt: 1,
+                                },
+                            },
+                        },
+                    };
+                }
+
+                return null;
+            }
+
+            if (link.status !== "active") {
+                return {
+                    updateOne: {
+                        filter: { _id: link._id },
+                        update: {
+                            $set: {
+                                status: "active",
+                                graveyardReason: null,
+                            },
+                            $unset: {
+                                movedToCompostAt: 1,
+                            },
+                        },
+                    },
+                };
+            }
+
+            return null;
+        })
+        .filter(Boolean);
+
+    if (updates.length > 0) {
+        await Link.bulkWrite(updates);
+    }
+
+    return {
+        defaultSettings,
+        settingsByCreatorId,
+    };
 };
 
 export const createLink = async (req, res, next) => {
@@ -167,7 +257,7 @@ export const listLinks = async (req, res, next) => {
     try {
         const { projectId } = req.query;
 
-        await updateAgingStatusesForProjects([projectId]);
+        const agingContext = await updateAgingStatusesForProjects([projectId], req.user.userId);
 
         const links = await Link.find({
             projectId,
@@ -221,7 +311,7 @@ export const listLinks = async (req, res, next) => {
             };
 
             return {
-                ...toLinkWithAgingMeta(link),
+                ...toLinkWithAgingMeta(link, resolveSettingsForLink(link, agingContext)),
                 commentCount: stats.commentCount,
                 latestCommenter: stats.latestCommenter,
                 latestCommentAt: stats.latestCommentAt,
@@ -370,7 +460,7 @@ export const listGraveyardLinks = async (req, res, next) => {
             .lean();
 
         const projectIds = accessibleProjects.map((project) => project._id);
-        await updateAgingStatusesForProjects(projectIds);
+        const agingContext = await updateAgingStatusesForProjects(projectIds, userId);
 
         const projectById = new Map(accessibleProjects.map((project) => [String(project._id), project]));
 
@@ -385,7 +475,7 @@ export const listGraveyardLinks = async (req, res, next) => {
 
         const items = links.map((link) => {
             const project = projectById.get(String(link.projectId));
-            const normalized = toLinkWithAgingMeta(link);
+            const normalized = toLinkWithAgingMeta(link, resolveSettingsForLink(link, agingContext));
 
             return {
                 ...normalized,
