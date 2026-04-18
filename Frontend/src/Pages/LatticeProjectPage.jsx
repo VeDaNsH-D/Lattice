@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { ExternalLink, ImageOff, ArrowLeft, Plus, ChevronDown, UserPlus } from 'lucide-react';
 import { Network } from 'lucide-react';
 import { LatticeFrame } from './LatticeFrame';
+import { ProjectRealtimePanel } from './ProjectRealtimePanel';
 import { apiRequest } from '../utils/api';
 import './LatticePages.css';
 
@@ -318,6 +319,8 @@ export const LatticeProjectPage = () => {
 
                 {isCollaborativeProject ? (
                     <>
+                        <ProjectRealtimePanel projectId={projectId} projectName={projectName} />
+
                         <section className="project-role-panel">
                             <div className="project-role-panel-head">
                                 <h3>Define Roles</h3>
