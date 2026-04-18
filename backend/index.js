@@ -123,7 +123,7 @@ if (process.env.MONGO_URI) {
 app.get("/", (req, res) => {
     res.json({
         ok: true,
-        service: "shelflife-realtime-backend",
+        service: "lattice-realtime-backend",
         message: "Backend is running",
     });
 });

@@ -1,89 +1,98 @@
-# SHELFLIFE
+# LATTICE
 
-Realtime collaboration backend for ShelfLife with Socket.IO-based chat, presence, reactions, cursor sync, activity logs, and WebRTC signaling. The temporary test frontend has been removed so the actual frontend can connect directly to this backend.
+Realtime collaboration platform backend for Lattice, with Socket.IO-based collaboration events and WebRTC signaling.
 
-## What Is Updated
+## Current Progress
 
-- Added a realtime backend in [backend/index.js](backend/index.js) using Express + Socket.IO.
-- Added room join/leave, presence updates, activity feed events, chat, custom reactions, cursor movement, screen share signals, and WebRTC signaling.
-- MongoDB is now optional for local testing; if `MONGO_URI` is not set, the server still runs for realtime development.
+### Implemented and intact
 
-## Local Host Setup
+- Realtime Socket.IO server in `backend/index.js`
+- Collaborative socket events:
+	- room join/leave
+	- presence updates
+	- chat messages
+	- reactions
+	- cursor updates
+	- screen-share state
+	- WebRTC signaling (`offer/answer/ICE` passthrough)
+	- call leave notifications
+	- in-memory activity feed per room
+- Auth API:
+	- `POST /api/auth/register`
+	- `POST /api/auth/signup`
+	- `POST /api/auth/login`
+	- `GET /api/auth/me`
+- Data models for collaborative domain:
+	- users, projects, project members, roles
+	- rooms, messages
+	- links, comments, invites
 
-### 1. Install dependencies
+### In progress / not fully wired yet
 
-From the project root, install the backend dependencies:
+- Most collaboration models exist but do not yet have full CRUD route/controller coverage.
+- Frontend exists as a Vite React scaffold and is not yet connected to backend realtime/auth flows.
+- Realtime room state and activity are in-memory (not persisted in MongoDB yet).
+
+## Local Setup
+
+### Backend
+
+1. Install dependencies:
 
 ```bash
 cd backend
 npm install
 ```
 
-### 2. Configure environment variables
-
-Create a `.env` file inside `backend/` if you want MongoDB enabled:
+2. Configure environment in `backend/.env`:
 
 ```env
 PORT=8000
 MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
 ```
 
-If you skip `MONGO_URI`, the app still runs and only the realtime test UI is active.
-
-### 3. Start the backend
+3. Start backend:
 
 ```bash
 cd backend
 npm start
 ```
 
-The server will run on:
+Backend health endpoints:
+
+- `GET /` -> backend info
+- `GET /health` -> `{ "ok": true }`
+
+### Frontend
+
+1. Install frontend dependencies:
+
+```bash
+cd frontend
+npm install
+```
+
+2. Start frontend dev server:
+
+```bash
+cd frontend
+npm run dev
+```
+
+3. Connect frontend to backend base URL:
 
 - `http://localhost:8000`
 
-### 4. Connect the frontend
-
-Point the actual frontend application at `http://localhost:8000`.
-
-The backend exposes Socket.IO for:
-
-- room presence
-- chat
-- live reactions
-- cursor sync
-- WebRTC signaling for call setup
-- screen-share signaling
-
-## How To Test Realtime Features
-
-Use any frontend client that connects to the Socket.IO server and emits the documented events. The backend is now intentionally frontend-agnostic.
-
-For local manual testing, you can use your real frontend once it is ready, or a minimal Socket.IO test client.
-
-Note: the current implementation provides signaling over Socket.IO, not a production TURN stack. It is best for local testing and same-network demos.
-
-## Socket.IO And WebRTC Notes
-
-- Socket.IO is used for room membership, chat, reactions, presence, activity logs, cursor sync, and signaling.
-- WebRTC is used for the actual media path for audio/video/screen-share.
-- No Socket.IO credentials are required for local development.
-- If you later deploy across multiple Node instances, Redis can be added for cross-instance Socket.IO broadcasting.
-- If you want reliable NAT traversal for real calls outside local testing, you will likely need TURN server credentials.
-
-## Project Structure
-
-```text
-README.md
-backend/
-	index.js
-	package.json
-	package-lock.json
-```
-
-## Current Backend Event Surface
+## Collaborative Backend Event Surface
 
 - `room:join`
 - `room:leave`
+- `room:state`
+- `room:user-joined`
+- `room:user-left`
+- `presence:update`
+- `activity:new`
 - `chat:send`
 - `chat:new`
 - `reaction:send`
@@ -95,12 +104,26 @@ backend/
 - `screen-share:state`
 - `webrtc:signal`
 - `call:leave`
-- `activity:new`
-- `presence:update`
 
-## Next Steps
+## Project Structure
 
-- Add persistent storage for activity history and reactions.
-- Add proper WebRTC media room logic for multi-peer calls.
-- Add a TURN server for more reliable remote connectivity.
-- Replace the test UI with the main ShelfLife frontend once it is uploaded.
+```text
+README.md
+backend/
+	index.js
+	controllers/
+	middlewares/
+	models/
+	routes/
+	utils/
+frontend/
+	src/
+	public/
+	package.json
+```
+
+## Notes
+
+- Socket.IO credentials are not needed for local development.
+- Redis is optional and only needed when scaling Socket.IO across multiple backend instances.
+- TURN credentials are recommended later for production-grade WebRTC connectivity across restrictive NAT networks.
