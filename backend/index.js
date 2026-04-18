@@ -28,7 +28,12 @@ import graphRoutes from "./routes/graph.routes.js";
 import latticeRoutes from "./routes/lattice.routes.js";
 import timelineRoutes from "./routes/timeline.routes.js";
 
-const allowedOrigins = ["http://localhost:5173", "http://localhost:5174"];
+const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
+const configuredOrigins = (process.env.FRONTEND_ORIGINS || frontendUrl)
+    .split(",")
+    .map((origin) => origin.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
+const allowedOrigins = Array.from(new Set([...configuredOrigins, frontendUrl]));
 
 const app = express();
 const server = http.createServer(app);

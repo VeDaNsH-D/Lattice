@@ -9,6 +9,7 @@ import { sendInviteEmail } from "../services/email.service.js";
 export const inviteUser = async (req, res, next) => {
     try {
         const { email, projectId, roleId } = req.body;
+        const requesterId = req.user.userId;
 
         // 1. VALIDATION: Check required fields
         if (!email || !email.trim()) {
@@ -32,23 +33,38 @@ export const inviteUser = async (req, res, next) => {
             });
         }
 
-        // 2. AUTHORIZATION: Check if user is project owner
-        const member = await ProjectMember.findOne({
-            userId: req.user.userId,
-            projectId
-        });
+        // 2. AUTHORIZATION: Check if user has access to the project
+        const project = await Project.findById(projectId).select("_id projectType createdBy members isActive");
 
-        if (!member) {
+        if (!project || !project.isActive) {
+            return res.status(404).json({
+                success: false,
+                message: "Project not found"
+            });
+        }
+
+        const isProjectMember =
+            String(project.createdBy) === String(requesterId) ||
+            (Array.isArray(project.members) && project.members.some((memberId) => String(memberId) === String(requesterId)));
+
+        if (!isProjectMember) {
             return res.status(403).json({
                 success: false,
                 message: "Forbidden: you are not a project member"
             });
         }
 
-        if (member.role !== "owner") {
+        if (String(project.createdBy) !== String(requesterId)) {
             return res.status(403).json({
                 success: false,
                 message: "Forbidden: only project owner can invite users"
+            });
+        }
+
+        if (project.projectType !== "collaborative") {
+            return res.status(400).json({
+                success: false,
+                message: "Invites are only available for collaborative projects"
             });
         }
 
@@ -70,12 +86,15 @@ export const inviteUser = async (req, res, next) => {
         const existingUser = await User.findOne({ email: normalizedEmail });
 
         if (existingUser) {
+            const isInProjectMembers = Array.isArray(project.members)
+                && project.members.some((memberId) => String(memberId) === String(existingUser._id));
+
             const existingMember = await ProjectMember.findOne({
                 userId: existingUser._id,
                 projectId
             });
 
-            if (existingMember) {
+            if (isInProjectMembers || existingMember) {
                 return res.status(400).json({
                     success: false,
                     message: "User is already a member of this project"
@@ -102,7 +121,7 @@ export const inviteUser = async (req, res, next) => {
             email: normalizedEmail,
             projectId,
             roleId,
-            invitedBy: req.user.userId
+            invitedBy: requesterId
         });
 
         // Populate for response
@@ -113,15 +132,15 @@ export const inviteUser = async (req, res, next) => {
 
         // 7. SEND EMAIL (background task - don't wait for response)
         try {
-            const inviter = await User.findById(req.user.userId);
-            const project = await Project.findById(projectId);
+            const inviter = await User.findById(requesterId);
+            const hydratedProject = await Project.findById(projectId);
             const roleDetails = await Role.findById(roleId);
 
-            if (inviter && project && roleDetails) {
+            if (inviter && hydratedProject && roleDetails) {
                 sendInviteEmail({
                     email: normalizedEmail,
                     inviterName: inviter.name || inviter.email,
-                    projectName: project.name,
+                    projectName: hydratedProject.name,
                     roleName: roleDetails.name,
                     inviteId: invite._id.toString()
                 }).catch(emailError => {
@@ -202,6 +221,10 @@ export const acceptInvite = async (req, res, next) => {
                 roleId: invite.roleId
             });
         }
+
+        await Project.findByIdAndUpdate(invite.projectId, {
+            $addToSet: { members: user._id }
+        });
 
         // 6. UPDATE INVITE STATUS
         invite.status = "accepted";
@@ -289,20 +312,28 @@ export const listProjectInvites = async (req, res, next) => {
             });
         }
 
-        // 2. AUTHORIZATION: Check if user is project owner
-        const member = await ProjectMember.findOne({
-            userId: req.user.userId,
-            projectId
-        });
+        // 2. AUTHORIZATION: Check if user has access to project
+        const project = await Project.findById(projectId).select("_id createdBy members isActive");
 
-        if (!member) {
+        if (!project || !project.isActive) {
+            return res.status(404).json({
+                success: false,
+                message: "Project not found"
+            });
+        }
+
+        const isProjectMember =
+            String(project.createdBy) === String(req.user.userId) ||
+            (Array.isArray(project.members) && project.members.some((memberId) => String(memberId) === String(req.user.userId)));
+
+        if (!isProjectMember) {
             return res.status(403).json({
                 success: false,
                 message: "Forbidden: you are not a project member"
             });
         }
 
-        if (member.role !== "owner") {
+        if (String(project.createdBy) !== String(req.user.userId)) {
             return res.status(403).json({
                 success: false,
                 message: "Forbidden: only project owner can view pending invites"

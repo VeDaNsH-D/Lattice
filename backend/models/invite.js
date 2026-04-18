@@ -4,7 +4,8 @@ const inviteSchema = new mongoose.Schema(
     {
         projectId: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: "Project"
+            ref: "Project",
+            required: true
         },
         email: {
             type: String,
@@ -19,6 +20,11 @@ const inviteSchema = new mongoose.Schema(
             type: String,
             enum: ["pending", "accepted", "rejected"],
             default: "pending"
+        },
+        invitedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true
         }
     },
     { timestamps: true }

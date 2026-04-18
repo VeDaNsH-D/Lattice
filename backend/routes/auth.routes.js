@@ -12,7 +12,14 @@ import generateToken from "../utils/generateToken.js";
 
 const router = express.Router();
 
-const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
+const allowedFrontendOrigins = new Set(
+    (process.env.FRONTEND_ORIGINS || frontendUrl)
+        .split(",")
+        .map((origin) => origin.trim().replace(/\/+$/, ""))
+        .filter(Boolean)
+);
+allowedFrontendOrigins.add(frontendUrl);
 
 const normalizeFrontendOrigin = (candidate) => {
     if (!candidate) {
@@ -21,9 +28,7 @@ const normalizeFrontendOrigin = (candidate) => {
 
     try {
         const parsed = new URL(candidate);
-        const isLocalhost = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
-
-        if (!isLocalhost) {
+        if (!allowedFrontendOrigins.has(parsed.origin)) {
             return frontendUrl;
         }
 

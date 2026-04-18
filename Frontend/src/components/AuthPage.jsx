@@ -51,6 +51,7 @@ export const AuthPage = ({ mode = 'signup' }) => {
   const copy = AUTH_MODE_COPY[mode] || AUTH_MODE_COPY.signup;
   const queryParams = new URLSearchParams(location.search);
   const tokenFromGoogle = queryParams.get('token');
+  const redirectTarget = queryParams.get('redirect');
   const googleAuthError = queryParams.get('error') === 'google_auth_failed';
 
   const [formState, setFormState] = useState({
@@ -69,9 +70,9 @@ export const AuthPage = ({ mode = 'signup' }) => {
   useEffect(() => {
     if (tokenFromGoogle) {
       localStorage.setItem('token', tokenFromGoogle);
-      navigate('/lattice', { replace: true });
+      navigate(redirectTarget || '/lattice', { replace: true });
     }
-  }, [tokenFromGoogle, navigate]);
+  }, [tokenFromGoogle, redirectTarget, navigate]);
 
   const onInputChange = (event) => {
     const { name, value } = event.target;
@@ -116,7 +117,7 @@ export const AuthPage = ({ mode = 'signup' }) => {
 
       localStorage.setItem('token', response.token);
       setSuccessMessage(copy.successMessage);
-      navigate('/lattice', { replace: true });
+      navigate(redirectTarget || '/lattice', { replace: true });
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {

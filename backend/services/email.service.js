@@ -27,7 +27,8 @@ export const sendInviteEmail = async (emailData) => {
             throw new Error("Missing required email data");
         }
 
-        const inviteLink = `http://localhost:3000/invite/${inviteId}`;
+        const frontendBaseUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
+        const inviteLink = `${frontendBaseUrl}/invite/${inviteId}`;
         const appName = "Lattice";
 
         const htmlTemplate = `
@@ -38,12 +39,12 @@ export const sendInviteEmail = async (emailData) => {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>You're Invited to Collaborate</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;">
-    <div style="background-color: #f5f5f5; padding: 40px 20px;">
+<body style="margin: 0; padding: 0; background-color: #f4f6ef; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;">
+    <div style="background-color: #f4f6ef; padding: 40px 20px;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb; overflow: hidden; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);">
             
             <!-- Header -->
-            <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 30px 20px; text-align: center;">
+            <div style="background: linear-gradient(135deg, #6b8e23 0%, #5f7f1f 100%); padding: 30px 20px; text-align: center;">
                 <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600; letter-spacing: -0.5px;">${appName}</h1>
             </div>
 
@@ -61,14 +62,14 @@ export const sendInviteEmail = async (emailData) => {
                 </p>
 
                 <!-- Project Info Card -->
-                <div style="background-color: #f9fafb; border-left: 4px solid #2563eb; padding: 20px; border-radius: 4px; margin: 30px 0;">
+                <div style="background-color: #f9faf5; border-left: 4px solid #6b8e23; padding: 20px; border-radius: 4px; margin: 30px 0;">
                     <div style="margin-bottom: 12px;">
                         <p style="margin: 0; color: #6b7280; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Project</p>
                         <p style="margin: 4px 0 0 0; color: #1f2937; font-size: 18px; font-weight: 700;">${projectName}</p>
                     </div>
                     <div>
                         <p style="margin: 0; color: #6b7280; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Your Role</p>
-                        <p style="margin: 4px 0 0 0; color: #2563eb; font-size: 16px; font-weight: 600;">${roleName}</p>
+                        <p style="margin: 4px 0 0 0; color: #5f7f1f; font-size: 16px; font-weight: 600;">${roleName}</p>
                     </div>
                 </div>
 
@@ -76,7 +77,7 @@ export const sendInviteEmail = async (emailData) => {
 
                 <!-- CTA Button -->
                 <div style="text-align: center; margin: 30px 0;">
-                    <a href="${inviteLink}" style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; transition: background-color 0.2s ease; border: none; cursor: pointer;" onmouseover="this.style.backgroundColor='#1d4ed8'" onmouseout="this.style.backgroundColor='#2563eb'">
+                    <a href="${inviteLink}" style="display: inline-block; background-color: #6b8e23; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; transition: background-color 0.2s ease; border: none; cursor: pointer;" onmouseover="this.style.backgroundColor='#5f7f1f'" onmouseout="this.style.backgroundColor='#6b8e23'">
                         View Invitation
                     </a>
                 </div>
@@ -86,7 +87,7 @@ export const sendInviteEmail = async (emailData) => {
                 <!-- Fallback Link -->
                 <p style="margin: 0; color: #6b7280; font-size: 13px; text-align: center; word-break: break-all;">
                     If button doesn't work, copy this link:<br>
-                    <a href="${inviteLink}" style="color: #2563eb; text-decoration: none;">${inviteLink}</a>
+                    <a href="${inviteLink}" style="color: #5f7f1f; text-decoration: none;">${inviteLink}</a>
                 </p>
 
             </div>
@@ -107,7 +108,7 @@ export const sendInviteEmail = async (emailData) => {
         <!-- Unsubscribe/Support Info -->
         <div style="text-align: center; margin-top: 20px;">
             <p style="margin: 0; color: #9ca3af; font-size: 12px;">
-                Have questions? <a href="mailto:support@lattice.dev" style="color: #2563eb; text-decoration: none;">Contact support</a>
+                Have questions? <a href="mailto:support@lattice.dev" style="color: #5f7f1f; text-decoration: none;">Contact support</a>
             </p>
         </div>
     </div>

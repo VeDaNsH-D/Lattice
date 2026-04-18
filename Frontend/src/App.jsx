@@ -11,6 +11,7 @@ import { LatticeFeaturesPage } from './Pages/LatticeFeaturesPage';
 import { LatticeStackPage } from './Pages/LatticeStackPage';
 import { LatticeDemoPage } from './Pages/LatticeDemoPage';
 import { LatticeGraphPage } from './Pages/LatticeGraphPage';
+import { InviteResponsePage } from './Pages/InviteResponsePage';
 import './App.css';
 
 const LandingPage = () => (
@@ -40,6 +41,7 @@ function App() {
         <Route path="/lattice/features" element={<LatticeFeaturesPage />} />
         <Route path="/lattice/stack" element={<LatticeStackPage />} />
         <Route path="/lattice/demo" element={<LatticeDemoPage />} />
+        <Route path="/invite/:inviteId" element={<InviteResponsePage />} />
       </Routes>
     </div>
   );
