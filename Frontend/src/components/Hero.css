@@ -85,6 +85,26 @@
   color: #000;
 }
 
+.hero-nav-extension {
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.hero-nav-extension:hover {
+  background: #dbeafe;
+  border-color: #bfdbfe;
+}
+
 .new-badge {
   background: #e6f0ff;
   color: #0066ff;
@@ -124,6 +144,52 @@
 
 .btn-contact:hover {
   opacity: 0.8;
+}
+
+.hero-extension-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+  z-index: 120;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+}
+
+.hero-extension-card {
+  width: min(560px, 100%);
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 30px 70px rgba(2, 6, 23, 0.2);
+  padding: 28px;
+}
+
+.hero-extension-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.45rem;
+  color: #0f172a;
+}
+
+.hero-extension-card p {
+  margin: 0 0 14px;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.hero-extension-card ol {
+  margin: 0 0 20px;
+  padding-left: 20px;
+  color: #1e293b;
+  line-height: 1.75;
+}
+
+.hero-extension-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
 /* Concentric Rings */

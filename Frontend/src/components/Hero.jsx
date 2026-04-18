@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { Sparkles, Command } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Sparkles, Command, Puzzle } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import version2Video from '../assets/Version 02.mp4';
@@ -9,6 +9,8 @@ import { NotificationStack } from './NotificationStack';
 import { TrustBar } from './TrustBar';
 
 export const Hero = () => {
+  const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
+
   // Hero Parallax hooks for video
   const videoRef = useRef(null);
   const { scrollYProgress: videoScroll } = useScroll({
@@ -37,12 +39,43 @@ export const Hero = () => {
           <a href="#services">Services <span className="new-badge">NEW</span></a>
           <a href="#pricing">Pricing</a>
           <a href="#insight">Insight</a>
+          <button className="hero-nav-extension" onClick={() => setIsExtensionModalOpen(true)} type="button">
+            <Puzzle size={14} />
+            Add Chrome Extension
+          </button>
         </div>
         <div className="hero-nav-actions">
           <Link to="/signup" state={{ fromLanding: true }} style={{ textDecoration: 'none' }}><button className="btn-signin">Sign up</button></Link>
           <Link to="/lattice" style={{ textDecoration: 'none' }}><button className="btn-contact">Open Lattice</button></Link>
         </div>
       </nav>
+
+      {isExtensionModalOpen ? (
+        <div className="hero-extension-overlay" role="dialog" aria-modal="true" aria-label="Install Chrome extension">
+          <div className="hero-extension-card">
+            <h3>Add Shelflife Extension</h3>
+            <p>Install in developer mode to save current page links directly into your project.</p>
+            <ol>
+              <li>Open chrome://extensions in Chrome.</li>
+              <li>Turn on Developer mode.</li>
+              <li>Click Load unpacked.</li>
+              <li>Select the chrome-bookmark-importer folder from this project.</li>
+            </ol>
+            <div className="hero-extension-actions">
+              <button
+                className="btn-secondary"
+                onClick={() => window.open('chrome://extensions', '_blank')}
+                type="button"
+              >
+                Open Extensions Page
+              </button>
+              <button className="btn-primary" onClick={() => setIsExtensionModalOpen(false)} type="button">
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* Main Content */}
       <div className="hero-content">
