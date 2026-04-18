@@ -1,112 +1,123 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { 
-  Command, LayoutDashboard, Folder, Users, Activity, Settings, 
-  Search, Bell, Plus, Menu, X, Network
+import {
+  Command,
+  SquarePlus,
+  Lightbulb,
+  Users,
+  Target,
+  Activity,
+  Zap,
+  Search,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Bell,
+  CircleUserRound,
 } from 'lucide-react';
-import { LatticeSpotlight } from '../components/LatticeSpotlight';
+import { apiRequest } from '../utils/api';
 import './LatticePages.css';
 
-export const LatticeFrame = ({ children }) => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isSpotlightOpen, setIsSpotlightOpen] = useState(false);
+const navItems = [
+  { label: 'Home', to: '/lattice', icon: <Lightbulb size={18} /> },
+  { label: 'Problem-Solving', to: '/lattice/problem', icon: <Zap size={18} /> },
+  { label: 'Iterate and Refine', to: '/lattice/iterate', icon: <Activity size={18} /> },
+  { label: 'Industry Trends', to: '/lattice/trends', icon: <Users size={18} /> },
+  { label: 'Embrace Design Thinking', to: '/lattice/design', icon: <Target size={18} /> },
+  { label: 'Promote Collaboration', to: '/lattice/collab', icon: <Users size={18} /> },
+  { label: 'Encourage Diversity', to: '/lattice/diversity', icon: <SquarePlus size={18} /> },
+  { label: 'Identify Market Needs', to: '/lattice/needs', icon: <Activity size={18} /> },
+];
 
-  // Global Cmd+K Listener
+export const LatticeFrame = ({ children }) => {
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [userAvatarUrl, setUserAvatarUrl] = useState(null);
+
   useEffect(() => {
-    const handleGlobalKeyDown = (e) => {
-      // Cmd/Ctrl + K
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setIsSpotlightOpen(prev => !prev);
+    let isMounted = true;
+
+    const loadCurrentUser = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        return;
+      }
+
+      try {
+        const response = await apiRequest('/auth/me', { method: 'GET' });
+
+        if (isMounted) {
+          setUserAvatarUrl(response?.user?.avatarUrl || null);
+        }
+      } catch {
+        if (isMounted) {
+          setUserAvatarUrl(null);
+        }
       }
     };
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+
+    loadCurrentUser();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (
-    <div className="lat-dashboard-wrapper">
-      
-      {/* Mobile Overlay */}
-      {sidebarOpen && <div className="lat-sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>}
-
-      {/* Left Sidebar */}
-      <aside className={`lat-sidebar ${sidebarOpen ? 'open' : ''}`}>
-        <div className="lat-sidebar-header">
-          <div className="lat-logo-container">
-            <Command size={20} strokeWidth={2.5} color="#2d3748" />
-            <span className="lat-logo-text">LATTICE</span>
+    <div className="lattice-dashboard">
+      <aside className={`lattice-secondary-sidebar${isSidebarCollapsed ? ' collapsed' : ''}`}>
+        <div className="secondary-header">
+          <div className="secondary-brand">
+            <Command size={22} strokeWidth={2.4} />
+            <h2>Lattice</h2>
           </div>
-          <button className="lat-mobile-close" onClick={() => setSidebarOpen(false)}>
-            <X size={20} />
+          <button
+            type="button"
+            className="secondary-toggle-btn"
+            onClick={() => setIsSidebarCollapsed((previous) => !previous)}
+            aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {isSidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
           </button>
         </div>
 
-        <div className="lat-sidebar-search">
-          <Search size={16} color="#a0aec0" />
-          <input type="text" placeholder="Search your lattices" />
-        </div>
-
-        <nav className="lat-sidebar-nav">
-          <div className="lat-nav-group">
-            <NavLink to="/lattice" end className={({isActive}) => isActive ? "lat-nav-item active" : "lat-nav-item"}>
-              <LayoutDashboard size={16} /> Home
+        <nav className="secondary-nav-list">
+          {navItems.map((item, idx) => (
+            <NavLink
+              key={idx}
+              to={item.to}
+              end={item.to === '/lattice'}
+              className={({ isActive }) =>
+                isActive ? 'secondary-nav-item active' : 'secondary-nav-item'
+              }
+            >
+              <span className="nav-icon">{item.icon}</span>
+              <span className="nav-label">{item.label}</span>
             </NavLink>
-            <NavLink to="/lattice/graph" className={({isActive}) => isActive ? "lat-nav-item active" : "lat-nav-item"}>
-              <Network size={16} /> Lattice Map
-            </NavLink>
-            <NavLink to="/lattice/personal" className={({isActive}) => isActive ? "lat-nav-item active" : "lat-nav-item"}>
-              <Folder size={16} /> My Lattices
-            </NavLink>
-            <NavLink to="/lattice/shared" className={({isActive}) => isActive ? "lat-nav-item active" : "lat-nav-item"}>
-              <Users size={16} /> Shared Spaces
-            </NavLink>
-            <NavLink to="/lattice/activity" className={({isActive}) => isActive ? "lat-nav-item active" : "lat-nav-item"}>
-              <Activity size={16} /> Recent Activity
-            </NavLink>
-          </div>
-
-          <div className="lat-nav-group" style={{marginTop: 'auto'}}>
-            <NavLink to="/lattice/settings" className={({isActive}) => isActive ? "lat-nav-item active" : "lat-nav-item"}>
-              <Settings size={16} /> Settings
-            </NavLink>
-          </div>
+          ))}
         </nav>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="lat-main">
-        {/* Top Header */}
-        <header className="lat-header">
-          <div className="lat-header-left">
-            <button className="lat-mobile-toggle" onClick={() => setSidebarOpen(true)}>
-              <Menu size={22} />
-            </button>
-            <div className="lat-global-search" onClick={() => setIsSpotlightOpen(true)} style={{cursor: 'pointer'}}>
-              <Search size={16} color="#a0aec0" />
-              <input type="text" placeholder="Search your lattices..." readOnly style={{cursor: 'pointer'}} />
-              <kbd className="lat-shortcut">⌘K</kbd>
-            </div>
+      <main className="lattice-main-content">
+        <header className="main-topbar">
+          <div className="search-bar">
+            <Search size={16} />
+            <input type="text" placeholder="Search" />
           </div>
-          <div className="lat-header-right">
-            <button className="lat-btn-primary">
-              <Plus size={16} /> New Lattice
-            </button>
-            <button className="lat-icon-btn">
-              <Bell size={18} />
-              <span className="lat-notification-dot"></span>
-            </button>
-            <div className="lat-avatar"></div>
+          <div className="topbar-actions">
+            <button className="action-circle" aria-label="Notifications"><Bell size={18} /></button>
+            <div className="user-avatar" aria-label="User profile">
+              {userAvatarUrl ? (
+                <img src={userAvatarUrl} alt="User profile" className="user-avatar-image" />
+              ) : (
+                <CircleUserRound size={20} strokeWidth={1.8} />
+              )}
+            </div>
           </div>
         </header>
 
-        {/* Scrollable Canvas for Children */}
-        <div className="lat-content-scroll">
+        <div className="main-scrollable">
           {children}
         </div>
       </main>
-
-      <LatticeSpotlight isOpen={isSpotlightOpen} onClose={() => setIsSpotlightOpen(false)} />
     </div>
   );
 };
