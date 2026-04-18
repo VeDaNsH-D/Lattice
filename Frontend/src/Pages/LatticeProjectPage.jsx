@@ -1,16 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { ExternalLink, ImageOff, ArrowLeft, Plus, ChevronDown, UserPlus } from 'lucide-react';
+import { ExternalLink, ImageOff, ArrowLeft, Plus, ChevronDown, UserPlus, Trash2, SmilePlus } from 'lucide-react';
 import { Network } from 'lucide-react';
 import { LatticeFrame } from './LatticeFrame';
 import { ProjectRealtimePanel } from './ProjectRealtimePanel';
 import ProjectBookmarkImport from '../components/ProjectBookmarkImport';
+import LinkModal from '../components/LinkModal';
 import { apiRequest } from '../utils/api';
 import './LatticePages.css';
 
 const BOOKMARK_SIGNAL_KEY = 'bookmarkSaveSignal';
 
 export const LatticeProjectPage = () => {
+    const reactionOptions = ['👍', '🔥', '❤️', '😂', '👏', '🤯'];
     const { projectId } = useParams();
     const location = useLocation();
     const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : '';
@@ -36,6 +38,10 @@ export const LatticeProjectPage = () => {
     const [isInvitingUser, setIsInvitingUser] = useState(false);
     const [inviteError, setInviteError] = useState('');
     const [inviteSuccess, setInviteSuccess] = useState('');
+    const [deletingLinkId, setDeletingLinkId] = useState('');
+    const [reactionPickerLinkId, setReactionPickerLinkId] = useState('');
+    const [reactingLinkId, setReactingLinkId] = useState('');
+    const [selectedLink, setSelectedLink] = useState(null);
 
     const projectName = useMemo(() => {
         if (typeof resolvedProjectName === 'string' && resolvedProjectName.trim()) {
@@ -112,7 +118,13 @@ export const LatticeProjectPage = () => {
     }, [projectId, projectType, resolvedProjectName]);
 
     useEffect(() => {
-        void loadProjectLinks();
+        const timer = window.setTimeout(() => {
+            void loadProjectLinks();
+        }, 0);
+
+        return () => {
+            window.clearTimeout(timer);
+        };
     }, [loadProjectLinks]);
 
     useEffect(() => {
@@ -312,6 +324,65 @@ export const LatticeProjectPage = () => {
             setInviteError(error.message || 'Unable to send invite.');
         } finally {
             setIsInvitingUser(false);
+        }
+    };
+
+    const onDeleteLink = async (linkId) => {
+        if (!linkId || deletingLinkId) {
+            return;
+        }
+
+        const shouldDelete = window.confirm('Delete this bookmark? This cannot be undone.');
+        if (!shouldDelete) {
+            return;
+        }
+
+        setDeletingLinkId(linkId);
+        setFormError('');
+        setFormSuccess('');
+
+        try {
+            await apiRequest(`/links/${linkId}`, {
+                method: 'DELETE',
+            });
+
+            setLinks((previous) => previous.filter((entry) => (entry._id || entry.id) !== linkId));
+        } catch (error) {
+            setFormError(error.message || 'Unable to delete bookmark.');
+        } finally {
+            setDeletingLinkId('');
+        }
+    };
+
+    const onReactToLink = async (linkId, emoji) => {
+        if (!linkId || !emoji || reactingLinkId) {
+            return;
+        }
+
+        setReactingLinkId(linkId);
+
+        try {
+            const response = await apiRequest(`/links/${linkId}/reactions`, {
+                method: 'POST',
+                body: JSON.stringify({ emoji }),
+            });
+
+            const updatedLink = response?.link;
+            if (updatedLink) {
+                setLinks((previous) => previous.map((entry) => {
+                    const entryId = entry._id || entry.id;
+                    if (entryId !== linkId) {
+                        return entry;
+                    }
+
+                    return updatedLink;
+                }));
+            }
+        } catch (error) {
+            setFormError(error.message || 'Unable to add reaction.');
+        } finally {
+            setReactingLinkId('');
+            setReactionPickerLinkId('');
         }
     };
 
@@ -579,16 +650,25 @@ export const LatticeProjectPage = () => {
                         {links.map((item) => {
                             const summary = item.summary || item.description || 'No summary available for this bookmark yet.';
                             const title = item.title || item.url;
+                            const linkId = item._id || item.id;
+                            const reactions = Array.isArray(item.reactions) ? item.reactions : [];
 
                             return (
-                                <article key={item._id || item.id || item.url} className="bookmark-tile">
-                                    <a
-                                        href={item.url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="bookmark-tile-visual"
-                                        aria-label={`Open ${title}`}
-                                    >
+                                <article
+                                    key={linkId || item.url}
+                                    className="bookmark-tile"
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => setSelectedLink(item)}
+                                    onKeyDown={(event) => {
+                                        if (event.key === 'Enter' || event.key === ' ') {
+                                            event.preventDefault();
+                                            setSelectedLink(item);
+                                        }
+                                    }}
+                                    aria-label={`Open details for ${title}`}
+                                >
+                                    <div className="bookmark-tile-visual" aria-hidden="true">
                                         {item.image ? (
                                             <img src={item.image} alt={title} loading="lazy" />
                                         ) : (
@@ -597,20 +677,112 @@ export const LatticeProjectPage = () => {
                                                 <span>No preview</span>
                                             </div>
                                         )}
-                                    </a>
+                                    </div>
 
                                     <div className="bookmark-tile-body">
+                                        <div className="bookmark-tile-actions">
+                                            <button
+                                                type="button"
+                                                className="bookmark-tile-delete"
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    onDeleteLink(linkId);
+                                                }}
+                                                disabled={!linkId || deletingLinkId === linkId}
+                                                aria-label="Delete bookmark"
+                                            >
+                                                <Trash2 size={14} />
+                                                {deletingLinkId === linkId ? 'Deleting...' : 'Delete'}
+                                            </button>
+                                        </div>
                                         <h3 title={title}>{title}</h3>
                                         <p className="bookmark-tile-summary">{summary}</p>
-                                        <a href={item.url} target="_blank" rel="noreferrer" className="bookmark-tile-link">
+                                        <a
+                                            href={item.url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="bookmark-tile-link"
+                                            onClick={(event) => event.stopPropagation()}
+                                        >
                                             Visit source
                                             <ExternalLink size={14} />
                                         </a>
+
+                                        {isCollaborativeProject ? (
+                                            <div className="bookmark-tile-reactions-wrap">
+                                                <div className="bookmark-tile-reactions">
+                                                    {reactions.map((reaction) => {
+                                                        const count = Array.isArray(reaction.users) ? reaction.users.length : 0;
+
+                                                        if (!count) {
+                                                            return null;
+                                                        }
+
+                                                        return (
+                                                            <button
+                                                                key={`${linkId}-${reaction.emoji}`}
+                                                                type="button"
+                                                                className="bookmark-reaction-chip"
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    onReactToLink(linkId, reaction.emoji);
+                                                                }}
+                                                                disabled={reactingLinkId === linkId}
+                                                            >
+                                                                <span>{reaction.emoji}</span>
+                                                                <span>{count}</span>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                <div className="bookmark-reaction-picker-wrap">
+                                                    <button
+                                                        type="button"
+                                                        className="bookmark-reaction-add"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            setReactionPickerLinkId((previous) => (previous === linkId ? '' : linkId));
+                                                        }}
+                                                        disabled={reactingLinkId === linkId}
+                                                        aria-label="Add emoji reaction"
+                                                    >
+                                                        <SmilePlus size={14} />
+                                                    </button>
+
+                                                    {reactionPickerLinkId === linkId ? (
+                                                        <div className="bookmark-reaction-popover">
+                                                            {reactionOptions.map((emoji) => (
+                                                                <button
+                                                                    key={`${linkId}-${emoji}`}
+                                                                    type="button"
+                                                                    className="bookmark-reaction-option"
+                                                                    onClick={(event) => {
+                                                                        event.stopPropagation();
+                                                                        onReactToLink(linkId, emoji);
+                                                                    }}
+                                                                    disabled={reactingLinkId === linkId}
+                                                                >
+                                                                    {emoji}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    ) : null}
+                                                </div>
+                                            </div>
+                                        ) : null}
                                     </div>
                                 </article>
                             );
                         })}
                     </section>
+                ) : null}
+
+                {selectedLink ? (
+                    <LinkModal
+                        link={selectedLink}
+                        onClose={() => setSelectedLink(null)}
+                    />
                 ) : null}
             </div>
         </LatticeFrame>

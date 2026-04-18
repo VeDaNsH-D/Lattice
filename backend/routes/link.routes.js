@@ -1,10 +1,12 @@
 import express from "express";
-import { body, query } from "express-validator";
+import { body, param, query } from "express-validator";
 
 import {
     createLink,
+    deleteLink,
     listDebateThreads,
-    listLinks
+    listLinks,
+    toggleLinkReaction
 } from "../controllers/link.controller.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 import { validateRequest } from "../middlewares/validate.middleware.js";
@@ -48,6 +50,25 @@ router.get(
     [query("projectId").isMongoId().withMessage("Valid projectId is required")],
     validateRequest,
     listDebateThreads
+);
+
+router.delete(
+    "/:id",
+    authMiddleware,
+    [param("id").isMongoId().withMessage("Valid link id is required")],
+    validateRequest,
+    deleteLink
+);
+
+router.post(
+    "/:id/reactions",
+    authMiddleware,
+    [
+        param("id").isMongoId().withMessage("Valid link id is required"),
+        body("emoji").trim().notEmpty().withMessage("emoji is required")
+    ],
+    validateRequest,
+    toggleLinkReaction
 );
 
 export default router;

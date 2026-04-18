@@ -62,6 +62,22 @@ const linkSchema = new mongoose.Schema(
                 type: mongoose.Schema.Types.ObjectId,
                 ref: "Role"
             }
+        ],
+
+        reactions: [
+            {
+                emoji: {
+                    type: String,
+                    required: true,
+                    trim: true
+                },
+                users: [
+                    {
+                        type: mongoose.Schema.Types.ObjectId,
+                        ref: "User"
+                    }
+                ]
+            }
         ]
     },
     { timestamps: true }

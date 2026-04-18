@@ -1,5 +1,6 @@
 import Link from "../models/link.js";
 import Message from "../models/message.js";
+import Project from "../models/project.js";
 import Room from "../models/room.js";
 import { fetchMetadata } from "../services/metadata.service.js";
 import { generateAIContent } from "../services/ai.service.js";
@@ -131,6 +132,123 @@ export const listDebateThreads = async (req, res, next) => {
             success: true,
             count: items.length,
             items
+        });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+export const deleteLink = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.userId;
+
+        const link = await Link.findById(id).select("_id projectId createdBy");
+        if (!link) {
+            return res.status(404).json({
+                success: false,
+                message: "Link not found"
+            });
+        }
+
+        const project = await Project.findOne({
+            _id: link.projectId,
+            isActive: true,
+            $or: [{ createdBy: userId }, { members: userId }]
+        }).select("_id");
+
+        if (!project) {
+            return res.status(403).json({
+                success: false,
+                message: "Forbidden: you do not have access to this project"
+            });
+        }
+
+        await Link.deleteOne({ _id: link._id });
+
+        return res.status(200).json({
+            success: true,
+            message: "Link deleted successfully",
+            deletedLinkId: String(link._id)
+        });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+export const toggleLinkReaction = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { emoji } = req.body;
+        const userId = req.user.userId;
+
+        const normalizedEmoji = typeof emoji === "string" ? emoji.trim() : "";
+        if (!normalizedEmoji) {
+            return res.status(400).json({
+                success: false,
+                message: "emoji is required"
+            });
+        }
+
+        const link = await Link.findById(id);
+        if (!link) {
+            return res.status(404).json({
+                success: false,
+                message: "Link not found"
+            });
+        }
+
+        const project = await Project.findOne({
+            _id: link.projectId,
+            isActive: true,
+            $or: [{ createdBy: userId }, { members: userId }]
+        }).select("_id projectType");
+
+        if (!project) {
+            return res.status(403).json({
+                success: false,
+                message: "Forbidden: you do not have access to this project"
+            });
+        }
+
+        if (project.projectType !== "collaborative") {
+            return res.status(400).json({
+                success: false,
+                message: "Reactions are only available in collaborative projects"
+            });
+        }
+
+        const userIdString = String(userId);
+        const reactions = Array.isArray(link.reactions) ? link.reactions : [];
+        const reactionIndex = reactions.findIndex((entry) => entry.emoji === normalizedEmoji);
+
+        if (reactionIndex === -1) {
+            reactions.push({ emoji: normalizedEmoji, users: [userId] });
+        } else {
+            const currentUsers = Array.isArray(reactions[reactionIndex].users)
+                ? reactions[reactionIndex].users.map((entry) => String(entry))
+                : [];
+
+            if (currentUsers.includes(userIdString)) {
+                reactions[reactionIndex].users = reactions[reactionIndex].users.filter(
+                    (entry) => String(entry) !== userIdString
+                );
+
+                if (!reactions[reactionIndex].users.length) {
+                    reactions.splice(reactionIndex, 1);
+                }
+            } else {
+                reactions[reactionIndex].users.push(userId);
+            }
+        }
+
+        link.reactions = reactions;
+        await link.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Reaction updated",
+            link
         });
     } catch (error) {
         return next(error);
