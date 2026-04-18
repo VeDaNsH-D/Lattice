@@ -10,6 +10,25 @@ import { TrustBar } from './TrustBar';
 
 export const Hero = () => {
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
+  const [extensionInstallMessage, setExtensionInstallMessage] = useState('');
+  const extensionZipPath = '/lattice-extension.zip';
+
+  const openChromeExtensionsPage = async () => {
+    const extensionsUrl = 'chrome://extensions/';
+
+    try {
+      window.open(extensionsUrl, '_blank', 'noopener,noreferrer');
+    } catch {
+      // Ignore and rely on fallback guidance below.
+    }
+
+    try {
+      await navigator.clipboard.writeText(extensionsUrl);
+      setExtensionInstallMessage('Chrome may block opening internal URLs from websites. We copied chrome://extensions/ to your clipboard. Paste it in Chrome address bar.');
+    } catch {
+      setExtensionInstallMessage('Chrome may block opening internal URLs from websites. Please type chrome://extensions/ in Chrome address bar.');
+    }
+  };
 
   // Hero Parallax hooks for video
   const videoRef = useRef(null);
@@ -53,18 +72,24 @@ export const Hero = () => {
       {isExtensionModalOpen ? (
         <div className="hero-extension-overlay" role="dialog" aria-modal="true" aria-label="Install Chrome extension">
           <div className="hero-extension-card">
-            <h3>Add Shelflife Extension</h3>
-            <p>Install in developer mode to save current page links directly into your project.</p>
+            <h3>Add Lattice Extension</h3>
+            <p>Download the packaged extension, extract it, then load it in Chrome developer mode.</p>
             <ol>
+              <li>Click Download ZIP and extract it to any folder on your machine.</li>
               <li>Open chrome://extensions in Chrome.</li>
               <li>Turn on Developer mode.</li>
               <li>Click Load unpacked.</li>
-              <li>Select the chrome-bookmark-importer folder from this project.</li>
+              <li>Select the extracted folder (not the zip file).</li>
             </ol>
             <div className="hero-extension-actions">
+              <a className="btn-secondary hero-extension-download" href={extensionZipPath} download>
+                Download ZIP
+              </a>
               <button
                 className="btn-secondary"
-                onClick={() => window.open('chrome://extensions', '_blank')}
+                onClick={() => {
+                  void openChromeExtensionsPage();
+                }}
                 type="button"
               >
                 Open Extensions Page
@@ -73,6 +98,9 @@ export const Hero = () => {
                 Done
               </button>
             </div>
+            {extensionInstallMessage ? (
+              <p className="hero-extension-note" role="status">{extensionInstallMessage}</p>
+            ) : null}
           </div>
         </div>
       ) : null}

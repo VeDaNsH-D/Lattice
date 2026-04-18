@@ -389,6 +389,7 @@ app.use("/api/roles", roleRoutes);
 app.use("/api", latticeRoutes);
 app.use("/api", graphRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api", timelineRoutes);
 app.use("/", timelineRoutes);
 
 /* Not found + global errors */

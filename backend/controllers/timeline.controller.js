@@ -1,14 +1,31 @@
 import {
     createSnapshot,
+    ensureTimelineLink,
     generateTimelineInsights,
     getOrCreateMockLink,
     getHistory,
     getTimeline,
 } from "../services/timelineService.js";
 
+async function resolveTimelineLinkFromRequest(req) {
+    const queryLinkId = String(req?.query?.linkId || "").trim();
+    const queryUrl = String(req?.query?.url || "").trim();
+    const queryTitle = String(req?.query?.title || "").trim();
+
+    if (queryLinkId || queryUrl) {
+        return ensureTimelineLink({
+            id: queryLinkId || undefined,
+            url: queryUrl || undefined,
+            title: queryTitle || undefined,
+        });
+    }
+
+    return getOrCreateMockLink();
+}
+
 export async function createSnapshotController(req, res, next) {
     try {
-        const link = await getOrCreateMockLink();
+        const link = await resolveTimelineLinkFromRequest(req);
         const result = await createSnapshot(link);
 
         res.json({
@@ -22,7 +39,7 @@ export async function createSnapshotController(req, res, next) {
 
 export async function getTimelineController(req, res, next) {
     try {
-        const link = await getOrCreateMockLink();
+        const link = await resolveTimelineLinkFromRequest(req);
         const events = await getTimeline(link.id);
         const timelineMeta = generateTimelineInsights(events, link?.last_viewed_at || null);
 
@@ -42,7 +59,7 @@ export async function getTimelineController(req, res, next) {
 
 export async function getHistoryController(req, res, next) {
     try {
-        const link = await getOrCreateMockLink();
+        const link = await resolveTimelineLinkFromRequest(req);
         const snapshots = await getHistory(link.id);
 
         res.json({

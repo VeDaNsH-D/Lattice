@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import {
     ExternalLink,
@@ -39,6 +39,62 @@ const formatDate = (value) => {
     return parsed.toLocaleDateString();
 };
 
+const ENRICHMENT_PENDING_WINDOW_MS = 15 * 60 * 1000;
+
+function isLinkEnrichmentPending(link) {
+    if (!link || link.collisionCheckedAt) {
+        return false;
+    }
+
+    const createdAt = new Date(link.createdAt || link.updatedAt || 0).getTime();
+    if (!createdAt || Number.isNaN(createdAt)) {
+        return false;
+    }
+
+    const isRecent = Date.now() - createdAt <= ENRICHMENT_PENDING_WINDOW_MS;
+    if (!isRecent) {
+        return false;
+    }
+
+    const hasSummary = Boolean(link.summary && String(link.summary).trim());
+    const hasImage = Boolean(link.image && String(link.image).trim());
+    const hasTags = Array.isArray(link.tags) && link.tags.length > 0;
+
+    return !hasSummary || !hasImage || !hasTags;
+}
+
+function getLinkKey(link) {
+    return link?._id || link?.id || link?.url || '';
+}
+
+function normalizeTrendLabel(value) {
+    const trend = String(value || '').trim().toLowerCase();
+
+    if (trend === 'rapid evolution') {
+        return 'Intense';
+    }
+
+    if (trend === 'evolving') {
+        return 'Active';
+    }
+
+    return 'Calm';
+}
+
+function getTrendClassName(value) {
+    const trend = String(value || '').trim().toLowerCase();
+
+    if (trend === 'rapid evolution') {
+        return 'bookmark-status-badge-trend-intense';
+    }
+
+    if (trend === 'evolving') {
+        return 'bookmark-status-badge-trend-active';
+    }
+
+    return 'bookmark-status-badge-trend-calm';
+}
+
 export const LatticeProjectPage = () => {
     const reactionOptions = ['👍', '🔥', '❤️', '😂', '👏', '🤯'];
     const { projectId } = useParams();
@@ -75,6 +131,9 @@ export const LatticeProjectPage = () => {
     const [selectedRoleFilterId, setSelectedRoleFilterId] = useState('all');
     const [onlineParticipants, setOnlineParticipants] = useState([]);
     const [isCollabPaneExpanded, setIsCollabPaneExpanded] = useState(false);
+    const [timelineByLinkId, setTimelineByLinkId] = useState({});
+    const isRefreshingLinksRef = useRef(false);
+    const timelineInFlightRef = useRef(new Set());
 
     const projectName = useMemo(() => {
         if (typeof resolvedProjectName === 'string' && resolvedProjectName.trim()) {
@@ -95,26 +154,141 @@ export const LatticeProjectPage = () => {
         ? inviteRoleId
         : (roles[0]?.id || '');
 
-    const loadProjectLinks = useCallback(async () => {
+    const loadProjectLinks = useCallback(async (options = {}) => {
+        const { silent = false } = options;
+
         if (!projectId) {
             setErrorMessage('Project not found.');
             setIsLoading(false);
             return;
         }
 
-        setIsLoading(true);
-        setErrorMessage('');
+        if (isRefreshingLinksRef.current) {
+            return;
+        }
+
+        isRefreshingLinksRef.current = true;
+
+        if (!silent) {
+            setIsLoading(true);
+            setErrorMessage('');
+        }
 
         try {
             const response = await apiRequest(`/links?projectId=${projectId}`, { method: 'GET' });
             setLinks(response?.links || []);
         } catch (error) {
-            setErrorMessage(error.message || 'Unable to load bookmarks for this project.');
-            setLinks([]);
+            if (!silent) {
+                setErrorMessage(error.message || 'Unable to load bookmarks for this project.');
+                setLinks([]);
+            }
         } finally {
-            setIsLoading(false);
+            if (!silent) {
+                setIsLoading(false);
+            }
+            isRefreshingLinksRef.current = false;
         }
     }, [projectId]);
+
+    const hasPendingEnrichment = useMemo(
+        () => links.some((link) => isLinkEnrichmentPending(link)),
+        [links],
+    );
+
+    const selectedLinkTimeline = useMemo(() => {
+        const selectedKey = getLinkKey(selectedLink);
+        return selectedKey ? timelineByLinkId[selectedKey] : null;
+    }, [selectedLink, timelineByLinkId]);
+
+    const loadContextFeedForLink = useCallback(async (link, options = {}) => {
+        const { force = false, triggerSnapshot = false } = options;
+        const linkKey = getLinkKey(link);
+        const url = String(link?.url || '').trim();
+
+        if (!linkKey || !url) {
+            return;
+        }
+
+        const existing = timelineByLinkId[linkKey];
+        const isFresh = existing?.fetchedAt && Date.now() - existing.fetchedAt < 60 * 1000;
+        if (!force && (isFresh || timelineInFlightRef.current.has(linkKey))) {
+            return;
+        }
+
+        timelineInFlightRef.current.add(linkKey);
+        setTimelineByLinkId((previous) => ({
+            ...previous,
+            [linkKey]: {
+                ...(previous[linkKey] || {}),
+                isLoading: true,
+                error: '',
+            },
+        }));
+
+        try {
+            const params = new URLSearchParams({ url });
+            if (link?.title) {
+                params.set('title', String(link.title));
+            }
+
+            if (triggerSnapshot) {
+                await apiRequest(`/snapshot?${params.toString()}`, { method: 'POST' });
+            }
+
+            const [timelinePayload, historyPayload] = await Promise.all([
+                apiRequest(`/timeline?${params.toString()}`, { method: 'GET' }),
+                apiRequest(`/history?${params.toString()}`, { method: 'GET' }),
+            ]);
+
+            const eventsRaw = Array.isArray(timelinePayload?.events)
+                ? timelinePayload.events
+                : (Array.isArray(timelinePayload?.data) ? timelinePayload.data : []);
+            const events = [...eventsRaw].sort(
+                (a, b) => new Date(b?.timestamp || 0).getTime() - new Date(a?.timestamp || 0).getTime(),
+            );
+
+            const snapshotsRaw = Array.isArray(historyPayload?.data)
+                ? historyPayload.data
+                : (Array.isArray(historyPayload?.snapshots) ? historyPayload.snapshots : []);
+            const snapshots = [...snapshotsRaw].sort(
+                (a, b) => new Date(b?.timestamp || 0).getTime() - new Date(a?.timestamp || 0).getTime(),
+            );
+
+            const insights = timelinePayload?.insights || {
+                total_changes: events.length,
+                major_changes: events.filter((event) => event?.type === 'major').length,
+                minor_changes: events.filter((event) => event?.type === 'minor').length,
+                trend: 'stable',
+            };
+
+            const sinceLastSeen = timelinePayload?.since_last_seen || { major: 0, minor: 0 };
+
+            setTimelineByLinkId((previous) => ({
+                ...previous,
+                [linkKey]: {
+                    isLoading: false,
+                    error: '',
+                    insights,
+                    sinceLastSeen,
+                    events,
+                    snapshots,
+                    fetchedAt: Date.now(),
+                },
+            }));
+        } catch (error) {
+            setTimelineByLinkId((previous) => ({
+                ...previous,
+                [linkKey]: {
+                    ...(previous[linkKey] || {}),
+                    isLoading: false,
+                    error: error?.message || 'Unable to load context feed.',
+                    fetchedAt: Date.now(),
+                },
+            }));
+        } finally {
+            timelineInFlightRef.current.delete(linkKey);
+        }
+    }, [timelineByLinkId]);
 
     useEffect(() => {
         let isMounted = true;
@@ -222,6 +396,32 @@ export const LatticeProjectPage = () => {
             window.removeEventListener('storage', onStorage);
         };
     }, [projectId, loadProjectLinks]);
+
+    useEffect(() => {
+        if (!hasPendingEnrichment) {
+            return;
+        }
+
+        void loadProjectLinks({ silent: true });
+
+        const pollId = window.setInterval(() => {
+            void loadProjectLinks({ silent: true });
+        }, 5000);
+
+        return () => {
+            window.clearInterval(pollId);
+        };
+    }, [hasPendingEnrichment, loadProjectLinks]);
+
+    useEffect(() => {
+        if (!links.length) {
+            return;
+        }
+
+        links.forEach((link) => {
+            void loadContextFeedForLink(link);
+        });
+    }, [links, loadContextFeedForLink]);
 
     useEffect(() => {
         let isMounted = true;
@@ -760,28 +960,38 @@ export const LatticeProjectPage = () => {
                         {visibleLinks.map((item) => {
                             const summary = item.summary || item.description || 'No summary available for this bookmark yet.';
                             const title = item.title || item.url;
-                            const linkId = item._id || item.id;
+                            const linkId = getLinkKey(item);
                             const reactions = Array.isArray(item.reactions) ? item.reactions : [];
                             const decayProgress = Number.isFinite(item.decayProgress) ? item.decayProgress : 0;
                             const isDecayWindow = Boolean(item.isDecayWindow);
                             const scaleValue = isDecayWindow ? Math.max(0.72, 1 - decayProgress * 0.28) : 1;
                             const saturationValue = isDecayWindow ? Math.max(0.18, 1 - decayProgress * 0.75) : 1;
+                            const enrichmentPending = isLinkEnrichmentPending(item);
+                            const timelineMeta = timelineByLinkId[linkId] || null;
+                            const sinceMajor = Number(timelineMeta?.sinceLastSeen?.major || 0);
+                            const sinceMinor = Number(timelineMeta?.sinceLastSeen?.minor || 0);
+                            const hasSinceLastSeen = sinceMajor > 0 || sinceMinor > 0;
+                            const trend = timelineMeta?.insights?.trend || 'stable';
 
                             return (
                                 <article
                                     key={linkId || item.url}
-                                    className={`bookmark-tile ${item.commentCount > 0 ? 'has-comments' : ''} ${isDecayWindow ? 'is-decaying' : ''}`}
+                                    className={`bookmark-tile ${item.commentCount > 0 ? 'has-comments' : ''} ${isDecayWindow ? 'is-decaying' : ''}${enrichmentPending ? ' bookmark-tile-pending' : ''}`}
                                     style={{
                                         transform: `scale(${scaleValue})`,
                                         filter: `saturate(${saturationValue})`,
                                     }}
                                     role="button"
                                     tabIndex={0}
-                                    onClick={() => setSelectedLink(item)}
+                                    onClick={() => {
+                                        setSelectedLink(item);
+                                        void loadContextFeedForLink(item, { force: true });
+                                    }}
                                     onKeyDown={(event) => {
                                         if (event.key === 'Enter' || event.key === ' ') {
                                             event.preventDefault();
                                             setSelectedLink(item);
+                                            void loadContextFeedForLink(item, { force: true });
                                         }
                                     }}
                                     aria-label={`Open details for ${title}`}
@@ -812,6 +1022,23 @@ export const LatticeProjectPage = () => {
 
                                     <div className="bookmark-tile-body">
                                         <div className="bookmark-tile-actions">
+                                            <div className="bookmark-tile-statuses">
+                                                {enrichmentPending ? (
+                                                    <span className="bookmark-status-badge bookmark-status-badge-pending">
+                                                        Enrichment pending
+                                                    </span>
+                                                ) : null}
+                                                {!enrichmentPending && hasSinceLastSeen ? (
+                                                    <span className="bookmark-status-badge bookmark-status-badge-since">
+                                                        Since seen: {sinceMajor ? `${sinceMajor} major` : ''}{sinceMajor && sinceMinor ? ' • ' : ''}{sinceMinor ? `${sinceMinor} minor` : ''}
+                                                    </span>
+                                                ) : null}
+                                                {!enrichmentPending && !hasSinceLastSeen ? (
+                                                    <span className={`bookmark-status-badge ${getTrendClassName(trend)}`}>
+                                                        {normalizeTrendLabel(trend)}
+                                                    </span>
+                                                ) : null}
+                                            </div>
                                             <button
                                                 type="button"
                                                 className="bookmark-tile-delete"
@@ -1000,6 +1227,12 @@ export const LatticeProjectPage = () => {
                 {selectedLink ? (
                     <LinkModal
                         link={selectedLink}
+                        contextFeed={selectedLinkTimeline}
+                        onRefreshContextFeed={(options = {}) => {
+                            if (selectedLink) {
+                                void loadContextFeedForLink(selectedLink, { force: true, ...options });
+                            }
+                        }}
                         onClose={() => setSelectedLink(null)}
                     />
                 ) : null}

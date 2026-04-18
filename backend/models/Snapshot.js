@@ -23,6 +23,11 @@ const snapshotSchema = new mongoose.Schema(
             type: String,
             default: "",
         },
+        summary_engine: {
+            type: String,
+            enum: ["overtime", "ingestion", "legacy"],
+            default: "overtime",
+        },
         change_level: {
             type: String,
             enum: ["none", "minor", "major"],

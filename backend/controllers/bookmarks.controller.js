@@ -1,6 +1,10 @@
 import Project from "../models/project.js";
 import Bookmark from "../models/link.js";
 import mongoose from "mongoose";
+import { fetchMetadata } from "../services/metadata.service.js";
+import { generateAIContent } from "../services/ai.service.js";
+import { ensureLinkEnrichment, processNewLinkForCollision } from "../services/link-intelligence.service.js";
+import { buildGraphNode } from "../services/graph.service.js";
 
 function normalizeBookmarkUrl(rawUrl) {
     try {
@@ -79,6 +83,61 @@ function buildBookmarkDocument({ projectId, url, title, userId, accessType, allo
     }
 
     return document;
+}
+
+async function enrichImportedBookmark(linkId) {
+    try {
+        const existingLink = await Bookmark.findById(linkId);
+        if (!existingLink) {
+            return;
+        }
+
+        const metadata = await fetchMetadata(existingLink.url);
+        const resolvedTitle = existingLink.title || metadata.title || existingLink.url;
+        const resolvedDescription = existingLink.description || metadata.description || null;
+        const resolvedImage = existingLink.image || metadata.image || null;
+
+        const updates = {
+            title: resolvedTitle,
+            description: resolvedDescription,
+            image: resolvedImage,
+        };
+
+        const needsTags = !Array.isArray(existingLink.tags) || existingLink.tags.length === 0;
+        const needsVibe = !existingLink.vibe;
+
+        if (needsTags || needsVibe) {
+            const aiContent = await generateAIContent(resolvedTitle, resolvedDescription);
+
+            if (needsTags && Array.isArray(aiContent.tags) && aiContent.tags.length > 0) {
+                updates.tags = aiContent.tags;
+            }
+
+            if (needsVibe && aiContent.vibe) {
+                updates.vibe = aiContent.vibe;
+            }
+        }
+
+        await Bookmark.updateOne({ _id: linkId }, { $set: updates });
+
+        const enrichedLink = await Bookmark.findById(linkId);
+        if (!enrichedLink) {
+            return;
+        }
+
+        await ensureLinkEnrichment(enrichedLink);
+        await processNewLinkForCollision(enrichedLink);
+        await buildGraphNode({
+            _id: enrichedLink._id,
+            title: enrichedLink.title || enrichedLink.url,
+            summary: enrichedLink.summary || enrichedLink.description || "",
+            tags: enrichedLink.tags || [],
+            embedding: enrichedLink.embedding,
+            latticeId: enrichedLink.projectId,
+        });
+    } catch (error) {
+        console.error("Imported bookmark enrichment failed:", error.message);
+    }
 }
 
 export async function importBookmarks(req, res) {
@@ -170,9 +229,14 @@ export async function importBookmarks(req, res) {
             }));
 
         if (toInsert.length > 0) {
-            await Bookmark.insertMany(toInsert, { ordered: false });
+            const insertedBookmarks = await Bookmark.insertMany(toInsert, { ordered: false });
 
-            // Optional: enqueue background bookmark processing job here if queue is available.
+            setImmediate(() => {
+                Promise.allSettled(insertedBookmarks.map((item) => enrichImportedBookmark(item._id)))
+                    .catch((error) => {
+                        console.error("Imported bookmark background pipeline failed:", error.message);
+                    });
+            });
         }
 
         return res.status(200).json({

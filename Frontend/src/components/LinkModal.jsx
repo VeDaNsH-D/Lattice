@@ -33,7 +33,119 @@ const formatTimestamp = (value) => {
     }).format(date);
 };
 
-export default function LinkModal({ link, onClose }) {
+const formatRelativeTime = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return 'Unknown time';
+    }
+
+    const diffMs = Date.now() - date.getTime();
+    const minuteMs = 60 * 1000;
+    const hourMs = 60 * minuteMs;
+    const dayMs = 24 * hourMs;
+
+    if (diffMs < minuteMs) {
+        return 'just now';
+    }
+
+    if (diffMs < hourMs) {
+        const minutes = Math.max(1, Math.floor(diffMs / minuteMs));
+        return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+    }
+
+    if (diffMs < dayMs) {
+        const hours = Math.max(1, Math.floor(diffMs / hourMs));
+        return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    }
+
+    const days = Math.max(1, Math.floor(diffMs / dayMs));
+    return `${days} day${days === 1 ? '' : 's'} ago`;
+};
+
+const getTrendUi = (trendValue) => {
+    const trend = String(trendValue || '').trim().toLowerCase();
+
+    if (trend === 'rapid evolution') {
+        return {
+            icon: '🔴',
+            label: 'Intense',
+            className: 'context-feed-trend-intense',
+        };
+    }
+
+    if (trend === 'evolving') {
+        return {
+            icon: '🟡',
+            label: 'Active',
+            className: 'context-feed-trend-active',
+        };
+    }
+
+    return {
+        icon: '🟢',
+        label: 'Calm',
+        className: 'context-feed-trend-calm',
+    };
+};
+
+const normalizeSummaryForGrouping = (value) => {
+    return String(value || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+};
+
+const buildCompactedSnapshotLogs = (snapshots) => {
+    const compacted = [];
+
+    snapshots.forEach((snapshot) => {
+        const changeLevel = String(snapshot?.change_level || '').toLowerCase();
+        const summary = String(snapshot?.summary || '').trim();
+        const summaryKey = normalizeSummaryForGrouping(summary);
+        const previous = compacted[compacted.length - 1];
+
+        const canGroupWithPrevious =
+            previous &&
+            previous.change_level === 'none' &&
+            changeLevel === 'none' &&
+            previous.summaryKey === summaryKey;
+
+        if (canGroupWithPrevious) {
+            previous.grouped_count += 1;
+            previous.oldest_timestamp = snapshot?.timestamp || previous.oldest_timestamp;
+            return;
+        }
+
+        compacted.push({
+            ...snapshot,
+            grouped_count: 1,
+            oldest_timestamp: snapshot?.timestamp,
+            summaryKey,
+        });
+    });
+
+    return compacted;
+};
+
+const SUMMARY_PREVIEW_MAX_CHARS = 180;
+
+const truncateSummary = (text, maxChars = SUMMARY_PREVIEW_MAX_CHARS) => {
+    const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+
+    if (normalized.length <= maxChars) {
+        return {
+            preview: normalized,
+            isTruncated: false,
+        };
+    }
+
+    return {
+        preview: `${normalized.slice(0, maxChars).trimEnd()}...`,
+        isTruncated: true,
+    };
+};
+
+export default function LinkModal({ link, contextFeed, onRefreshContextFeed, onClose }) {
     const [comments, setComments] = useState([]);
     const [isLoadingComments, setIsLoadingComments] = useState(false);
     const [commentsError, setCommentsError] = useState('');
@@ -41,6 +153,8 @@ export default function LinkModal({ link, onClose }) {
     const [isSending, setIsSending] = useState(false);
     const [resolvingCommentId, setResolvingCommentId] = useState('');
     const [isClosing, setIsClosing] = useState(false);
+    const [isShowingFullLog, setIsShowingFullLog] = useState(false);
+    const [expandedSummaryRows, setExpandedSummaryRows] = useState({});
     const commentsEndRef = useRef(null);
     const closeTimeoutRef = useRef(null);
 
@@ -60,6 +174,48 @@ export default function LinkModal({ link, onClose }) {
 
         return [];
     }, [link?.tags]);
+
+    const timelineEvents = useMemo(() => {
+        const events = Array.isArray(contextFeed?.events) ? contextFeed.events : [];
+        return [...events].sort((a, b) => new Date(b?.timestamp || 0).getTime() - new Date(a?.timestamp || 0).getTime());
+    }, [contextFeed?.events]);
+
+    const timelineInsights = contextFeed?.insights || {
+        total_changes: timelineEvents.length,
+        major_changes: timelineEvents.filter((event) => event?.type === 'major').length,
+        minor_changes: timelineEvents.filter((event) => event?.type === 'minor').length,
+        trend: 'stable',
+    };
+
+    const snapshotLogs = useMemo(() => {
+        const snapshots = Array.isArray(contextFeed?.snapshots) ? contextFeed.snapshots : [];
+        return [...snapshots].sort((a, b) => new Date(b?.timestamp || 0).getTime() - new Date(a?.timestamp || 0).getTime());
+    }, [contextFeed?.snapshots]);
+
+    const compactedSnapshotLogs = useMemo(() => {
+        return buildCompactedSnapshotLogs(snapshotLogs);
+    }, [snapshotLogs]);
+
+    const sinceLastSeen = contextFeed?.sinceLastSeen || { major: 0, minor: 0 };
+    const sinceMajor = Number(sinceLastSeen?.major || 0);
+    const sinceMinor = Number(sinceLastSeen?.minor || 0);
+    const hasSinceLastSeen = sinceMajor > 0 || sinceMinor > 0;
+    const trendUi = getTrendUi(timelineInsights?.trend);
+    const visibleSnapshots = isShowingFullLog
+        ? snapshotLogs
+        : compactedSnapshotLogs.slice(0, 4);
+
+    useEffect(() => {
+        setIsShowingFullLog(false);
+        setExpandedSummaryRows({});
+    }, [linkId]);
+
+    const toggleSummaryRowExpansion = (rowKey) => {
+        setExpandedSummaryRows((previous) => ({
+            ...previous,
+            [rowKey]: !previous[rowKey],
+        }));
+    };
 
     useEffect(() => {
         if (!linkId) {
@@ -308,6 +464,114 @@ export default function LinkModal({ link, onClose }) {
                             </div>
                         </section>
                     ) : null}
+
+                    <section className="link-modal-context-feed-section">
+                        <div className="link-modal-context-feed-card">
+                            <div className="link-modal-context-feed-head">
+                                <p className="link-modal-section-label">Context Feed</p>
+                                <button
+                                    type="button"
+                                    className="context-feed-refresh-btn"
+                                    onClick={() => onRefreshContextFeed?.({ triggerSnapshot: true })}
+                                    disabled={Boolean(contextFeed?.isLoading)}
+                                >
+                                    {contextFeed?.isLoading ? 'Refreshing...' : 'Refresh'}
+                                </button>
+                            </div>
+
+                            <div className="context-feed-summary-row">
+                                <span className={`context-feed-trend-pill ${trendUi.className}`}>
+                                    <span aria-hidden="true">{trendUi.icon}</span>
+                                    <span>{trendUi.label}</span>
+                                </span>
+                                <p className="context-feed-summary-text">
+                                    {Number(timelineInsights?.major_changes || 0)} Major Changes • {Number(timelineInsights?.minor_changes || 0)} Minor Updates
+                                </p>
+                            </div>
+
+                            {hasSinceLastSeen ? (
+                                <div className="context-feed-since-section">
+                                    <p>Since your last visit:</p>
+                                    {sinceMajor > 0 ? <p>• {sinceMajor} major update{sinceMajor === 1 ? '' : 's'}</p> : null}
+                                    {sinceMinor > 0 ? <p>• {sinceMinor} minor update{sinceMinor === 1 ? '' : 's'}</p> : null}
+                                </div>
+                            ) : null}
+
+                            <div className="context-feed-insights-row">
+                                <span>Total Changes: {Number(timelineInsights?.total_changes || 0)}</span>
+                                <span>Major: {Number(timelineInsights?.major_changes || 0)} | Minor: {Number(timelineInsights?.minor_changes || 0)}</span>
+                            </div>
+                        </div>
+
+                        <div className="context-feed-log-wrap">
+                            <div className="context-feed-log-head">
+                                <p className="link-modal-section-label">Summary Changes</p>
+                                <button
+                                    type="button"
+                                    className="context-feed-toggle-btn"
+                                    onClick={() => setIsShowingFullLog((previous) => !previous)}
+                                >
+                                    {isShowingFullLog ? 'Show compact view' : 'View full log'}
+                                </button>
+                            </div>
+
+                            {contextFeed?.error ? <p className="context-feed-error">{contextFeed.error}</p> : null}
+
+                            {!contextFeed?.error && visibleSnapshots.length === 0 ? (
+                                <p className="context-feed-empty">No checks recorded yet</p>
+                            ) : null}
+
+                            {!contextFeed?.error && visibleSnapshots.length > 0 ? (
+                                <div className="context-feed-flow-list">
+                                    {visibleSnapshots.map((snapshot, index) => {
+                                        const eventType = String(snapshot?.change_level || '').toLowerCase();
+                                        const isMajor = eventType === 'major';
+                                        const isMinor = eventType === 'minor';
+                                        const summaryText = String(snapshot?.summary || '').trim() || 'Summary unavailable for this check.';
+                                        const checkedAt = snapshot?.timestamp;
+                                        const groupedCount = Number(snapshot?.grouped_count || 1);
+                                        const rowKey = snapshot?.id || `${snapshot?.timestamp}-${index}`;
+                                        const { preview, isTruncated } = truncateSummary(summaryText);
+                                        const isExpanded = Boolean(expandedSummaryRows[rowKey]);
+                                        const displaySummary = isShowingFullLog || isExpanded ? summaryText : preview;
+
+                                        return (
+                                            <article key={rowKey} className="context-feed-flow-item">
+                                                <span
+                                                    className={`context-feed-flow-dot ${isMajor ? 'context-feed-flow-dot-major' : 'context-feed-flow-dot-minor'}`}
+                                                    aria-hidden="true"
+                                                />
+                                                <div className="context-feed-flow-card">
+                                                    <p className="context-feed-flow-check-time">
+                                                        Checked at {formatTimestamp(checkedAt)}
+                                                    </p>
+                                                    {!isShowingFullLog && groupedCount > 1 ? (
+                                                        <p className="context-feed-flow-compact-note">
+                                                            {groupedCount} repeated no-significant checks merged
+                                                        </p>
+                                                    ) : null}
+                                                    <p className={`context-feed-flow-type ${isMajor ? 'context-feed-flow-type-major' : isMinor ? 'context-feed-flow-type-minor' : 'context-feed-flow-type-none'}`}>
+                                                        {isMajor ? 'Major update detected' : isMinor ? 'Minor update detected' : 'No significant update'}
+                                                    </p>
+                                                    <p className="context-feed-flow-description">Summary: {displaySummary}</p>
+                                                    {!isShowingFullLog && isTruncated ? (
+                                                        <button
+                                                            type="button"
+                                                            className="context-feed-summary-toggle"
+                                                            onClick={() => toggleSummaryRowExpansion(rowKey)}
+                                                        >
+                                                            {isExpanded ? 'Show less' : 'View full text'}
+                                                        </button>
+                                                    ) : null}
+                                                    <p className="context-feed-flow-time">{formatRelativeTime(checkedAt)}</p>
+                                                </div>
+                                            </article>
+                                        );
+                                    })}
+                                </div>
+                            ) : null}
+                        </div>
+                    </section>
 
                     <section className="link-modal-comments-section">
                         <div className="link-modal-comments-header">

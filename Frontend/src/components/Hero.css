@@ -196,6 +196,21 @@
   justify-content: flex-end;
 }
 
+.hero-extension-download {
+  text-decoration: none;
+}
+
+.hero-extension-note {
+  margin: 12px 0 0;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  color: #1e3a8a;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
 /* Concentric Rings */
 .concentric-rings-container {
   position: absolute;

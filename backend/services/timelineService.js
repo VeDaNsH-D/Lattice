@@ -35,6 +35,7 @@ function mapSnapshot(snapshotDoc) {
         summary: snapshotDoc.summary,
         page_summary: snapshotDoc.page_summary || "",
         context_summary: snapshotDoc.context_summary || "",
+        summary_engine: snapshotDoc.summary_engine || "legacy",
         change_level: snapshotDoc.change_level,
     };
 }
@@ -45,6 +46,8 @@ function mapEvent(eventDoc) {
     }
 
     return {
+        id: String(eventDoc._id),
+        link_id: String(eventDoc.link_id),
         timestamp: eventDoc.timestamp ? new Date(eventDoc.timestamp).toISOString() : null,
         type: eventDoc.type,
         description: eventDoc.description,
@@ -158,6 +161,11 @@ async function resolveLinkDoc(link) {
     ).lean();
 }
 
+export async function ensureTimelineLink(link = null) {
+    const linkDoc = await resolveLinkDoc(link);
+    return mapLink(linkDoc);
+}
+
 export async function createSnapshot(link = null) {
     const linkDoc = await resolveLinkDoc(link);
 
@@ -191,16 +199,26 @@ export async function createSnapshot(link = null) {
     // 3) Build a concise summary from page + search signals.
     const summary = await generateSummary(fullPageSignal, fullContextSignal);
 
-    // 4) Compare against the most recent snapshot.
-    const previousSnapshot = await SnapshotModel.findOne({ link_id: linkDoc._id })
+    // 4) Compare only against previous overtime snapshots so ingestion summaries
+    // do not create false change events.
+    const previousSnapshot = await SnapshotModel.findOne({
+        link_id: linkDoc._id,
+        summary_engine: "overtime",
+    })
         .sort({ timestamp: -1 })
         .lean();
-    const change = await detectChange(previousSnapshot?.summary, summary, {
-        old_page_summary: previousSnapshot?.page_summary,
-        new_page_summary: pageSummaryInput,
-        old_context_summary: previousSnapshot?.context_summary,
-        new_context_summary: contextSummaryInput,
-    });
+    const change = previousSnapshot
+        ? await detectChange(previousSnapshot?.summary, summary, {
+            old_page_summary: previousSnapshot?.page_summary,
+            new_page_summary: pageSummaryInput,
+            old_context_summary: previousSnapshot?.context_summary,
+            new_context_summary: contextSummaryInput,
+        })
+        : {
+            level: "none",
+            reason: "overtime baseline established",
+            source: "page",
+        };
 
     // 5) Persist the snapshot in MongoDB.
     const snapshotDoc = await SnapshotModel.create({
@@ -208,6 +226,7 @@ export async function createSnapshot(link = null) {
         summary,
         page_summary: pageSummaryInput,
         context_summary: contextSummaryInput,
+        summary_engine: "overtime",
         change_level: change.level,
     });
     const snapshot = mapSnapshot(snapshotDoc);

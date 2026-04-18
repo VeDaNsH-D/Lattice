@@ -1,6 +1,6 @@
 const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 const MAX_COMBINED_INPUT_CHARS = 1500;
-const MAX_OUTPUT_CHARS = 300;
+const MAX_OUTPUT_CHARS = 1200;
 
 function normalizeText(value) {
     return String(value || "")
@@ -84,6 +84,7 @@ export async function generateSummary(pageContent, searchContext = "") {
         return clipText(summaryText, MAX_OUTPUT_CHARS);
     } catch (error) {
         // Fallback keeps timeline pipeline functional even if the LLM call fails.
-        return combinedContent.slice(0, 200);
+        const fallbackSource = normalizeText(pageContent) || normalizeText(searchContext) || combinedContent;
+        return clipText(fallbackSource, MAX_OUTPUT_CHARS);
     }
 }
