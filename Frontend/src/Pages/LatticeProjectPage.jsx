@@ -1,15 +1,17 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { ExternalLink, ImageOff, ArrowLeft, Plus, ChevronDown, UserPlus } from 'lucide-react';
 import { Network } from 'lucide-react';
 import { LatticeFrame } from './LatticeFrame';
 import { ProjectRealtimePanel } from './ProjectRealtimePanel';
+import ProjectBookmarkImport from '../components/ProjectBookmarkImport';
 import { apiRequest } from '../utils/api';
 import './LatticePages.css';
 
 export const LatticeProjectPage = () => {
     const { projectId } = useParams();
     const location = useLocation();
+    const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : '';
     const [links, setLinks] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
@@ -52,6 +54,27 @@ export const LatticeProjectPage = () => {
         ? inviteRoleId
         : (roles[0]?.id || '');
 
+    const loadProjectLinks = useCallback(async () => {
+        if (!projectId) {
+            setErrorMessage('Project not found.');
+            setIsLoading(false);
+            return;
+        }
+
+        setIsLoading(true);
+        setErrorMessage('');
+
+        try {
+            const response = await apiRequest(`/links?projectId=${projectId}`, { method: 'GET' });
+            setLinks(response?.links || []);
+        } catch (error) {
+            setErrorMessage(error.message || 'Unable to load bookmarks for this project.');
+            setLinks([]);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [projectId]);
+
     useEffect(() => {
         let isMounted = true;
 
@@ -87,41 +110,8 @@ export const LatticeProjectPage = () => {
     }, [projectId, projectType, resolvedProjectName]);
 
     useEffect(() => {
-        let isMounted = true;
-
-        const loadProjectLinks = async () => {
-            if (!projectId) {
-                setErrorMessage('Project not found.');
-                setIsLoading(false);
-                return;
-            }
-
-            setIsLoading(true);
-            setErrorMessage('');
-
-            try {
-                const response = await apiRequest(`/links?projectId=${projectId}`, { method: 'GET' });
-                if (isMounted) {
-                    setLinks(response?.links || []);
-                }
-            } catch (error) {
-                if (isMounted) {
-                    setErrorMessage(error.message || 'Unable to load bookmarks for this project.');
-                    setLinks([]);
-                }
-            } finally {
-                if (isMounted) {
-                    setIsLoading(false);
-                }
-            }
-        };
-
-        loadProjectLinks();
-
-        return () => {
-            isMounted = false;
-        };
-    }, [projectId]);
+        void loadProjectLinks();
+    }, [loadProjectLinks]);
 
     useEffect(() => {
         let isMounted = true;
@@ -450,84 +440,88 @@ export const LatticeProjectPage = () => {
                     </>
                 ) : null}
 
-                <section className="project-bookmark-panel">
-                    <div className="project-bookmark-panel-head">
-                        <h3>Add Bookmark To This Project</h3>
-                        <p>Quickly save a link here without going back to Home.</p>
-                    </div>
+                <div className="project-bookmark-row">
+                    <section className="project-bookmark-panel">
+                        <div className="project-bookmark-panel-head">
+                            <h3>Add Bookmark To This Project</h3>
+                            <p>Quickly save a link here without going back to Home.</p>
+                        </div>
 
-                    <form className="project-bookmark-form" onSubmit={onCreateBookmark}>
-                        <div className="project-bookmark-grid">
-                            <div className="bookmark-field project-bookmark-field-wide">
-                                <label htmlFor="project-bookmark-url">Link URL</label>
-                                <input
-                                    id="project-bookmark-url"
-                                    type="url"
-                                    placeholder="https://example.com/interesting-article"
-                                    value={newBookmarkUrl}
-                                    onChange={(event) => setNewBookmarkUrl(event.target.value)}
-                                    disabled={isSubmitting}
-                                    required
-                                />
-                            </div>
+                        <form className="project-bookmark-form" onSubmit={onCreateBookmark}>
+                            <div className="project-bookmark-grid">
+                                <div className="bookmark-field project-bookmark-field-wide">
+                                    <label htmlFor="project-bookmark-url">Link URL</label>
+                                    <input
+                                        id="project-bookmark-url"
+                                        type="url"
+                                        placeholder="https://example.com/interesting-article"
+                                        value={newBookmarkUrl}
+                                        onChange={(event) => setNewBookmarkUrl(event.target.value)}
+                                        disabled={isSubmitting}
+                                        required
+                                    />
+                                </div>
 
-                            <div className="bookmark-field">
-                                <label htmlFor="project-bookmark-access">Access type</label>
-                                <div className="bookmark-select-wrap">
-                                    <select
-                                        id="project-bookmark-access"
-                                        value={effectiveAccessType}
-                                        onChange={(event) => {
-                                            const nextValue = event.target.value;
-                                            setAccessType(nextValue);
-                                            if (nextValue !== 'role_based') {
-                                                setSelectedRoleIds([]);
-                                            }
-                                        }}
-                                        disabled={isSubmitting || !isCollaborativeProject}
-                                    >
-                                        <option value="public">Public (all project members)</option>
-                                        <option value="role_based" disabled={!isCollaborativeProject || roles.length === 0}>Role-based access</option>
-                                    </select>
-                                    <ChevronDown size={16} className="bookmark-select-chevron" />
+                                <div className="bookmark-field">
+                                    <label htmlFor="project-bookmark-access">Access type</label>
+                                    <div className="bookmark-select-wrap">
+                                        <select
+                                            id="project-bookmark-access"
+                                            value={effectiveAccessType}
+                                            onChange={(event) => {
+                                                const nextValue = event.target.value;
+                                                setAccessType(nextValue);
+                                                if (nextValue !== 'role_based') {
+                                                    setSelectedRoleIds([]);
+                                                }
+                                            }}
+                                            disabled={isSubmitting || !isCollaborativeProject}
+                                        >
+                                            <option value="public">Public (all project members)</option>
+                                            <option value="role_based" disabled={!isCollaborativeProject || roles.length === 0}>Role-based access</option>
+                                        </select>
+                                        <ChevronDown size={16} className="bookmark-select-chevron" />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        {effectiveAccessType === 'role_based' && isCollaborativeProject ? (
-                            <div className="bookmark-role-section project-bookmark-roles">
-                                <p className="bookmark-role-label">Roles with access</p>
-                                {roles.length ? (
-                                    <div className="bookmark-role-list">
-                                        {roles.map((role) => (
-                                            <label key={role.id} className="bookmark-role-chip">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedRoleIds.includes(role.id)}
-                                                    onChange={() => onRoleToggle(role.id)}
-                                                    disabled={isSubmitting}
-                                                />
-                                                <span>{role.name}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="bookmark-role-empty">No roles exist for this project yet.</p>
-                                )}
+                            {effectiveAccessType === 'role_based' && isCollaborativeProject ? (
+                                <div className="bookmark-role-section project-bookmark-roles">
+                                    <p className="bookmark-role-label">Roles with access</p>
+                                    {roles.length ? (
+                                        <div className="bookmark-role-list">
+                                            {roles.map((role) => (
+                                                <label key={role.id} className="bookmark-role-chip">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedRoleIds.includes(role.id)}
+                                                        onChange={() => onRoleToggle(role.id)}
+                                                        disabled={isSubmitting}
+                                                    />
+                                                    <span>{role.name}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="bookmark-role-empty">No roles exist for this project yet.</p>
+                                    )}
+                                </div>
+                            ) : null}
+
+                            {formError ? <p className="bookmark-feedback bookmark-feedback-error">{formError}</p> : null}
+                            {formSuccess ? <p className="bookmark-feedback bookmark-feedback-success">{formSuccess}</p> : null}
+
+                            <div className="project-bookmark-actions">
+                                <button type="submit" className="project-bookmark-submit" disabled={isSubmitting}>
+                                    <Plus size={15} />
+                                    {isSubmitting ? 'Adding...' : 'Add Bookmark'}
+                                </button>
                             </div>
-                        ) : null}
+                        </form>
+                    </section>
 
-                        {formError ? <p className="bookmark-feedback bookmark-feedback-error">{formError}</p> : null}
-                        {formSuccess ? <p className="bookmark-feedback bookmark-feedback-success">{formSuccess}</p> : null}
-
-                        <div className="project-bookmark-actions">
-                            <button type="submit" className="project-bookmark-submit" disabled={isSubmitting}>
-                                <Plus size={15} />
-                                {isSubmitting ? 'Adding...' : 'Add Bookmark'}
-                            </button>
-                        </div>
-                    </form>
-                </section>
+                    <ProjectBookmarkImport projectId={projectId} token={token} onImportCompleted={loadProjectLinks} />
+                </div>
 
                 {isLoading ? <p className="directory-status">Loading bookmarks...</p> : null}
                 {errorMessage ? <p className="directory-status directory-status-error">{errorMessage}</p> : null}
@@ -581,3 +575,4 @@ export const LatticeProjectPage = () => {
         </LatticeFrame>
     );
 };
+
