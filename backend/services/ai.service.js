@@ -1,4 +1,5 @@
 import { createChatCompletion } from "./ai.client.js";
+import { resolveVibe, VIBE_TYPES } from "../utils/vibe.js";
 
 const FALLBACK_TAGS = ["general"];
 
@@ -19,7 +20,7 @@ export async function generateAIContent(title = "", description = "", url = "") 
         return {
             summary: null,
             tags: FALLBACK_TAGS,
-            vibe: null,
+            vibe: "general",
             parentHub: "General"
         };
     }
@@ -29,7 +30,7 @@ export async function generateAIContent(title = "", description = "", url = "") 
         "Return strict JSON with keys: summary, tags, vibe, parentHub.",
         "summary should be max 2 short sentences.",
         "tags should be an array of up to 5 lowercase strings.",
-        "vibe should be one short lowercase phrase.",
+        `vibe must be exactly one of: ${VIBE_TYPES.join(", ")} (lowercase, no extra words).`,
         "parentHub must be a dynamic but highly generalized category clustering name (e.g., 'Machine Learning', 'Frontend Engineering', 'Social Media', 'Design Resources', 'Investments'). If the url clearly points to Reddit or Twitter, group it natively like 'Reddit Discussions' or 'Twitter Threads' respectively, but don't hardcode rules—intelligently group based on standard thematic groupings."
     ].join(" ");
 
@@ -56,17 +57,26 @@ export async function generateAIContent(title = "", description = "", url = "") 
                 .slice(0, 5)
             : [];
 
+        const normalizedTags = tags.length ? tags : FALLBACK_TAGS;
+        const resolvedVibe = resolveVibe(parsed.vibe, {
+            title: compactTitle,
+            description: compactDescription,
+            url: compactUrl,
+            tags: normalizedTags,
+            parentHub: parsed.parentHub
+        });
+
         return {
             summary: typeof parsed.summary === "string" ? parsed.summary.trim() || null : null,
-            tags: tags.length ? tags : FALLBACK_TAGS,
-            vibe: typeof parsed.vibe === "string" ? parsed.vibe.trim() || null : null,
+            tags: normalizedTags,
+            vibe: resolvedVibe,
             parentHub: typeof parsed.parentHub === "string" ? parsed.parentHub.trim() : "General"
         };
     } catch {
         return {
             summary: null,
             tags: FALLBACK_TAGS,
-            vibe: null,
+            vibe: "general",
             parentHub: "General"
         };
     }

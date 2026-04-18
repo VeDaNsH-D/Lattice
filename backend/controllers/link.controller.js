@@ -10,6 +10,7 @@ import { ensureLinkEnrichment, processNewLinkForCollision } from "../services/li
 import { buildGraphNode } from "../services/graph.service.js";
 import { publishDecayTelemetry } from "../services/realtime-synapse.service.js";
 import { recordActivity } from "../services/activityLog.service.js";
+import { resolveVibe } from "../utils/vibe.js";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_DECAY_START_DAYS = 14;
@@ -243,8 +244,14 @@ export const createLink = async (req, res, next) => {
         }
 
         const finalTags = tags && tags.length > 0 ? tags : aiContent.tags;
-        const finalVibe = vibe || aiContent.vibe;
         const finalParentHub = req.body.parentHub || aiContent.parentHub || "General";
+        const finalVibe = resolveVibe(vibe || aiContent.vibe, {
+            title: resolvedTitle,
+            description: resolvedDescription,
+            url,
+            tags: finalTags,
+            parentHub: finalParentHub
+        });
 
         const link = await Link.create({
             projectId,

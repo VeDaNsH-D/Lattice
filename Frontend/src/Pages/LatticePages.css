@@ -1928,21 +1928,41 @@
 }
 
 .bookmark-tile {
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  --vibe-bg-start: #f8fafc;
+  --vibe-bg-mid: #f1f5f9;
+  --vibe-bg-end: #eef2ff;
+  --vibe-glow: #e8ebf4;
+  --vibe-tint: #a5b4fc;
+  --vibe-card-tint: #f4f4f4;
+  --vibe-badge-bg: rgba(248, 250, 252, 0.94);
+  --vibe-badge-border: rgba(165, 180, 252, 0.45);
+  --vibe-badge-text: #4338ca;
+  border: 1px solid rgba(184, 184, 184, 0.35);
   border-radius: 20px;
-  background: #ffffff;
+  background:
+    linear-gradient(160deg,
+      color-mix(in srgb, var(--vibe-bg-start) 42%, #eceff4 58%) 0%,
+      color-mix(in srgb, var(--vibe-bg-mid) 38%, #e8ebf2 62%) 52%,
+      color-mix(in srgb, var(--vibe-bg-end) 42%, #e3e7ef 58%) 100%);
   overflow: hidden;
+  position: relative;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   min-height: 380px;
-  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.06);
-  transition: transform 0.24s ease, box-shadow 0.24s ease;
+  box-shadow: 0 14px 36px -24px rgba(25, 25, 25, 0.24);
+  transition: transform 0.24s ease, box-shadow 0.24s ease, background 0.28s ease;
+}
+
+.bookmark-tile::before {
+  content: none;
 }
 
 .bookmark-tile:hover {
   transform: translateY(-8px);
-  box-shadow: 0 20px 48px -12px rgba(0, 0, 0, 0.1);
+  box-shadow:
+    0 24px 44px -20px rgba(22, 22, 22, 0.3),
+    0 18px 40px -28px color-mix(in srgb, var(--vibe-tint) 42%, transparent 58%);
 }
 
 .bookmark-tile-pending .bookmark-tile-visual {
@@ -1983,7 +2003,34 @@
   position: relative;
   width: 100%;
   height: 200px;
-  background: #f4f5f8;
+  border-radius: 14px;
+  margin: 10px 10px 0 10px;
+  background:
+    radial-gradient(120% 100% at 50% 18%,
+      color-mix(in srgb, var(--vibe-glow) 62%, transparent 38%) 0%,
+      color-mix(in srgb, var(--vibe-glow) 12%, transparent 88%) 48%,
+      transparent 68%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--vibe-bg-start) 95%, #000000 5%) 0%,
+      color-mix(in srgb, var(--vibe-bg-mid) 90%, #000000 10%) 54%,
+      color-mix(in srgb, var(--vibe-bg-end) 84%, #000000 16%) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  filter: saturate(1.4) contrast(1.2) brightness(0.96);
+  z-index: 1;
+}
+
+.bookmark-tile-visual::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(152deg,
+    color-mix(in srgb, var(--vibe-bg-start) 46%, transparent 54%) 0%,
+    color-mix(in srgb, var(--vibe-bg-mid) 44%, transparent 56%) 50%,
+    color-mix(in srgb, var(--vibe-bg-end) 50%, transparent 50%) 100%);
+  mix-blend-mode: multiply;
+  opacity: 0.46;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .bookmark-tile-visual img {
@@ -1991,6 +2038,8 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  position: relative;
+  z-index: 0;
 }
 
 .bookmark-tile-placeholder {
@@ -2003,6 +2052,8 @@
   color: #6b7280;
   font-size: 0.82rem;
   font-weight: 600;
+  position: relative;
+  z-index: 2;
 }
 
 .bookmark-tile-body {
@@ -2011,6 +2062,8 @@
   flex-direction: column;
   gap: 12px;
   flex: 1;
+  position: relative;
+  z-index: 1;
 }
 
 .bookmark-tile-comment-badge {
@@ -2076,6 +2129,12 @@
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.01em;
+}
+
+.bookmark-status-badge-vibe {
+  background: var(--vibe-badge-bg);
+  border: 1px solid var(--vibe-badge-border);
+  color: var(--vibe-badge-text);
 }
 
 .bookmark-status-badge-pending {

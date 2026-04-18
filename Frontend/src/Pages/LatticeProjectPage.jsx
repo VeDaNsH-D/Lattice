@@ -22,6 +22,7 @@ import ProjectBookmarkImport from '../components/ProjectBookmarkImport';
 import LinkModal from '../components/LinkModal';
 import { apiRequest } from '../utils/api';
 import { markLinkViewed } from '../services/latticeApi';
+import { formatVibeLabel, getVibeTheme } from '../utils/vibeTheme';
 import './LatticePages.css';
 
 const BOOKMARK_SIGNAL_KEY = 'bookmarkSaveSignal';
@@ -1072,6 +1073,8 @@ export const LatticeProjectPage = () => {
                                     const sinceMinor = Number(timelineMeta?.sinceLastSeen?.minor || 0);
                                     const hasSinceLastSeen = sinceMajor > 0 || sinceMinor > 0;
                                     const trend = timelineMeta?.insights?.trend || 'stable';
+                                    const vibeTheme = getVibeTheme(item.vibe);
+                                    const vibeLabel = formatVibeLabel(item.vibe);
 
                                     return (
                                         <article
@@ -1080,6 +1083,15 @@ export const LatticeProjectPage = () => {
                                             style={{
                                                 transform: `scale(${scaleValue})`,
                                                 filter: `saturate(${saturationValue})`,
+                                                '--vibe-bg-start': vibeTheme.start,
+                                                '--vibe-bg-mid': vibeTheme.mid,
+                                                '--vibe-bg-end': vibeTheme.end,
+                                                '--vibe-glow': vibeTheme.glow,
+                                                '--vibe-tint': vibeTheme.tint,
+                                                '--vibe-card-tint': vibeTheme.cardTint,
+                                                '--vibe-badge-bg': vibeTheme.badgeBg,
+                                                '--vibe-badge-border': vibeTheme.badgeBorder,
+                                                '--vibe-badge-text': vibeTheme.badgeText,
                                             }}
                                             role="button"
                                             tabIndex={0}
@@ -1123,6 +1135,9 @@ export const LatticeProjectPage = () => {
                                             <div className="bookmark-tile-body">
                                                 <div className="bookmark-tile-actions">
                                                     <div className="bookmark-tile-statuses">
+                                                        <span className="bookmark-status-badge bookmark-status-badge-vibe">
+                                                            {vibeLabel}
+                                                        </span>
                                                         {enrichmentPending ? (
                                                             <span className="bookmark-status-badge bookmark-status-badge-pending">
                                                                 Enrichment pending

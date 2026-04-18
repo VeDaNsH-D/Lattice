@@ -6,6 +6,7 @@ import { generateAIContent } from "../services/ai.service.js";
 import { ensureLinkEnrichment, processNewLinkForCollision } from "../services/link-intelligence.service.js";
 import { buildGraphNode } from "../services/graph.service.js";
 import { recordActivity } from "../services/activityLog.service.js";
+import { resolveVibe } from "../utils/vibe.js";
 
 function normalizeBookmarkUrl(rawUrl) {
     try {
@@ -115,7 +116,13 @@ async function enrichImportedBookmark(linkId) {
             }
 
             if (needsVibe && aiContent.vibe) {
-                updates.vibe = aiContent.vibe;
+                updates.vibe = resolveVibe(aiContent.vibe, {
+                    title: resolvedTitle,
+                    description: resolvedDescription,
+                    url: existingLink.url,
+                    tags: updates.tags || existingLink.tags || [],
+                    parentHub: existingLink.parentHub
+                });
             }
         }
 
