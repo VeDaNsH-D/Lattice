@@ -1,13 +1,304 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ForceGraph3D from 'react-force-graph-3d';
 import { LatticeFrame } from './LatticeFrame';
 import { BookOpen, PenTool, Code2, Share2, ArrowUpRight, Atom, Blocks, Plus, X, Link as LinkIcon, ChevronDown, SlidersHorizontal, ArrowDownUp, LayoutGrid, Command, Search, Users, GitFork, CircleUserRound, Sparkles } from 'lucide-react';
 import { apiRequest } from '../utils/api';
-import { forkPublicProject, searchDiscover } from '../services/latticeApi';
+import { forkPublicProject, searchDiscover, getGlobalLatticeGraph } from '../services/latticeApi';
 import './LatticePages.css';
 
 const personalIcons = [BookOpen, PenTool, Code2, Share2];
 const collaborativeIcons = [Blocks, ArrowUpRight, Atom, PenTool];
+
+const graphNodeColor = (index, importance) => {
+  if (index % 7 === 0) return '#2ecc71';
+  if (importance > 0.7) return '#ffffff';
+  return '#9e9e9e';
+};
+
+const normalizeHubLabel = (value = '') => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) {
+    return 'General';
+  }
+
+  if (normalized.includes('reddit')) {
+    return 'Reddit';
+  }
+
+  if (normalized.includes('tweet') || normalized.includes('twitter') || normalized.includes('x thread')) {
+    return 'Tweets';
+  }
+
+  if (normalized.includes('education') || normalized.includes('learning') || normalized.includes('course')) {
+    return 'Educational';
+  }
+
+  if (
+    normalized.includes('tech')
+    || normalized.includes('frontend')
+    || normalized.includes('backend')
+    || normalized.includes('react')
+    || normalized.includes('engineering')
+    || normalized.includes('software')
+    || normalized.includes('product')
+    || normalized.includes('programming')
+    || normalized.includes('developer')
+    || normalized.includes('api')
+    || normalized.includes('saas')
+  ) {
+    return 'Tech';
+  }
+
+  return normalized
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+};
+
+const inferHubFromNode = (node = {}) => {
+  const explicit = normalizeHubLabel(node.parentHub || '');
+  if (explicit !== 'General') {
+    return explicit;
+  }
+
+  const tags = (node.tags || []).map((tag) => String(tag || '').toLowerCase());
+  const title = String(node.title || node.label || '').toLowerCase();
+  const text = `${title} ${tags.join(' ')}`;
+
+  if (text.includes('reddit')) return 'Reddit';
+  if (text.includes('twitter') || text.includes('tweet')) return 'Tweets';
+  if (text.includes('education') || text.includes('course') || text.includes('tutorial')) return 'Educational';
+  if (/(tech|frontend|backend|react|javascript|engineering|coding|programming|software|product|developer|api|saas|devops|startup|github|gitlab|nodejs|node\.js|typescript|web\s?dev|leetcode|codeforces|hackerrank|atcoder|geeksforgeeks|competitive\s?programming|dsa|data\s?structures?|algorithms?)/.test(text)) return 'Tech';
+  return 'General';
+};
+
+const normalizeHomeGraph = (graph = {}) => {
+  const rawNodes = Array.isArray(graph.nodes) ? graph.nodes : [];
+  const rawEdges = Array.isArray(graph.edges) ? graph.edges : [];
+
+  const mappedNodes = rawNodes.map((node, index) => ({
+    id: String(node._id || node.id || `node-${index}`),
+    label: node.title || node.label || 'Untitled',
+    nodeType: node.nodeType || 'bookmark',
+    parentHub: normalizeHubLabel(node.parentHub || ''),
+    tags: Array.isArray(node.tags) ? node.tags : [],
+    importanceScore: Number(node.importanceScore ?? 0.45),
+    x: null,
+    y: null,
+    radius: node.nodeType === 'root' ? 3.2 : node.nodeType === 'hub' ? 2.8 : 1.7,
+  }));
+
+  const canonicalNodes = [];
+  const canonicalIdByKey = new Map();
+  const canonicalIdByOriginalId = new Map();
+
+  mappedNodes.forEach((node) => {
+    const hubName = normalizeHubLabel(node.parentHub || node.label || 'General');
+    const key = node.nodeType === 'root'
+      ? 'root:global'
+      : node.nodeType === 'hub'
+        ? `hub:${hubName}`
+        : `node:${node.id}`;
+
+    if (!canonicalIdByKey.has(key)) {
+      const canonicalNode = {
+        ...node,
+        parentHub: node.nodeType === 'hub' ? hubName : node.parentHub,
+        label: node.nodeType === 'hub' ? hubName : node.label,
+      };
+
+      canonicalNodes.push(canonicalNode);
+      canonicalIdByKey.set(key, canonicalNode.id);
+      canonicalIdByOriginalId.set(node.id, canonicalNode.id);
+      return;
+    }
+
+    canonicalIdByOriginalId.set(node.id, canonicalIdByKey.get(key));
+  });
+
+  const nodes = canonicalNodes;
+
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  const edges = rawEdges
+    .map((edge) => {
+      const rawSource = String(edge.from?._id || edge.from || edge.source || '');
+      const rawTarget = String(edge.to?._id || edge.to || edge.target || '');
+      const source = canonicalIdByOriginalId.get(rawSource) || rawSource;
+      const target = canonicalIdByOriginalId.get(rawTarget) || rawTarget;
+      return { source, target, type: edge.type || 'semantic', weight: Number(edge.weight ?? 0) };
+    })
+    .filter((edge) => edge.source && edge.target && edge.source !== edge.target)
+    .filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target));
+
+  let rootNode = nodes.find((node) => node.nodeType === 'root');
+  if (!rootNode) {
+    rootNode = {
+      id: 'synthetic-root',
+      label: 'Knowledge Root',
+      nodeType: 'root',
+      parentHub: 'System',
+      tags: ['root'],
+      importanceScore: 1,
+      x: 50,
+      y: 50,
+      radius: 3.2,
+    };
+    nodes.push(rootNode);
+    nodeIds.add(rootNode.id);
+  }
+
+  // Keep the global root pinned to the center for a stable, readable hierarchy layout.
+  rootNode.x = 50;
+  rootNode.y = 50;
+  rootNode.radius = 3.2;
+
+  const hubsByName = new Map();
+  nodes.forEach((node) => {
+    if (node.nodeType === 'hub') {
+      const hubName = normalizeHubLabel(node.parentHub || node.label || 'General');
+      node.parentHub = hubName;
+      hubsByName.set(hubName, node);
+    }
+  });
+
+  const edgeSet = new Set(edges.map((edge) => `${edge.type}:${edge.source}->${edge.target}`));
+  const addHierarchyEdge = (source, target) => {
+    const forwardKey = `hierarchy:${source}->${target}`;
+    const reverseKey = `hierarchy:${target}->${source}`;
+
+    if (!edgeSet.has(forwardKey)) {
+      edges.push({ source, target, type: 'hierarchy', weight: 1 });
+      edgeSet.add(forwardKey);
+    }
+
+    if (!edgeSet.has(reverseKey)) {
+      edges.push({ source: target, target: source, type: 'hierarchy', weight: 1 });
+      edgeSet.add(reverseKey);
+    }
+  };
+
+  nodes.forEach((node) => {
+    if (node.nodeType === 'root' || node.nodeType === 'hub') {
+      return;
+    }
+
+    const hubName = inferHubFromNode(node);
+    node.parentHub = hubName;
+
+    let hubNode = hubsByName.get(hubName);
+    if (!hubNode) {
+      hubNode = {
+        id: `synthetic-hub-${hubName.toLowerCase().replace(/\s+/g, '-')}`,
+        label: hubName,
+        nodeType: 'hub',
+        parentHub: hubName,
+        tags: ['hub'],
+        importanceScore: 0.8,
+        x: null,
+        y: null,
+        radius: 2.8,
+      };
+
+      nodes.push(hubNode);
+      nodeIds.add(hubNode.id);
+      hubsByName.set(hubName, hubNode);
+    }
+
+    addHierarchyEdge(rootNode.id, hubNode.id);
+    addHierarchyEdge(hubNode.id, node.id);
+  });
+
+  const hubs = Array.from(hubsByName.values());
+  hubs.forEach((hub, index) => {
+    if (typeof hub.x === 'number' && typeof hub.y === 'number') {
+      return;
+    }
+
+    const angle = (index / Math.max(hubs.length, 1)) * Math.PI * 2;
+    hub.x = 50 + Math.cos(angle) * 31;
+    hub.y = 50 + Math.sin(angle) * 24;
+  });
+
+  hubs.forEach((hub) => {
+    const children = nodes.filter((node) => node.nodeType !== 'root' && node.nodeType !== 'hub' && node.parentHub === hub.parentHub);
+    children.forEach((child, childIndex) => {
+      if (typeof child.x === 'number' && typeof child.y === 'number') {
+        return;
+      }
+
+      const angle = (childIndex / Math.max(children.length, 1)) * Math.PI * 2;
+      const spread = 8 + Math.min(children.length * 0.9, 7);
+      child.x = hub.x + Math.cos(angle) * spread;
+      child.y = hub.y + Math.sin(angle) * spread;
+      child.radius = 1.7;
+    });
+  });
+
+  nodes.forEach((node, index) => {
+    if (typeof node.x === 'number' && typeof node.y === 'number') {
+      return;
+    }
+
+    const angle = (index / Math.max(nodes.length, 1)) * Math.PI * 2;
+    node.x = 50 + Math.cos(angle) * 34;
+    node.y = 50 + Math.sin(angle) * 30;
+  });
+
+  const hierarchyEdges = edges.filter((edge) => edge.type === 'hierarchy');
+  const candidateEdges = hierarchyEdges.length > 0 ? hierarchyEdges : edges;
+  const selectedEdges = [];
+  const connectionKeys = new Set();
+
+  candidateEdges.forEach((edge) => {
+    const key = [edge.source, edge.target].sort().join(':');
+    if (connectionKeys.has(key)) {
+      return;
+    }
+
+    connectionKeys.add(key);
+    selectedEdges.push(edge);
+  });
+
+  return { nodes, edges: selectedEdges };
+};
+
+const hashString = (value = '') => {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = ((hash << 5) - hash) + value.charCodeAt(index);
+    hash |= 0;
+  }
+  return hash;
+};
+
+const nodeColorByType = (node, index) => {
+  if (node.nodeType === 'root') {
+    return '#f1f5f9';
+  }
+
+  if (node.nodeType === 'hub') {
+    return '#4cd964';
+  }
+
+  return graphNodeColor(index, Math.max(0.2, Math.min(1, Number(node.importanceScore ?? 0.45))));
+};
+
+const nodeSizeByType = (node) => {
+  if (node.nodeType === 'root') {
+    return 14;
+  }
+
+  if (node.nodeType === 'hub') {
+    return 11;
+  }
+
+  return 7;
+};
+
+const toRadians = (degrees) => (degrees * Math.PI) / 180;
+const GRAPH_VISUAL_SCALE = 1.75;
 
 const renderProjectCards = (projects, icons, onProjectClick, idOffset = 0) => {
   if (!projects.length) {
@@ -74,6 +365,7 @@ const renderProjectCards = (projects, icons, onProjectClick, idOffset = 0) => {
 
 export const LatticeHomePage = () => {
   const navigate = useNavigate();
+  const forceGraphRef = useRef(null);
   const [personalProjects, setPersonalProjects] = useState([]);
   const [collaborativeProjects, setCollaborativeProjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -98,6 +390,15 @@ export const LatticeHomePage = () => {
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [discoverError, setDiscoverError] = useState('');
   const [selectedDiscoverUserId, setSelectedDiscoverUserId] = useState('');
+  const [heroGraphData, setHeroGraphData] = useState({ nodes: [], edges: [] });
+  const [heroGraphLoading, setHeroGraphLoading] = useState(false);
+  const [heroGraphError, setHeroGraphError] = useState('');
+
+  const [expandedHubs, setExpandedHubs] = useState({});
+  const [activePreviewNode, setActivePreviewNode] = useState(null);
+  const [graphViewMode, setGraphViewMode] = useState('3d');
+  const [graphViewport, setGraphViewport] = useState({ width: 0, height: 0 });
+  const graphCanvasRef = useRef(null);
 
   const isModalOpen = modalType !== null;
 
@@ -128,6 +429,287 @@ export const LatticeHomePage = () => {
 
     return discoverProjects.filter((project) => String(project.createdBy?.id || project.createdBy?._id || '') === String(selectedDiscoverUserId));
   }, [discoverProjects, selectedDiscoverUserId]);
+  const graphProjectId = useMemo(() => {
+    if (!allProjects.length) {
+      return '';
+    }
+
+    if (bookmarkProjectSelection && bookmarkProjectSelection !== '__new__') {
+      return bookmarkProjectSelection;
+    }
+
+    return allProjects[0]?.id || '';
+  }, [allProjects, bookmarkProjectSelection]);
+
+  const selectedGraphProject = useMemo(
+    () => allProjects.find((project) => project.id === graphProjectId) || null,
+    [allProjects, graphProjectId]
+  );
+
+  const heroGraph = useMemo(() => normalizeHomeGraph(heroGraphData), [heroGraphData]);
+
+  const graph3dData = useMemo(() => {
+    const hubConnections = {};
+
+    heroGraph.edges.forEach((edge) => {
+      const source = heroGraph.nodes.find((node) => node.id === edge.source);
+      const target = heroGraph.nodes.find((node) => node.id === edge.target);
+
+      if (!source || !target) {
+        return;
+      }
+
+      if (source.nodeType === 'hub' && target.nodeType !== 'hub') {
+        if (!hubConnections[target.id]) {
+          hubConnections[target.id] = [];
+        }
+        hubConnections[target.id].push(source.id);
+      }
+
+      if (target.nodeType === 'hub' && source.nodeType !== 'hub') {
+        if (!hubConnections[source.id]) {
+          hubConnections[source.id] = [];
+        }
+        hubConnections[source.id].push(target.id);
+      }
+    });
+
+    const isNodeVisible = (node) => {
+      if (node.nodeType === 'root' || node.nodeType === 'hub') {
+        return true;
+      }
+
+      const hubs = hubConnections[node.id];
+      if (!hubs || hubs.length === 0) {
+        return true;
+      }
+
+      return hubs.some((hubId) => expandedHubs[hubId]);
+    };
+
+    const visibleNodes = heroGraph.nodes.filter(isNodeVisible);
+    const visibleNodeIds = new Set(visibleNodes.map((node) => node.id));
+    const visibleEdges = heroGraph.edges.filter((edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target));
+
+    const rootNode = visibleNodes.find((node) => node.nodeType === 'root') || null;
+    const hubNodes = visibleNodes.filter((node) => node.nodeType === 'hub');
+
+    const positioned = new Map();
+
+    if (rootNode) {
+      positioned.set(String(rootNode.id), {
+        ...rootNode,
+        x: 0,
+        y: 0,
+        z: 12,
+      });
+    }
+
+    const hubRingRadius = Math.max(34, 22 + (hubNodes.length * 4));
+    hubNodes.forEach((hub, index) => {
+      const angle = (index / Math.max(hubNodes.length, 1)) * Math.PI * 2;
+      const x = Math.cos(angle) * hubRingRadius;
+      const y = Math.sin(angle) * (hubRingRadius * 0.62);
+
+      positioned.set(String(hub.id), {
+        ...hub,
+        x,
+        y,
+        z: -6,
+      });
+    });
+
+    hubNodes.forEach((hub, hubIndex) => {
+      const children = visibleNodes.filter((node) => node.nodeType === 'bookmark' && node.parentHub === hub.parentHub);
+      const baseAngle = (hubIndex / Math.max(hubNodes.length, 1)) * 360;
+
+      children.forEach((child, childIndex) => {
+        const angle = toRadians(baseAngle + (childIndex * (360 / Math.max(children.length, 1))));
+        const spread = 14 + Math.min(children.length * 0.9, 10);
+        const hubPos = positioned.get(String(hub.id));
+
+        positioned.set(String(child.id), {
+          ...child,
+          x: (hubPos?.x || 0) + Math.cos(angle) * spread,
+          y: (hubPos?.y || 0) + Math.sin(angle) * (spread * 0.72),
+          z: -24,
+        });
+      });
+    });
+
+    const leftovers = visibleNodes.filter((node) => !positioned.has(String(node.id)));
+    leftovers.forEach((node, index) => {
+      const angle = (index / Math.max(leftovers.length, 1)) * Math.PI * 2;
+      positioned.set(String(node.id), {
+        ...node,
+        x: Math.cos(angle) * 52,
+        y: Math.sin(angle) * 28,
+        z: -18,
+      });
+    });
+
+    const nodes = Array.from(positioned.values()).map((node, index) => {
+      const sx = Number(node.x || 0) * GRAPH_VISUAL_SCALE;
+      const sy = Number(node.y || 0) * GRAPH_VISUAL_SCALE;
+      const sz = Number(node.z || 0) * GRAPH_VISUAL_SCALE;
+
+      return {
+        ...node,
+        id: String(node.id),
+        color: nodeColorByType(node, index),
+        val: nodeSizeByType(node),
+        x: sx,
+        y: sy,
+        z: sz,
+        // Keep hierarchy positions stable so the graph doesn't collapse into a tiny center cluster.
+        fx: sx,
+        fy: sy,
+        fz: sz,
+      };
+    });
+
+    const nodeById = new Map(nodes.map((node) => [String(node.id), node]));
+
+    const links = visibleEdges.map((edge) => {
+      const source = nodeById.get(String(edge.source));
+      const target = nodeById.get(String(edge.target));
+      const rootHub = Boolean(source && target)
+        && ((source.nodeType === 'root' && target.nodeType === 'hub') || (source.nodeType === 'hub' && target.nodeType === 'root'));
+      const hubBookmark = Boolean(source && target)
+        && ((source.nodeType === 'hub' && target.nodeType === 'bookmark') || (source.nodeType === 'bookmark' && target.nodeType === 'hub'));
+
+      return {
+        source: String(edge.source),
+        target: String(edge.target),
+        color: rootHub ? 'rgba(226, 232, 240, 0.75)' : hubBookmark ? 'rgba(148, 163, 184, 0.48)' : 'rgba(100, 116, 139, 0.25)',
+        width: rootHub ? 2.8 : hubBookmark ? 1.6 : 1.1,
+        particles: rootHub ? 2 : hubBookmark ? 1 : 0,
+      };
+    });
+
+    return { nodes, links };
+  }, [heroGraph.edges, heroGraph.nodes, expandedHubs]);
+
+  const graph2dData = useMemo(() => {
+    if (!graph3dData.nodes.length) {
+      return { nodes: [], links: [] };
+    }
+
+    const bounds = graph3dData.nodes.reduce((acc, node) => {
+      acc.minX = Math.min(acc.minX, node.x);
+      acc.maxX = Math.max(acc.maxX, node.x);
+      acc.minY = Math.min(acc.minY, node.y);
+      acc.maxY = Math.max(acc.maxY, node.y);
+      return acc;
+    }, {
+      minX: Number.POSITIVE_INFINITY,
+      maxX: Number.NEGATIVE_INFINITY,
+      minY: Number.POSITIVE_INFINITY,
+      maxY: Number.NEGATIVE_INFINITY,
+    });
+
+    const sourceWidth = Math.max(1, bounds.maxX - bounds.minX);
+    const sourceHeight = Math.max(1, bounds.maxY - bounds.minY);
+    const targetWidth = 180;
+    const targetHeight = 120;
+    const padding = 14;
+    const scaleX = (targetWidth - (padding * 2)) / sourceWidth;
+    const scaleY = (targetHeight - (padding * 2)) / sourceHeight;
+    const scale = Math.min(scaleX, scaleY);
+
+    const centerSourceX = (bounds.minX + bounds.maxX) / 2;
+    const centerSourceY = (bounds.minY + bounds.maxY) / 2;
+
+    const nodes = graph3dData.nodes.map((node) => {
+      const nx = ((node.x - centerSourceX) * scale);
+      const ny = ((node.y - centerSourceY) * scale);
+
+      return {
+        ...node,
+        x2d: nx,
+        y2d: ny,
+      };
+    });
+
+    const nodeById = new Map(nodes.map((node) => [String(node.id), node]));
+    const links = graph3dData.links
+      .map((link) => {
+        const source = nodeById.get(String(link.source));
+        const target = nodeById.get(String(link.target));
+
+        if (!source || !target) {
+          return null;
+        }
+
+        return {
+          ...link,
+          source,
+          target,
+        };
+      })
+      .filter(Boolean);
+
+    return { nodes, links };
+  }, [graph3dData]);
+
+  useEffect(() => {
+    if (!heroGraph.nodes.length) {
+      setExpandedHubs({});
+      setActivePreviewNode(null);
+      return;
+    }
+
+    const nextExpanded = {};
+    heroGraph.nodes.forEach((node) => {
+      if (node.nodeType === 'hub') {
+        nextExpanded[node.id] = true;
+      }
+    });
+
+    setExpandedHubs(nextExpanded);
+    setActivePreviewNode(null);
+  }, [heroGraph.nodes]);
+
+  useEffect(() => {
+    const element = graphCanvasRef.current;
+    if (!element) {
+      return;
+    }
+
+    const updateSize = () => {
+      setGraphViewport({
+        width: element.clientWidth,
+        height: element.clientHeight,
+      });
+    };
+
+    updateSize();
+
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (graphViewMode !== '3d' || !forceGraphRef.current || !graph3dData.nodes.length) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      try {
+        forceGraphRef.current?.zoomToFit(700, 28);
+      } catch {
+        // no-op: keep default camera if zoomToFit isn't ready yet
+      }
+    }, 240);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [graph3dData.nodes.length, graphViewMode, graphViewport.height, graphViewport.width]);
 
   const loadProjects = useCallback(async () => {
     setErrorMessage('');
@@ -177,6 +759,25 @@ export const LatticeHomePage = () => {
         ...previous,
         [projectId]: []
       }));
+    }
+  }, []);
+
+  const loadHeroGraph = useCallback(async ({ silent = false } = {}) => {
+    try {
+      if (!silent) {
+        setHeroGraphLoading(true);
+      }
+
+      setHeroGraphError('');
+      const response = await getGlobalLatticeGraph();
+      setHeroGraphData(response?.graph || { nodes: [], edges: [] });
+    } catch (error) {
+      setHeroGraphData({ nodes: [], edges: [] });
+      setHeroGraphError(error.message || 'Unable to load graph preview.');
+    } finally {
+      if (!silent) {
+        setHeroGraphLoading(false);
+      }
     }
   }, []);
 
@@ -255,6 +856,10 @@ export const LatticeHomePage = () => {
       window.clearTimeout(timer);
     };
   }, [discoverQuery]);
+
+  useEffect(() => {
+    void loadHeroGraph();
+  }, [loadHeroGraph]);
 
   const handleForkPublicProject = async (project) => {
     const projectId = project?.id;
@@ -364,6 +969,15 @@ export const LatticeHomePage = () => {
       setSelectedRoleIds([]);
       setBookmarkAccessType('public');
       setBookmarkSuccess('Bookmark added successfully.');
+
+      // Graph building happens in backend background tasks; refresh now and again shortly after.
+      void loadHeroGraph({ silent: true });
+      window.setTimeout(() => {
+        void loadHeroGraph({ silent: true });
+      }, 1200);
+      window.setTimeout(() => {
+        void loadHeroGraph({ silent: true });
+      }, 3000);
     } catch (error) {
       setBookmarkError(error.message || 'Unable to add bookmark.');
     } finally {
@@ -390,54 +1004,78 @@ export const LatticeHomePage = () => {
     });
   };
 
+  const handleGraphNodeClick = (node) => {
+    setActivePreviewNode(node);
+
+    if (graphViewMode === '3d') {
+      const distance = 80;
+      const distRatio = 1 + distance / Math.hypot(node.x || 0, node.y || 0, node.z || 0);
+      forceGraphRef.current?.cameraPosition(
+        {
+          x: (node.x || 0) * distRatio,
+          y: (node.y || 0) * distRatio,
+          z: (node.z || 0) * distRatio,
+        },
+        node,
+        700
+      );
+    }
+
+    if (node.nodeType === 'hub') {
+      setExpandedHubs((previous) => ({ ...previous, [node.id]: !previous[node.id] }));
+    }
+  };
+
   return (
     <LatticeFrame>
       <div className="lattice-home-hero">
         <div className="lattice-home-mesh" />
+        <div className="lattice-home-split">
+          <div className="lattice-home-hero-content">
+            <div className="lattice-hero-rings" style={{ marginBottom: '16px' }}>
+              <Command size={64} strokeWidth={1.2} color="#111" />
+            </div>
 
-        <div className="lattice-home-hero-content">
-          <div className="lattice-hero-rings" style={{ marginBottom: '16px' }}>
-            <Command size={64} strokeWidth={1.2} color="#111" />
-          </div>
-          
-          <p className="lattice-hero-subtitle">Capture a link and assign access in one step.</p>
-          <h1 className="lattice-hero-title">Data-Powered<br />Workspace Intelligence.</h1>
+            <p className="lattice-hero-subtitle">Capture a link and assign access in one step.</p>
+            <h1 className="lattice-hero-title">Data-Powered<br />Workspace Intelligence.</h1>
 
-          <form className="lattice-hero-form" onSubmit={onSubmitBookmark}>
-             <div className="lattice-hero-input-group tall">
-                <input 
-                  type="url" 
-                  placeholder="Type a link or URL..." 
+            <form className="lattice-hero-form" onSubmit={onSubmitBookmark}>
+              <div className="lattice-hero-input-group tall">
+                <input
+                  type="url"
+                  placeholder="Type a link or URL..."
                   value={bookmarkUrl}
                   onChange={(e) => setBookmarkUrl(e.target.value)}
                   className="lattice-hero-input"
                   required
                 />
-                
+
                 <div className="lattice-hero-options-inline">
-                  <div className="lattice-hero-select-wrap" style={{width: '200px', flexShrink: 0}}>
+                  <div className="lattice-hero-select-wrap" style={{ width: '200px', flexShrink: 0 }}>
                     <select
                       value={bookmarkProjectSelection}
                       onChange={(e) => setBookmarkProjectSelection(e.target.value)}
                       className="lattice-hero-select-subtle"
                     >
                       <option value="">Select project...</option>
-                      {allProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      {allProjects.map((project) => (
+                        <option key={project.id} value={project.id}>{project.name}</option>
+                      ))}
                       <option value="__new__">+ New project...</option>
                     </select>
                     <ChevronDown size={14} className="hero-select-chevron" />
                   </div>
-                  
+
                   {isBookmarkNewProject && (
                     <>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         placeholder="Project name"
                         value={bookmarkNewProjectName}
                         onChange={(e) => setBookmarkNewProjectName(e.target.value)}
                         className="lattice-hero-select-subtle name-input"
                       />
-                      <div className="lattice-hero-select-wrap" style={{width: '120px', flexShrink: 0}}>
+                      <div className="lattice-hero-select-wrap" style={{ width: '120px', flexShrink: 0 }}>
                         <select
                           value={bookmarkProjectType}
                           onChange={(e) => setBookmarkProjectType(e.target.value)}
@@ -451,15 +1089,159 @@ export const LatticeHomePage = () => {
                     </>
                   )}
                 </div>
-             </div>
+              </div>
 
-             <button type="submit" className="lattice-hero-submit" disabled={bookmarkSubmitting}>
-               {bookmarkSubmitting ? 'Saving...' : 'Add Link \u2192'}
-             </button>
+              <button type="submit" className="lattice-hero-submit" disabled={bookmarkSubmitting}>
+                {bookmarkSubmitting ? 'Saving...' : 'Add Link \u2192'}
+              </button>
 
-             {bookmarkError && <p className="hero-feedback-error">{bookmarkError}</p>}
-             {bookmarkSuccess && <p className="hero-feedback-success">{bookmarkSuccess}</p>}
-          </form>
+              {bookmarkError && <p className="hero-feedback-error">{bookmarkError}</p>}
+              {bookmarkSuccess && <p className="hero-feedback-success">{bookmarkSuccess}</p>}
+            </form>
+          </div>
+
+          <aside className="lattice-home-graph-pane">
+            <div className="lattice-home-graph-head">
+              <p>Knowledge Graph</p>
+              <h3>Global network preview</h3>
+              <div className="lattice-home-graph-toggle" role="group" aria-label="Graph view mode">
+                <button
+                  type="button"
+                  className={`graph-toggle-btn ${graphViewMode === '2d' ? 'active' : ''}`}
+                  onClick={() => setGraphViewMode('2d')}
+                >
+                  2D
+                </button>
+                <button
+                  type="button"
+                  className={`graph-toggle-btn ${graphViewMode === '3d' ? 'active' : ''}`}
+                  onClick={() => setGraphViewMode('3d')}
+                >
+                  3D
+                </button>
+              </div>
+            </div>
+
+            <div className="lattice-home-graph-canvas" ref={graphCanvasRef}>
+              {heroGraphLoading ? <p className="lattice-home-graph-state">Loading graph…</p> : null}
+              {!heroGraphLoading && heroGraphError ? <p className="lattice-home-graph-state error">{heroGraphError}</p> : null}
+              {!heroGraphLoading && !heroGraphError && heroGraph.nodes.length === 0 ? (
+                <p className="lattice-home-graph-state">Saved bookmarks will map here.</p>
+              ) : null}
+
+              {!heroGraphLoading && !heroGraphError && graph3dData.nodes.length > 0 && graphViewport.width > 0 && graphViewport.height > 0 && graphViewMode === '3d' ? (
+                <ForceGraph3D
+                  ref={forceGraphRef}
+                  graphData={graph3dData}
+                  width={graphViewport.width}
+                  height={graphViewport.height}
+                  backgroundColor="#1e1e1e"
+                  showNavInfo={false}
+                  enablePointerInteraction
+                  nodeLabel={(node) => `${node.label} (${node.nodeType})`}
+                  nodeColor={(node) => node.color}
+                  nodeVal={(node) => node.val}
+                  nodeResolution={18}
+                  linkColor={(link) => link.color}
+                  linkWidth={(link) => link.width}
+                  linkOpacity={0.7}
+                  linkDirectionalParticles={(link) => link.particles || 0}
+                  linkDirectionalParticleWidth={1.7}
+                  linkDirectionalParticleSpeed={0.008}
+                  cooldownTicks={30}
+                  d3VelocityDecay={0.72}
+                  enableNodeDrag={false}
+                  onEngineStop={() => {
+                    if (graphViewMode !== '3d') {
+                      return;
+                    }
+
+                    try {
+                      forceGraphRef.current?.zoomToFit(420, 24);
+                    } catch {
+                      // no-op
+                    }
+                  }}
+                  onNodeClick={handleGraphNodeClick}
+                />
+              ) : null}
+
+              {!heroGraphLoading && !heroGraphError && graph2dData.nodes.length > 0 && graphViewMode === '2d' ? (
+                <svg className="lattice-home-graph-svg-2d" viewBox="-90 -60 180 120" role="img" aria-label="Knowledge graph 2D preview">
+                  {graph2dData.links.map((link, index) => {
+                    return (
+                      <line
+                        key={`line-${index}-${link.source.id}-${link.target.id}`}
+                        x1={link.source.x2d}
+                        y1={link.source.y2d}
+                        x2={link.target.x2d}
+                        y2={link.target.y2d}
+                        stroke={link.color}
+                        strokeWidth={Math.max(0.8, Number(link.width || 1))}
+                      />
+                    );
+                  })}
+
+                  {graph2dData.nodes.map((node) => {
+                    const isActive = activePreviewNode?.id === node.id;
+                    const radius = node.nodeType === 'root' ? 5.4 : node.nodeType === 'hub' ? 4.5 : 3.2;
+                    const showLabel = node.nodeType !== 'bookmark' || isActive;
+
+                    return (
+                      <g
+                        key={`node-${node.id}`}
+                        className="graph-2d-node"
+                        onClick={() => handleGraphNodeClick(node)}
+                      >
+                        <circle
+                          cx={node.x2d}
+                          cy={node.y2d}
+                          r={radius + 2.2}
+                          fill="transparent"
+                        />
+                        <circle
+                          cx={node.x2d}
+                          cy={node.y2d}
+                          r={radius}
+                          fill={node.color}
+                          stroke={isActive ? 'rgba(241, 245, 249, 0.95)' : 'transparent'}
+                          strokeWidth={isActive ? 1 : 0}
+                        />
+                        {showLabel ? (
+                          <text
+                            x={node.x2d}
+                            y={node.y2d + radius + 4}
+                            textAnchor="middle"
+                            className="graph-2d-label"
+                          >
+                            {node.label.length > 16 ? `${node.label.slice(0, 16)}...` : node.label}
+                          </text>
+                        ) : null}
+                      </g>
+                    );
+                  })}
+                </svg>
+              ) : null}
+
+              {!heroGraphLoading && !heroGraphError && graph3dData.nodes.length > 0 ? (
+                <div className="lattice-home-graph-legend" aria-hidden="true">
+                  <span><i className="dot root" /> Root</span>
+                  <span><i className="dot hub" /> Hubs</span>
+                  <span><i className="dot bookmark" /> Bookmarks</span>
+                </div>
+              ) : null}
+
+              {!heroGraphLoading && !heroGraphError ? (
+                <p className="lattice-home-graph-overlay-note">
+                  {activePreviewNode
+                    ? `Selected: ${activePreviewNode.label} (${activePreviewNode.nodeType})`
+                    : `Tip: ${graphViewMode === '3d' ? 'drag to orbit and click nodes to inspect.' : 'click nodes to inspect and click green hub nodes to expand/collapse.'}`}
+                </p>
+              ) : null}
+            </div>
+
+            {/* The full-screen interactive component for global isn't built yet, so we omit the button. */}
+          </aside>
         </div>
       </div>
 
