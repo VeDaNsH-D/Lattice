@@ -205,7 +205,7 @@ const buildFallbackAnswer = (question, matchedNodes = []) => {
     });
 
     return [
-        `Based on the strongest matches for “${question}”:` ,
+        `Based on the strongest matches for “${question}”:`,
         ...highlights,
     ].join("\n\n");
 };

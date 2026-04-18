@@ -357,23 +357,23 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
 
     const ids = new Set(participants.map((participant) => participant.id));
 
-  useEffect(() => {
-    const onOpenChat = (event) => {
-      const nextProjectId = event?.detail?.projectId;
-      const nextQuery = event?.detail?.query;
+    useEffect(() => {
+      const onOpenChat = (event) => {
+        const nextProjectId = event?.detail?.projectId;
+        const nextQuery = event?.detail?.query;
 
-      if (nextProjectId && String(nextProjectId) !== String(projectId)) {
-        return;
-      }
+        if (nextProjectId && String(nextProjectId) !== String(projectId)) {
+          return;
+        }
 
-      if (typeof nextQuery === 'string' && nextQuery.trim()) {
-        setInput(nextQuery.trim());
-      }
-    };
+        if (typeof nextQuery === 'string' && nextQuery.trim()) {
+          setInput(nextQuery.trim());
+        }
+      };
 
-    window.addEventListener('lattice:open-chat', onOpenChat);
-    return () => window.removeEventListener('lattice:open-chat', onOpenChat);
-  }, [projectId]);
+      window.addEventListener('lattice:open-chat', onOpenChat);
+      return () => window.removeEventListener('lattice:open-chat', onOpenChat);
+    }, [projectId]);
     Array.from(peersRef.current.keys()).forEach((id) => {
       if (!ids.has(id)) {
         cleanupPeer(id);
@@ -429,7 +429,7 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
       peersRef.current.forEach((peer) => {
         peer.senders?.forEach((sender) => {
           if (sender.track?.kind === 'video') {
-            sender.replaceTrack(shareTrack).catch(() => {});
+            sender.replaceTrack(shareTrack).catch(() => { });
           }
         });
       });
@@ -447,7 +447,7 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
         peersRef.current.forEach((peer) => {
           peer.senders?.forEach((sender) => {
             if (sender.track?.kind === 'video') {
-              sender.replaceTrack(localStream.getVideoTracks()[0] || null).catch(() => {});
+              sender.replaceTrack(localStream.getVideoTracks()[0] || null).catch(() => { });
             }
           });
         });

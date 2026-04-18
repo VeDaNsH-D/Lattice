@@ -952,295 +952,295 @@ export const LatticeProjectPage = () => {
                     <section className="project-middle-pane">
                         <div className="project-bookmark-row">
                             <section className="project-bookmark-panel">
-                        <div className="project-bookmark-panel-head">
-                            <h3>Add Bookmark To This Project</h3>
-                            <p>Quickly save a link here without going back to Home.</p>
-                        </div>
-
-                        <form className="project-bookmark-form" onSubmit={onCreateBookmark}>
-                            <div className="project-bookmark-grid">
-                                <div className="bookmark-field project-bookmark-field-wide">
-                                    <label htmlFor="project-bookmark-url">Link URL</label>
-                                    <input
-                                        id="project-bookmark-url"
-                                        type="url"
-                                        placeholder="https://example.com/interesting-article"
-                                        value={newBookmarkUrl}
-                                        onChange={(event) => setNewBookmarkUrl(event.target.value)}
-                                        disabled={isSubmitting}
-                                        required
-                                    />
+                                <div className="project-bookmark-panel-head">
+                                    <h3>Add Bookmark To This Project</h3>
+                                    <p>Quickly save a link here without going back to Home.</p>
                                 </div>
 
-                                <div className="bookmark-field">
-                                    <label htmlFor="project-bookmark-access">Access type</label>
-                                    <div className="bookmark-select-wrap">
-                                        <select
-                                            id="project-bookmark-access"
-                                            value={effectiveAccessType}
-                                            onChange={(event) => {
-                                                const nextValue = event.target.value;
-                                                setAccessType(nextValue);
-                                                if (nextValue !== 'role_based') {
-                                                    setSelectedRoleIds([]);
-                                                }
-                                            }}
-                                            disabled={isSubmitting || !isCollaborativeProject}
-                                        >
-                                            <option value="public">Public (all project members)</option>
-                                            <option value="role_based" disabled={!isCollaborativeProject || roles.length === 0}>Role-based access</option>
-                                        </select>
-                                        <ChevronDown size={16} className="bookmark-select-chevron" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {effectiveAccessType === 'role_based' && isCollaborativeProject ? (
-                                <div className="bookmark-role-section project-bookmark-roles">
-                                    <p className="bookmark-role-label">Roles with access</p>
-                                    {roles.length ? (
-                                        <div className="bookmark-role-list">
-                                            {roles.map((role) => (
-                                                <label key={role.id} className="bookmark-role-chip">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedRoleIds.includes(role.id)}
-                                                        onChange={() => onRoleToggle(role.id)}
-                                                        disabled={isSubmitting}
-                                                    />
-                                                    <span>{role.name}</span>
-                                                </label>
-                                            ))}
+                                <form className="project-bookmark-form" onSubmit={onCreateBookmark}>
+                                    <div className="project-bookmark-grid">
+                                        <div className="bookmark-field project-bookmark-field-wide">
+                                            <label htmlFor="project-bookmark-url">Link URL</label>
+                                            <input
+                                                id="project-bookmark-url"
+                                                type="url"
+                                                placeholder="https://example.com/interesting-article"
+                                                value={newBookmarkUrl}
+                                                onChange={(event) => setNewBookmarkUrl(event.target.value)}
+                                                disabled={isSubmitting}
+                                                required
+                                            />
                                         </div>
-                                    ) : (
-                                        <p className="bookmark-role-empty">No roles exist for this project yet.</p>
-                                    )}
-                                </div>
-                            ) : null}
 
-                            {formError ? <p className="bookmark-feedback bookmark-feedback-error">{formError}</p> : null}
-                            {formSuccess ? <p className="bookmark-feedback bookmark-feedback-success">{formSuccess}</p> : null}
-
-                            <div className="project-bookmark-actions">
-                                <button type="submit" className="project-bookmark-submit" disabled={isSubmitting}>
-                                    <Plus size={15} />
-                                    {isSubmitting ? 'Adding...' : 'Add Bookmark'}
-                                </button>
-                            </div>
-                        </form>
-                    </section>
-
-                    <ProjectBookmarkImport
-                        projectId={projectId}
-                        token={token}
-                        isCollaborativeProject={isCollaborativeProject}
-                        roles={roles}
-                        onImportCompleted={loadProjectLinks}
-                    />
-                </div>
-
-                {isLoading ? <p className="directory-status">Loading bookmarks...</p> : null}
-                {errorMessage ? <p className="directory-status directory-status-error">{errorMessage}</p> : null}
-
-                {!isLoading && !errorMessage ? (
-                    <p className="project-left-note project-filter-indicator">
-                        Showing: {selectedRoleFilter ? `${selectedRoleFilter.name} + public` : 'All links'}
-                    </p>
-                ) : null}
-
-                {!isLoading && !errorMessage && visibleLinks.length === 0 ? (
-                    <div className="project-empty-state">
-                        <p>{selectedRoleFilter ? 'No links found for this role yet.' : 'No bookmarks in this project yet.'}</p>
-                        <p>{selectedRoleFilter ? 'Try switching role filter or add role-based links.' : 'Add one above to get started.'}</p>
-                    </div>
-                ) : null}
-
-                {!isLoading && !errorMessage && visibleLinks.length > 0 ? (
-                    <section className="project-links-grid">
-                        {visibleLinks.map((item) => {
-                            const summary = item.summary || item.description || 'No summary available for this bookmark yet.';
-                            const title = item.title || item.url;
-                            const linkId = getLinkKey(item);
-                            const reactions = Array.isArray(item.reactions) ? item.reactions : [];
-                            const decayProgress = Number.isFinite(item.decayProgress) ? item.decayProgress : 0;
-                            const isDecayWindow = Boolean(item.isDecayWindow);
-                            const scaleValue = isDecayWindow ? Math.max(0.72, 1 - decayProgress * 0.28) : 1;
-                            const saturationValue = isDecayWindow ? Math.max(0.18, 1 - decayProgress * 0.75) : 1;
-                            const enrichmentPending = isLinkEnrichmentPending(item);
-                            const timelineMeta = timelineByLinkId[linkId] || null;
-                            const sinceMajor = Number(timelineMeta?.sinceLastSeen?.major || 0);
-                            const sinceMinor = Number(timelineMeta?.sinceLastSeen?.minor || 0);
-                            const hasSinceLastSeen = sinceMajor > 0 || sinceMinor > 0;
-                            const trend = timelineMeta?.insights?.trend || 'stable';
-
-                            return (
-                                <article
-                                    key={linkId || item.url}
-                                    className={`bookmark-tile ${item.commentCount > 0 ? 'has-comments' : ''} ${isDecayWindow ? 'is-decaying' : ''}${enrichmentPending ? ' bookmark-tile-pending' : ''}`}
-                                    style={{
-                                        transform: `scale(${scaleValue})`,
-                                        filter: `saturate(${saturationValue})`,
-                                    }}
-                                    role="button"
-                                    tabIndex={0}
-                                    onClick={() => {
-                                        setSelectedLink(item);
-                                        void loadContextFeedForLink(item, { force: true });
-                                    }}
-                                    onKeyDown={(event) => {
-                                        if (event.key === 'Enter' || event.key === ' ') {
-                                            event.preventDefault();
-                                            setSelectedLink(item);
-                                            void loadContextFeedForLink(item, { force: true });
-                                        }
-                                    }}
-                                    aria-label={`Open details for ${title}`}
-                                >
-                                    <div className="bookmark-tile-visual" aria-hidden="true">
-                                        {item.image ? (
-                                            <img src={item.image} alt={title} loading="lazy" />
-                                        ) : (
-                                            <div className="bookmark-tile-placeholder">
-                                                <ImageOff size={18} />
-                                                <span>No preview</span>
+                                        <div className="bookmark-field">
+                                            <label htmlFor="project-bookmark-access">Access type</label>
+                                            <div className="bookmark-select-wrap">
+                                                <select
+                                                    id="project-bookmark-access"
+                                                    value={effectiveAccessType}
+                                                    onChange={(event) => {
+                                                        const nextValue = event.target.value;
+                                                        setAccessType(nextValue);
+                                                        if (nextValue !== 'role_based') {
+                                                            setSelectedRoleIds([]);
+                                                        }
+                                                    }}
+                                                    disabled={isSubmitting || !isCollaborativeProject}
+                                                >
+                                                    <option value="public">Public (all project members)</option>
+                                                    <option value="role_based" disabled={!isCollaborativeProject || roles.length === 0}>Role-based access</option>
+                                                </select>
+                                                <ChevronDown size={16} className="bookmark-select-chevron" />
                                             </div>
-                                        )}
+                                        </div>
                                     </div>
 
-                                    {item.commentCount > 0 ? (
-                                        <div className="bookmark-tile-comment-badge" aria-label={`${item.commentCount} comments`}> 
-                                            <span className="bookmark-tile-comment-avatar">
-                                                {item.latestCommenter?.avatarUrl ? (
-                                                    <img src={item.latestCommenter.avatarUrl} alt={item.latestCommenter.name || 'Commenter'} />
-                                                ) : (
-                                                    <MessageCircle size={13} />
-                                                )}
-                                            </span>
-                                            <span className="bookmark-tile-comment-count">{item.commentCount}</span>
+                                    {effectiveAccessType === 'role_based' && isCollaborativeProject ? (
+                                        <div className="bookmark-role-section project-bookmark-roles">
+                                            <p className="bookmark-role-label">Roles with access</p>
+                                            {roles.length ? (
+                                                <div className="bookmark-role-list">
+                                                    {roles.map((role) => (
+                                                        <label key={role.id} className="bookmark-role-chip">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedRoleIds.includes(role.id)}
+                                                                onChange={() => onRoleToggle(role.id)}
+                                                                disabled={isSubmitting}
+                                                            />
+                                                            <span>{role.name}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="bookmark-role-empty">No roles exist for this project yet.</p>
+                                            )}
                                         </div>
                                     ) : null}
 
-                                    <div className="bookmark-tile-body">
-                                        <div className="bookmark-tile-actions">
-                                            <div className="bookmark-tile-statuses">
-                                                {enrichmentPending ? (
-                                                    <span className="bookmark-status-badge bookmark-status-badge-pending">
-                                                        Enrichment pending
-                                                    </span>
-                                                ) : null}
-                                                {!enrichmentPending && hasSinceLastSeen ? (
-                                                    <span className="bookmark-status-badge bookmark-status-badge-since">
-                                                        Since seen: {sinceMajor ? `${sinceMajor} major` : ''}{sinceMajor && sinceMinor ? ' • ' : ''}{sinceMinor ? `${sinceMinor} minor` : ''}
-                                                    </span>
-                                                ) : null}
-                                                {!enrichmentPending && !hasSinceLastSeen ? (
-                                                    <span className={`bookmark-status-badge ${getTrendClassName(trend)}`}>
-                                                        {normalizeTrendLabel(trend)}
-                                                    </span>
-                                                ) : null}
-                                            </div>
-                                            <button
-                                                type="button"
-                                                className="bookmark-tile-delete"
-                                                onClick={(event) => {
-                                                    event.stopPropagation();
-                                                    onDeleteLink(linkId);
-                                                }}
-                                                disabled={!linkId || deletingLinkId === linkId}
-                                                aria-label="Delete bookmark"
-                                            >
-                                                <Trash2 size={14} />
-                                                {deletingLinkId === linkId ? 'Deleting...' : 'Delete'}
-                                            </button>
-                                        </div>
-                                        <h3 title={title}>{title}</h3>
-                                        <p className="bookmark-tile-summary">{summary}</p>
-                                        <p className="bookmark-tile-dates">
-                                            Last viewed: {formatDate(item.lastViewedAt)} • Last modified: {formatDate(item.lastModifiedAt)}
-                                        </p>
-                                        <a
-                                            href={item.url}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="bookmark-tile-link"
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-                                                void onLinkOpened(linkId);
+                                    {formError ? <p className="bookmark-feedback bookmark-feedback-error">{formError}</p> : null}
+                                    {formSuccess ? <p className="bookmark-feedback bookmark-feedback-success">{formSuccess}</p> : null}
+
+                                    <div className="project-bookmark-actions">
+                                        <button type="submit" className="project-bookmark-submit" disabled={isSubmitting}>
+                                            <Plus size={15} />
+                                            {isSubmitting ? 'Adding...' : 'Add Bookmark'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </section>
+
+                            <ProjectBookmarkImport
+                                projectId={projectId}
+                                token={token}
+                                isCollaborativeProject={isCollaborativeProject}
+                                roles={roles}
+                                onImportCompleted={loadProjectLinks}
+                            />
+                        </div>
+
+                        {isLoading ? <p className="directory-status">Loading bookmarks...</p> : null}
+                        {errorMessage ? <p className="directory-status directory-status-error">{errorMessage}</p> : null}
+
+                        {!isLoading && !errorMessage ? (
+                            <p className="project-left-note project-filter-indicator">
+                                Showing: {selectedRoleFilter ? `${selectedRoleFilter.name} + public` : 'All links'}
+                            </p>
+                        ) : null}
+
+                        {!isLoading && !errorMessage && visibleLinks.length === 0 ? (
+                            <div className="project-empty-state">
+                                <p>{selectedRoleFilter ? 'No links found for this role yet.' : 'No bookmarks in this project yet.'}</p>
+                                <p>{selectedRoleFilter ? 'Try switching role filter or add role-based links.' : 'Add one above to get started.'}</p>
+                            </div>
+                        ) : null}
+
+                        {!isLoading && !errorMessage && visibleLinks.length > 0 ? (
+                            <section className="project-links-grid">
+                                {visibleLinks.map((item) => {
+                                    const summary = item.summary || item.description || 'No summary available for this bookmark yet.';
+                                    const title = item.title || item.url;
+                                    const linkId = getLinkKey(item);
+                                    const reactions = Array.isArray(item.reactions) ? item.reactions : [];
+                                    const decayProgress = Number.isFinite(item.decayProgress) ? item.decayProgress : 0;
+                                    const isDecayWindow = Boolean(item.isDecayWindow);
+                                    const scaleValue = isDecayWindow ? Math.max(0.72, 1 - decayProgress * 0.28) : 1;
+                                    const saturationValue = isDecayWindow ? Math.max(0.18, 1 - decayProgress * 0.75) : 1;
+                                    const enrichmentPending = isLinkEnrichmentPending(item);
+                                    const timelineMeta = timelineByLinkId[linkId] || null;
+                                    const sinceMajor = Number(timelineMeta?.sinceLastSeen?.major || 0);
+                                    const sinceMinor = Number(timelineMeta?.sinceLastSeen?.minor || 0);
+                                    const hasSinceLastSeen = sinceMajor > 0 || sinceMinor > 0;
+                                    const trend = timelineMeta?.insights?.trend || 'stable';
+
+                                    return (
+                                        <article
+                                            key={linkId || item.url}
+                                            className={`bookmark-tile ${item.commentCount > 0 ? 'has-comments' : ''} ${isDecayWindow ? 'is-decaying' : ''}${enrichmentPending ? ' bookmark-tile-pending' : ''}`}
+                                            style={{
+                                                transform: `scale(${scaleValue})`,
+                                                filter: `saturate(${saturationValue})`,
                                             }}
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() => {
+                                                setSelectedLink(item);
+                                                void loadContextFeedForLink(item, { force: true });
+                                            }}
+                                            onKeyDown={(event) => {
+                                                if (event.key === 'Enter' || event.key === ' ') {
+                                                    event.preventDefault();
+                                                    setSelectedLink(item);
+                                                    void loadContextFeedForLink(item, { force: true });
+                                                }
+                                            }}
+                                            aria-label={`Open details for ${title}`}
                                         >
-                                            Visit source
-                                            <ExternalLink size={14} />
-                                        </a>
+                                            <div className="bookmark-tile-visual" aria-hidden="true">
+                                                {item.image ? (
+                                                    <img src={item.image} alt={title} loading="lazy" />
+                                                ) : (
+                                                    <div className="bookmark-tile-placeholder">
+                                                        <ImageOff size={18} />
+                                                        <span>No preview</span>
+                                                    </div>
+                                                )}
+                                            </div>
 
-                                        {isCollaborativeProject ? (
-                                            <div className="bookmark-tile-reactions-wrap">
-                                                <div className="bookmark-tile-reactions">
-                                                    {reactions.map((reaction) => {
-                                                        const count = Array.isArray(reaction.users) ? reaction.users.length : 0;
-
-                                                        if (!count) {
-                                                            return null;
-                                                        }
-
-                                                        return (
-                                                            <button
-                                                                key={`${linkId}-${reaction.emoji}`}
-                                                                type="button"
-                                                                className="bookmark-reaction-chip"
-                                                                onClick={(event) => {
-                                                                    event.stopPropagation();
-                                                                    onReactToLink(linkId, reaction.emoji);
-                                                                }}
-                                                                disabled={reactingLinkId === linkId}
-                                                            >
-                                                                <span>{reaction.emoji}</span>
-                                                                <span>{count}</span>
-                                                            </button>
-                                                        );
-                                                    })}
+                                            {item.commentCount > 0 ? (
+                                                <div className="bookmark-tile-comment-badge" aria-label={`${item.commentCount} comments`}>
+                                                    <span className="bookmark-tile-comment-avatar">
+                                                        {item.latestCommenter?.avatarUrl ? (
+                                                            <img src={item.latestCommenter.avatarUrl} alt={item.latestCommenter.name || 'Commenter'} />
+                                                        ) : (
+                                                            <MessageCircle size={13} />
+                                                        )}
+                                                    </span>
+                                                    <span className="bookmark-tile-comment-count">{item.commentCount}</span>
                                                 </div>
+                                            ) : null}
 
-                                                <div className="bookmark-reaction-picker-wrap">
+                                            <div className="bookmark-tile-body">
+                                                <div className="bookmark-tile-actions">
+                                                    <div className="bookmark-tile-statuses">
+                                                        {enrichmentPending ? (
+                                                            <span className="bookmark-status-badge bookmark-status-badge-pending">
+                                                                Enrichment pending
+                                                            </span>
+                                                        ) : null}
+                                                        {!enrichmentPending && hasSinceLastSeen ? (
+                                                            <span className="bookmark-status-badge bookmark-status-badge-since">
+                                                                Since seen: {sinceMajor ? `${sinceMajor} major` : ''}{sinceMajor && sinceMinor ? ' • ' : ''}{sinceMinor ? `${sinceMinor} minor` : ''}
+                                                            </span>
+                                                        ) : null}
+                                                        {!enrichmentPending && !hasSinceLastSeen ? (
+                                                            <span className={`bookmark-status-badge ${getTrendClassName(trend)}`}>
+                                                                {normalizeTrendLabel(trend)}
+                                                            </span>
+                                                        ) : null}
+                                                    </div>
                                                     <button
                                                         type="button"
-                                                        className="bookmark-reaction-add"
+                                                        className="bookmark-tile-delete"
                                                         onClick={(event) => {
                                                             event.stopPropagation();
-                                                            setReactionPickerLinkId((previous) => (previous === linkId ? '' : linkId));
+                                                            onDeleteLink(linkId);
                                                         }}
-                                                        disabled={reactingLinkId === linkId}
-                                                        aria-label="Add emoji reaction"
+                                                        disabled={!linkId || deletingLinkId === linkId}
+                                                        aria-label="Delete bookmark"
                                                     >
-                                                        <SmilePlus size={14} />
+                                                        <Trash2 size={14} />
+                                                        {deletingLinkId === linkId ? 'Deleting...' : 'Delete'}
                                                     </button>
-
-                                                    {reactionPickerLinkId === linkId ? (
-                                                        <div className="bookmark-reaction-popover">
-                                                            {reactionOptions.map((emoji) => (
-                                                                <button
-                                                                    key={`${linkId}-${emoji}`}
-                                                                    type="button"
-                                                                    className="bookmark-reaction-option"
-                                                                    onClick={(event) => {
-                                                                        event.stopPropagation();
-                                                                        onReactToLink(linkId, emoji);
-                                                                    }}
-                                                                    disabled={reactingLinkId === linkId}
-                                                                >
-                                                                    {emoji}
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    ) : null}
                                                 </div>
+                                                <h3 title={title}>{title}</h3>
+                                                <p className="bookmark-tile-summary">{summary}</p>
+                                                <p className="bookmark-tile-dates">
+                                                    Last viewed: {formatDate(item.lastViewedAt)} • Last modified: {formatDate(item.lastModifiedAt)}
+                                                </p>
+                                                <a
+                                                    href={item.url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="bookmark-tile-link"
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        void onLinkOpened(linkId);
+                                                    }}
+                                                >
+                                                    Visit source
+                                                    <ExternalLink size={14} />
+                                                </a>
+
+                                                {isCollaborativeProject ? (
+                                                    <div className="bookmark-tile-reactions-wrap">
+                                                        <div className="bookmark-tile-reactions">
+                                                            {reactions.map((reaction) => {
+                                                                const count = Array.isArray(reaction.users) ? reaction.users.length : 0;
+
+                                                                if (!count) {
+                                                                    return null;
+                                                                }
+
+                                                                return (
+                                                                    <button
+                                                                        key={`${linkId}-${reaction.emoji}`}
+                                                                        type="button"
+                                                                        className="bookmark-reaction-chip"
+                                                                        onClick={(event) => {
+                                                                            event.stopPropagation();
+                                                                            onReactToLink(linkId, reaction.emoji);
+                                                                        }}
+                                                                        disabled={reactingLinkId === linkId}
+                                                                    >
+                                                                        <span>{reaction.emoji}</span>
+                                                                        <span>{count}</span>
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+
+                                                        <div className="bookmark-reaction-picker-wrap">
+                                                            <button
+                                                                type="button"
+                                                                className="bookmark-reaction-add"
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    setReactionPickerLinkId((previous) => (previous === linkId ? '' : linkId));
+                                                                }}
+                                                                disabled={reactingLinkId === linkId}
+                                                                aria-label="Add emoji reaction"
+                                                            >
+                                                                <SmilePlus size={14} />
+                                                            </button>
+
+                                                            {reactionPickerLinkId === linkId ? (
+                                                                <div className="bookmark-reaction-popover">
+                                                                    {reactionOptions.map((emoji) => (
+                                                                        <button
+                                                                            key={`${linkId}-${emoji}`}
+                                                                            type="button"
+                                                                            className="bookmark-reaction-option"
+                                                                            onClick={(event) => {
+                                                                                event.stopPropagation();
+                                                                                onReactToLink(linkId, emoji);
+                                                                            }}
+                                                                            disabled={reactingLinkId === linkId}
+                                                                        >
+                                                                            {emoji}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            ) : null}
+                                                        </div>
+                                                    </div>
+                                                ) : null}
                                             </div>
-                                        ) : null}
-                                    </div>
-                                </article>
-                            );
-                        })}
-                    </section>
-                ) : null}
+                                        </article>
+                                    );
+                                })}
+                            </section>
+                        ) : null}
                     </section>
 
                     <aside className="project-right-pane">
