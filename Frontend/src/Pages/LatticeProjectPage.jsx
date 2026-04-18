@@ -1,12 +1,25 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { ExternalLink, ImageOff, ArrowLeft, Plus, ChevronDown, UserPlus, Trash2, SmilePlus } from 'lucide-react';
+import {
+    ExternalLink,
+    ImageOff,
+    ArrowLeft,
+    Plus,
+    ChevronDown,
+    UserPlus,
+    Trash2,
+    SmilePlus,
+    PanelRightOpen,
+    PanelRightClose,
+    Shield,
+    Users,
+    MessageCircle,
+} from 'lucide-react';
 import { Network } from 'lucide-react';
 import { LatticeFrame } from './LatticeFrame';
 import { ProjectRealtimePanel } from './ProjectRealtimePanel';
 import ProjectBookmarkImport from '../components/ProjectBookmarkImport';
 import LinkModal from '../components/LinkModal';
-import { MembersList } from '../components/MembersList';
 import { apiRequest } from '../utils/api';
 import './LatticePages.css';
 
@@ -43,7 +56,11 @@ export const LatticeProjectPage = () => {
     const [reactionPickerLinkId, setReactionPickerLinkId] = useState('');
     const [reactingLinkId, setReactingLinkId] = useState('');
     const [selectedLink, setSelectedLink] = useState(null);
-    const [projectMembers, setProjectMembers] = useState([]);
+    const [projectOwnerId, setProjectOwnerId] = useState('');
+    const [currentUserId, setCurrentUserId] = useState('');
+    const [selectedRoleFilterId, setSelectedRoleFilterId] = useState('all');
+    const [onlineParticipants, setOnlineParticipants] = useState([]);
+    const [isCollabPaneExpanded, setIsCollabPaneExpanded] = useState(false);
 
     const projectName = useMemo(() => {
         if (typeof resolvedProjectName === 'string' && resolvedProjectName.trim()) {
@@ -89,21 +106,29 @@ export const LatticeProjectPage = () => {
         let isMounted = true;
 
         const loadProjectContext = async () => {
-            if (!projectId) {
+            if (!projectId || (projectType && resolvedProjectName)) {
                 return;
             }
 
             try {
-                const response = await apiRequest(`/projects/${projectId}`, { method: 'GET' });
-                const project = response?.project;
+                const response = await apiRequest('/projects', { method: 'GET' });
+                const allProjects = [
+                    ...(response?.personalProjects || []),
+                    ...(response?.collaborativeProjects || []),
+                ];
 
-                if (!project || !isMounted) {
+                const matchedProject = allProjects.find((project) => project.id === projectId);
+                if (!matchedProject || !isMounted) {
                     return;
                 }
 
-                setProjectType(project.projectType || 'personal');
-                setResolvedProjectName(project.name || null);
-                setProjectMembers(Array.isArray(project.members) ? project.members : []);
+                setProjectType(matchedProject.projectType || 'personal');
+                setResolvedProjectName(matchedProject.name || null);
+                setProjectOwnerId(
+                    matchedProject?.createdBy?.id
+                    || matchedProject?.createdBy?._id
+                    || ''
+                );
             } catch {
                 // Ignore context loading failures; page still works with fallbacks.
             }
@@ -114,7 +139,32 @@ export const LatticeProjectPage = () => {
         return () => {
             isMounted = false;
         };
-    }, [projectId]);
+    }, [projectId, projectType, resolvedProjectName]);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadCurrentUser = async () => {
+            try {
+                const response = await apiRequest('/auth/me', { method: 'GET' });
+                if (!isMounted) {
+                    return;
+                }
+
+                setCurrentUserId(response?.user?.id || response?.user?._id || '');
+            } catch {
+                if (isMounted) {
+                    setCurrentUserId('');
+                }
+            }
+        };
+
+        void loadCurrentUser();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     useEffect(() => {
         const timer = window.setTimeout(() => {
@@ -385,9 +435,29 @@ export const LatticeProjectPage = () => {
         }
     };
 
+    const isOwner = Boolean(currentUserId) && Boolean(projectOwnerId) && String(currentUserId) === String(projectOwnerId);
+
+    const selectedRoleFilter = roles.find((role) => role.id === selectedRoleFilterId) || null;
+
+    const visibleLinks = useMemo(() => {
+        if (selectedRoleFilterId === 'all') {
+            return links;
+        }
+
+        return links.filter((item) => {
+            const linkAccessType = item.accessType || 'public';
+            if (linkAccessType === 'public') {
+                return true;
+            }
+
+            const allowedRoles = Array.isArray(item.allowedRoles) ? item.allowedRoles : [];
+            return allowedRoles.some((roleId) => String(roleId) === String(selectedRoleFilterId));
+        });
+    }, [links, selectedRoleFilterId]);
+
     return (
         <LatticeFrame>
-            <div className="project-page-container">
+            <div className={`project-page-container discord-project-shell ${isCollabPaneExpanded ? 'collab-expanded' : ''}`}>
                 <header className="project-page-header">
                     <div className="project-page-title-group">
                         <Link to="/lattice" className="project-back-link">
@@ -409,146 +479,138 @@ export const LatticeProjectPage = () => {
                         <div className="project-page-count-pill">
                             {links.length} Bookmark{links.length === 1 ? '' : 's'}
                         </div>
+                        {isCollaborativeProject ? (
+                            <button
+                                type="button"
+                                className="project-pane-toggle"
+                                onClick={() => setIsCollabPaneExpanded((previous) => !previous)}
+                            >
+                                {isCollabPaneExpanded ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
+                                {isCollabPaneExpanded ? 'Back To Workspace' : 'Focus Collaboration'}
+                            </button>
+                        ) : null}
                     </div>
                 </header>
 
-                {isCollaborativeProject ? (
-                    <>
-                        <MembersList members={projectMembers} />
-
-                        <ProjectRealtimePanel projectId={projectId} projectName={projectName} />
-
+                <div className="project-workspace-grid">
+                    <aside className="project-left-rail">
                         <section className="project-role-panel">
                             <div className="project-role-panel-head">
-                                <h3>Define Roles</h3>
-                                <p>Create roles and permissions for this collaborative project.</p>
+                                <h3>Roles</h3>
+                                <p>Use roles like Discord channels to segment access.</p>
                             </div>
 
-                            <form className="project-role-form" onSubmit={onCreateRole}>
-                                <div className="project-role-grid">
-                                    <div className="bookmark-field">
-                                        <label htmlFor="project-role-name">Role name</label>
-                                        <input
-                                            id="project-role-name"
-                                            type="text"
-                                            placeholder="Designer"
-                                            value={newRoleName}
-                                            onChange={(event) => setNewRoleName(event.target.value)}
-                                            disabled={isCreatingRole}
-                                            maxLength={60}
-                                            required
-                                        />
+                            {isCollaborativeProject && isOwner ? (
+                                <form className="project-role-form" onSubmit={onCreateRole}>
+                                    <div className="project-owner-callout">
+                                        <span className="project-owner-callout-title">Create new role</span>
+                                        <span className="project-owner-callout-copy">Owner tools for access control and calls.</span>
                                     </div>
-
-                                    <div className="bookmark-field">
-                                        <label htmlFor="project-role-permission">Permission</label>
-                                        <div className="bookmark-select-wrap">
-                                            <select
-                                                id="project-role-permission"
-                                                value={newRolePermission}
-                                                onChange={(event) => setNewRolePermission(event.target.value)}
+                                    <div className="project-role-grid">
+                                        <div className="bookmark-field">
+                                            <label htmlFor="project-role-name">New role</label>
+                                            <input
+                                                id="project-role-name"
+                                                type="text"
+                                                placeholder="Designer"
+                                                value={newRoleName}
+                                                onChange={(event) => setNewRoleName(event.target.value)}
                                                 disabled={isCreatingRole}
-                                            >
-                                                <option value="full_access">Full access</option>
-                                                <option value="restricted_access">Restricted access</option>
-                                                <option value="view_only">View only</option>
-                                            </select>
-                                            <ChevronDown size={16} className="bookmark-select-chevron" />
+                                                maxLength={60}
+                                                required
+                                            />
+                                        </div>
+
+                                        <div className="bookmark-field">
+                                            <label htmlFor="project-role-permission">Permission</label>
+                                            <div className="bookmark-select-wrap">
+                                                <select
+                                                    id="project-role-permission"
+                                                    value={newRolePermission}
+                                                    onChange={(event) => setNewRolePermission(event.target.value)}
+                                                    disabled={isCreatingRole}
+                                                >
+                                                    <option value="full_access">Full access</option>
+                                                    <option value="restricted_access">Restricted access</option>
+                                                    <option value="view_only">View only</option>
+                                                </select>
+                                                <ChevronDown size={16} className="bookmark-select-chevron" />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                {roleFormError ? <p className="bookmark-feedback bookmark-feedback-error">{roleFormError}</p> : null}
-                                {roleFormSuccess ? <p className="bookmark-feedback bookmark-feedback-success">{roleFormSuccess}</p> : null}
+                                    {roleFormError ? <p className="bookmark-feedback bookmark-feedback-error">{roleFormError}</p> : null}
+                                    {roleFormSuccess ? <p className="bookmark-feedback bookmark-feedback-success">{roleFormSuccess}</p> : null}
 
-                                <div className="project-role-actions">
-                                    <button type="submit" className="project-role-submit" disabled={isCreatingRole}>
-                                        <Plus size={15} />
-                                        {isCreatingRole ? 'Creating...' : 'Create Role'}
-                                    </button>
-                                </div>
-                            </form>
-
-                            {roles.length ? (
-                                <div className="project-role-list-wrap">
-                                    <p className="project-role-list-title">Current roles</p>
-                                    <div className="project-role-list">
-                                        {roles.map((role) => (
-                                            <span key={role.id} className="project-role-pill">
-                                                {role.name}
-                                                <span className="project-role-pill-permission">{role.permissions.replace(/_/g, ' ')}</span>
-                                            </span>
-                                        ))}
+                                    <div className="project-role-actions">
+                                        <button type="submit" className="project-role-submit" disabled={isCreatingRole}>
+                                            <Plus size={15} />
+                                            {isCreatingRole ? 'Creating...' : 'Create Role'}
+                                        </button>
                                     </div>
+                                </form>
+                            ) : (
+                                <p className="project-left-note">
+                                    {isCollaborativeProject
+                                        ? 'Only project owner can create new roles.'
+                                        : 'Switch this project to collaborative mode to define roles.'}
+                                </p>
+                            )}
+
+                            <div className="project-role-list-wrap">
+                                <p className="project-role-list-title">Existing roles</p>
+                                <div className="project-role-stack">
+                                    <button
+                                        type="button"
+                                        className={`project-role-row ${selectedRoleFilterId === 'all' ? 'active' : ''}`}
+                                        onClick={() => setSelectedRoleFilterId('all')}
+                                    >
+                                        <span className="project-role-row-main">Everyone</span>
+                                        <span className="project-role-row-meta">All links</span>
+                                    </button>
+
+                                    {roles.length ? roles.map((role) => (
+                                        <button
+                                            type="button"
+                                            key={role.id}
+                                            className={`project-role-row ${selectedRoleFilterId === role.id ? 'active' : ''}`}
+                                            onClick={() => setSelectedRoleFilterId(role.id)}
+                                        >
+                                            <span className="project-role-row-main">
+                                                <Shield size={14} />
+                                                {role.name}
+                                            </span>
+                                            <span className="project-role-row-meta">{role.permissions.replace(/_/g, ' ')}</span>
+                                        </button>
+                                    )) : (
+                                        <p className="project-left-note">No roles defined yet.</p>
+                                    )}
                                 </div>
-                            ) : null}
+                            </div>
                         </section>
 
-                        <section className="project-invite-panel">
-                            <div className="project-invite-panel-head">
-                                <h3>Add Collaborator</h3>
-                                <p>Invite a teammate by email and assign their access role.</p>
+                        <section className="project-role-panel project-online-panel">
+                            <div className="project-role-panel-head">
+                                <h3>Online</h3>
+                                <p>Live project presence.</p>
                             </div>
 
-                            <form className="project-invite-form" onSubmit={onInviteUser}>
-                                <div className="project-invite-grid">
-                                    <div className="bookmark-field">
-                                        <label htmlFor="project-invite-email">User email</label>
-                                        <input
-                                            id="project-invite-email"
-                                            type="email"
-                                            placeholder="teammate@example.com"
-                                            value={inviteEmail}
-                                            onChange={(event) => setInviteEmail(event.target.value)}
-                                            disabled={isInvitingUser}
-                                            required
-                                        />
+                            <div className="project-online-list">
+                                {onlineParticipants.length > 0 ? onlineParticipants.map((participant) => (
+                                    <div key={participant.id} className="project-online-item">
+                                        <span className="project-online-dot" />
+                                        <span>{participant.username || participant.name || 'Guest'}</span>
                                     </div>
-
-                                    <div className="bookmark-field">
-                                        <label htmlFor="project-invite-role">Access role</label>
-                                        <div className="bookmark-select-wrap">
-                                            <select
-                                                id="project-invite-role"
-                                                value={effectiveInviteRoleId}
-                                                onChange={(event) => setInviteRoleId(event.target.value)}
-                                                disabled={isInvitingUser || roles.length === 0}
-                                            >
-                                                {roles.length === 0 ? (
-                                                    <option value="">Create a role first</option>
-                                                ) : null}
-                                                {roles.map((role) => (
-                                                    <option key={role.id} value={role.id}>
-                                                        {role.name} ({role.permissions.replace(/_/g, ' ')})
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <ChevronDown size={16} className="bookmark-select-chevron" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {roles.length === 0 ? <p className="bookmark-feedback">Create at least one role before inviting users.</p> : null}
-                                {inviteError ? <p className="bookmark-feedback bookmark-feedback-error">{inviteError}</p> : null}
-                                {inviteSuccess ? <p className="bookmark-feedback bookmark-feedback-success">{inviteSuccess}</p> : null}
-
-                                <div className="project-invite-actions">
-                                    <button
-                                        type="submit"
-                                        className="project-invite-submit"
-                                        disabled={isInvitingUser || roles.length === 0}
-                                    >
-                                        <UserPlus size={15} />
-                                        {isInvitingUser ? 'Sending invite...' : 'Send Invite'}
-                                    </button>
-                                </div>
-                            </form>
+                                )) : (
+                                    <p className="project-left-note">No one online in this room yet.</p>
+                                )}
+                            </div>
                         </section>
-                    </>
-                ) : null}
+                    </aside>
 
-                <div className="project-bookmark-row">
-                    <section className="project-bookmark-panel">
+                    <section className="project-middle-pane">
+                        <div className="project-bookmark-row">
+                            <section className="project-bookmark-panel">
                         <div className="project-bookmark-panel-head">
                             <h3>Add Bookmark To This Project</h3>
                             <p>Quickly save a link here without going back to Home.</p>
@@ -639,16 +701,22 @@ export const LatticeProjectPage = () => {
                 {isLoading ? <p className="directory-status">Loading bookmarks...</p> : null}
                 {errorMessage ? <p className="directory-status directory-status-error">{errorMessage}</p> : null}
 
-                {!isLoading && !errorMessage && links.length === 0 ? (
+                {!isLoading && !errorMessage ? (
+                    <p className="project-left-note project-filter-indicator">
+                        Showing: {selectedRoleFilter ? `${selectedRoleFilter.name} + public` : 'All links'}
+                    </p>
+                ) : null}
+
+                {!isLoading && !errorMessage && visibleLinks.length === 0 ? (
                     <div className="project-empty-state">
-                        <p>No bookmarks in this project yet.</p>
-                        <p>Add one above to get started.</p>
+                        <p>{selectedRoleFilter ? 'No links found for this role yet.' : 'No bookmarks in this project yet.'}</p>
+                        <p>{selectedRoleFilter ? 'Try switching role filter or add role-based links.' : 'Add one above to get started.'}</p>
                     </div>
                 ) : null}
 
-                {!isLoading && !errorMessage && links.length > 0 ? (
+                {!isLoading && !errorMessage && visibleLinks.length > 0 ? (
                     <section className="project-links-grid">
-                        {links.map((item) => {
+                        {visibleLinks.map((item) => {
                             const summary = item.summary || item.description || 'No summary available for this bookmark yet.';
                             const title = item.title || item.url;
                             const linkId = item._id || item.id;
@@ -657,7 +725,7 @@ export const LatticeProjectPage = () => {
                             return (
                                 <article
                                     key={linkId || item.url}
-                                    className="bookmark-tile"
+                                    className={`bookmark-tile ${item.commentCount > 0 ? 'has-comments' : ''}`}
                                     role="button"
                                     tabIndex={0}
                                     onClick={() => setSelectedLink(item)}
@@ -679,6 +747,19 @@ export const LatticeProjectPage = () => {
                                             </div>
                                         )}
                                     </div>
+
+                                    {item.commentCount > 0 ? (
+                                        <div className="bookmark-tile-comment-badge" aria-label={`${item.commentCount} comments`}> 
+                                            <span className="bookmark-tile-comment-avatar">
+                                                {item.latestCommenter?.avatarUrl ? (
+                                                    <img src={item.latestCommenter.avatarUrl} alt={item.latestCommenter.name || 'Commenter'} />
+                                                ) : (
+                                                    <MessageCircle size={13} />
+                                                )}
+                                            </span>
+                                            <span className="bookmark-tile-comment-count">{item.commentCount}</span>
+                                        </div>
+                                    ) : null}
 
                                     <div className="bookmark-tile-body">
                                         <div className="bookmark-tile-actions">
@@ -778,6 +859,88 @@ export const LatticeProjectPage = () => {
                         })}
                     </section>
                 ) : null}
+                    </section>
+
+                    <aside className="project-right-pane">
+                        {isCollaborativeProject ? (
+                            <>
+                                <ProjectRealtimePanel
+                                    projectId={projectId}
+                                    projectName={projectName}
+                                    onParticipantsChange={setOnlineParticipants}
+                                />
+
+                                <section className="project-invite-panel">
+                                    <div className="project-invite-panel-head">
+                                        <h3>Add Collaborator</h3>
+                                        <p>Invite a teammate by email and assign their access role.</p>
+                                    </div>
+
+                                    <form className="project-invite-form" onSubmit={onInviteUser}>
+                                        <div className="project-invite-grid">
+                                            <div className="bookmark-field">
+                                                <label htmlFor="project-invite-email">User email</label>
+                                                <input
+                                                    id="project-invite-email"
+                                                    type="email"
+                                                    placeholder="teammate@example.com"
+                                                    value={inviteEmail}
+                                                    onChange={(event) => setInviteEmail(event.target.value)}
+                                                    disabled={isInvitingUser}
+                                                    required
+                                                />
+                                            </div>
+
+                                            <div className="bookmark-field">
+                                                <label htmlFor="project-invite-role">Access role</label>
+                                                <div className="bookmark-select-wrap">
+                                                    <select
+                                                        id="project-invite-role"
+                                                        value={effectiveInviteRoleId}
+                                                        onChange={(event) => setInviteRoleId(event.target.value)}
+                                                        disabled={isInvitingUser || roles.length === 0}
+                                                    >
+                                                        {roles.length === 0 ? (
+                                                            <option value="">Create a role first</option>
+                                                        ) : null}
+                                                        {roles.map((role) => (
+                                                            <option key={role.id} value={role.id}>
+                                                                {role.name} ({role.permissions.replace(/_/g, ' ')})
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <ChevronDown size={16} className="bookmark-select-chevron" />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {roles.length === 0 ? <p className="bookmark-feedback">Create at least one role before inviting users.</p> : null}
+                                        {inviteError ? <p className="bookmark-feedback bookmark-feedback-error">{inviteError}</p> : null}
+                                        {inviteSuccess ? <p className="bookmark-feedback bookmark-feedback-success">{inviteSuccess}</p> : null}
+
+                                        <div className="project-invite-actions">
+                                            <button
+                                                type="submit"
+                                                className="project-invite-submit"
+                                                disabled={isInvitingUser || roles.length === 0}
+                                            >
+                                                <UserPlus size={15} />
+                                                {isInvitingUser ? 'Sending invite...' : 'Send Invite'}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </section>
+                            </>
+                        ) : (
+                            <section className="project-invite-panel">
+                                <div className="project-invite-panel-head">
+                                    <h3><Users size={16} /> Collaboration Panel</h3>
+                                    <p>Realtime call, chat, and invites are available for collaborative projects.</p>
+                                </div>
+                            </section>
+                        )}
+                    </aside>
+                </div>
 
                 {selectedLink ? (
                     <LinkModal

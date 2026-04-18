@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 
 const commentSchema = new mongoose.Schema(
     {
-        // 🔥 flexible reference
         targetId: {
             type: mongoose.Schema.Types.ObjectId,
             required: true,
@@ -27,6 +26,23 @@ const commentSchema = new mongoose.Schema(
 
         gifUrl: {
             type: String
+        },
+
+        resolved: {
+            type: Boolean,
+            default: false,
+            index: true
+        },
+
+        resolvedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            default: null
+        },
+
+        resolvedAt: {
+            type: Date,
+            default: null
         }
     },
     { timestamps: true }

@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LatticeFrame } from './LatticeFrame';
-import { BookOpen, PenTool, Code2, Share2, ArrowUpRight, Atom, Blocks, Plus, X, Link as LinkIcon, ChevronDown, SlidersHorizontal, ArrowDownUp, LayoutGrid, Command } from 'lucide-react';
+import { BookOpen, PenTool, Code2, Share2, ArrowUpRight, Atom, Blocks, Plus, X, Link as LinkIcon, ChevronDown, SlidersHorizontal, ArrowDownUp, LayoutGrid, Command, Search, Users, GitFork, CircleUserRound, Sparkles } from 'lucide-react';
 import { apiRequest } from '../utils/api';
+import { forkPublicProject, searchDiscover } from '../services/latticeApi';
 import './LatticePages.css';
 
 const personalIcons = [BookOpen, PenTool, Code2, Share2];
@@ -91,6 +92,12 @@ export const LatticeHomePage = () => {
   const [bookmarkSubmitting, setBookmarkSubmitting] = useState(false);
   const [bookmarkError, setBookmarkError] = useState('');
   const [bookmarkSuccess, setBookmarkSuccess] = useState('');
+  const [discoverQuery, setDiscoverQuery] = useState('');
+  const [discoverUsers, setDiscoverUsers] = useState([]);
+  const [discoverProjects, setDiscoverProjects] = useState([]);
+  const [discoverLoading, setDiscoverLoading] = useState(false);
+  const [discoverError, setDiscoverError] = useState('');
+  const [selectedDiscoverUserId, setSelectedDiscoverUserId] = useState('');
 
   const isModalOpen = modalType !== null;
 
@@ -108,6 +115,19 @@ export const LatticeHomePage = () => {
   const selectedProjectRoles = !isBookmarkNewProject
     ? rolesByProject[bookmarkProjectSelection] || []
     : [];
+
+  const selectedDiscoverUser = useMemo(
+    () => discoverUsers.find((user) => user.id === selectedDiscoverUserId) || null,
+    [discoverUsers, selectedDiscoverUserId]
+  );
+
+  const filteredDiscoverProjects = useMemo(() => {
+    if (!selectedDiscoverUserId) {
+      return discoverProjects;
+    }
+
+    return discoverProjects.filter((project) => String(project.createdBy?.id || project.createdBy?._id || '') === String(selectedDiscoverUserId));
+  }, [discoverProjects, selectedDiscoverUserId]);
 
   const loadProjects = useCallback(async () => {
     setErrorMessage('');
@@ -183,6 +203,82 @@ export const LatticeHomePage = () => {
       window.clearTimeout(timer);
     };
   }, [bookmarkProjectSelection, loadRolesForProject]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadDiscover = async () => {
+      setDiscoverLoading(true);
+      setDiscoverError('');
+
+      try {
+        const response = await searchDiscover({
+          query: discoverQuery.trim(),
+          limit: 12,
+        });
+
+        if (!isMounted) {
+          return;
+        }
+
+        const nextUsers = Array.isArray(response?.users) ? response.users : [];
+        const nextProjects = Array.isArray(response?.projects) ? response.projects : [];
+
+        setDiscoverUsers(nextUsers);
+        setDiscoverProjects(nextProjects);
+        setSelectedDiscoverUserId((previous) => {
+          if (nextUsers.some((user) => user.id === previous)) {
+            return previous;
+          }
+
+          return nextUsers[0]?.id || '';
+        });
+      } catch (error) {
+        if (isMounted) {
+          setDiscoverUsers([]);
+          setDiscoverProjects([]);
+          setDiscoverError(error.message || 'Unable to search public people and projects.');
+        }
+      } finally {
+        if (isMounted) {
+          setDiscoverLoading(false);
+        }
+      }
+    };
+
+    const timer = window.setTimeout(() => {
+      void loadDiscover();
+    }, 240);
+
+    return () => {
+      isMounted = false;
+      window.clearTimeout(timer);
+    };
+  }, [discoverQuery]);
+
+  const handleForkPublicProject = async (project) => {
+    const projectId = project?.id;
+    if (!projectId) {
+      return;
+    }
+
+    try {
+      setDiscoverError('');
+      const response = await forkPublicProject(projectId);
+      const forkedProject = response?.project;
+
+      if (forkedProject?.id) {
+        navigate(`/lattice/project/${forkedProject.id}`, {
+          state: {
+            projectName: forkedProject.name,
+            projectType: forkedProject.projectType,
+          },
+        });
+      }
+    } catch (error) {
+      setDiscoverError(error.message || 'Unable to fork project.');
+    }
+  };
 
 
   const onSubmitBookmark = async (event) => {
@@ -366,6 +462,121 @@ export const LatticeHomePage = () => {
           </form>
         </div>
       </div>
+
+      <section className="home-discovery-panel">
+        <div className="home-discovery-header">
+          <div>
+            <p className="home-discovery-kicker">Discover people & public spaces</p>
+            <h2>Search another user's profile and fork a public project</h2>
+          </div>
+
+          <div className="home-discovery-searchbar">
+            <Search size={16} />
+            <input
+              type="search"
+              value={discoverQuery}
+              onChange={(event) => setDiscoverQuery(event.target.value)}
+              placeholder="Search a person or public project..."
+              aria-label="Search users and public projects"
+            />
+          </div>
+        </div>
+
+        {discoverError ? <p className="home-discovery-error">{discoverError}</p> : null}
+
+        <div className="home-discovery-grid">
+          <section className="home-discovery-column">
+            <div className="home-discovery-section-head">
+              <h3><Users size={16} /> User profiles</h3>
+              <span>{discoverUsers.length}</span>
+            </div>
+
+            <div className="home-user-grid">
+              {discoverLoading ? (
+                <div className="home-discovery-empty">Searching profiles...</div>
+              ) : discoverUsers.length ? discoverUsers.map((user) => (
+                <button
+                  key={user.id}
+                  type="button"
+                  className={`home-user-card ${selectedDiscoverUserId === user.id ? 'active' : ''}`}
+                  onClick={() => setSelectedDiscoverUserId(user.id)}
+                >
+                  <span className="home-user-avatar">
+                    {user.avatarUrl ? <img src={user.avatarUrl} alt={user.name} /> : <CircleUserRound size={18} />}
+                  </span>
+                  <span className="home-user-copy">
+                    <strong>{user.name}</strong>
+                    <span>{user.email}</span>
+                    <em>{user.publicProjectCount || 0} public project{(user.publicProjectCount || 0) === 1 ? '' : 's'}</em>
+                  </span>
+                  <span className="home-user-chip">{user.publicProjectCount || 0}</span>
+                </button>
+              )) : (
+                <div className="home-discovery-empty">No profiles matched.</div>
+              )}
+            </div>
+
+            {selectedDiscoverUser ? (
+              <div className="home-selected-user-projects">
+                <p className="home-discovery-section-subhead">
+                  Public spaces by {selectedDiscoverUser.name}
+                </p>
+
+                {selectedDiscoverUser.publicProjects?.length ? (
+                  <div className="home-mini-project-list">
+                    {selectedDiscoverUser.publicProjects.map((project) => (
+                      <div key={project.id} className="home-mini-project-item">
+                        <div>
+                          <strong>{project.name}</strong>
+                          <span>{project.lineageDepth > 0 ? `Remix depth ${project.lineageDepth}` : 'Original shelf'}</span>
+                        </div>
+                        <button type="button" onClick={() => void handleForkPublicProject(project)}>
+                          <GitFork size={14} /> Fork
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="home-discovery-empty">This user has no public projects yet.</div>
+                )}
+              </div>
+            ) : null}
+          </section>
+
+          <section className="home-discovery-column wide">
+            <div className="home-discovery-section-head">
+              <h3><Sparkles size={16} /> Public projects</h3>
+              <span>{filteredDiscoverProjects.length}</span>
+            </div>
+
+            <div className="home-public-project-grid">
+              {discoverLoading ? (
+                <div className="home-discovery-empty">Loading public projects...</div>
+              ) : filteredDiscoverProjects.length ? filteredDiscoverProjects.map((project) => (
+                <article key={project.id} className="home-public-project-card">
+                  <div className="home-public-project-topline">
+                    <span className="home-public-project-owner">
+                      {project.createdBy?.avatarUrl ? <img src={project.createdBy.avatarUrl} alt={project.createdBy.name} /> : <CircleUserRound size={14} />}
+                      {project.createdBy?.name || 'Unknown curator'}
+                    </span>
+                    <span className="home-public-project-pill">Public</span>
+                  </div>
+                  <h4>{project.name}</h4>
+                  <p>{project.kind === 'collaborative' ? 'Collaborative public shelf' : 'Personal public shelf'}</p>
+                  <div className="home-public-project-footer">
+                    <span>{project.remixCount || 0} remixes</span>
+                    <button type="button" onClick={() => void handleForkPublicProject(project)}>
+                      <GitFork size={14} /> Fork for me
+                    </button>
+                  </div>
+                </article>
+              )) : (
+                <div className="home-discovery-empty">No public projects found.</div>
+              )}
+            </div>
+          </section>
+        </div>
+      </section>
     </LatticeFrame>
   );
 };

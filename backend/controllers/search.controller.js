@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import User from "../models/user.js";
 import Link from "../models/link.js";
 import ProjectMember from "../models/projectMember.js";
 import Project from "../models/project.js";
@@ -23,8 +24,100 @@ const toProjectSummary = (project) => ({
     id: String(project._id),
     name: project.name,
     kind: project.projectType === "collaborative" ? "collaborative" : "personal",
+    isPublic: Boolean(project.isPublic),
+    createdBy: project.createdBy
+        ? {
+            id: String(project.createdBy._id || project.createdBy),
+            name: project.createdBy.name || "",
+            email: project.createdBy.email || "",
+            avatarUrl: project.createdBy.avatarUrl || null,
+        }
+        : null,
     updatedAt: project.updatedAt,
 });
+
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export const searchDiscover = async (req, res, next) => {
+    try {
+        const query = typeof req.query.q === "string" ? req.query.q.trim() : "";
+        const limit = clampLimit(req.query.limit, 10, 20);
+
+        const regexQuery = query ? new RegExp(escapeRegex(query), "i") : null;
+
+        const [users, publicProjects] = await Promise.all([
+            User.find(
+                regexQuery
+                    ? {
+                        $or: [{ name: regexQuery }, { email: regexQuery }],
+                    }
+                    : {}
+            )
+                .select("name email avatarUrl updatedAt")
+                .sort({ updatedAt: -1 })
+                .limit(limit)
+                .lean(),
+            Project.find(
+                {
+                    isActive: true,
+                    isPublic: true,
+                    ...(regexQuery ? { name: regexQuery } : {}),
+                }
+            )
+                .populate("createdBy", "name email avatarUrl")
+                .sort({ updatedAt: -1 })
+                .limit(limit)
+                .lean(),
+        ]);
+
+        const publicProjectsByUser = new Map();
+        if (users.length > 0) {
+            const userIds = users.map((user) => user._id);
+            const userPublicProjects = await Project.find({
+                isActive: true,
+                isPublic: true,
+                createdBy: { $in: userIds },
+            })
+                .populate("createdBy", "name email avatarUrl")
+                .sort({ updatedAt: -1 })
+                .limit(limit * 2)
+                .lean();
+
+            for (const project of userPublicProjects) {
+                const ownerId = String(project.createdBy?._id || project.createdBy);
+                if (!publicProjectsByUser.has(ownerId)) {
+                    publicProjectsByUser.set(ownerId, []);
+                }
+
+                publicProjectsByUser.get(ownerId).push({
+                    ...toProjectSummary(project),
+                    forkable: true,
+                });
+            }
+        }
+
+        const usersWithProjects = users.map((user) => ({
+            id: String(user._id),
+            name: user.name,
+            email: user.email,
+            avatarUrl: user.avatarUrl || null,
+            type: "user",
+            publicProjectCount: (publicProjectsByUser.get(String(user._id)) || []).length,
+            publicProjects: (publicProjectsByUser.get(String(user._id)) || []).slice(0, 3),
+        }));
+
+        return res.status(200).json({
+            success: true,
+            users: usersWithProjects,
+            projects: publicProjects.map((project) => ({
+                ...toProjectSummary(project),
+                forkable: true,
+            })),
+        });
+    } catch (error) {
+        return next(error);
+    }
+};
 
 export const searchLinks = async (req, res, next) => {
     try {

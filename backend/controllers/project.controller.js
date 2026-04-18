@@ -1,30 +1,23 @@
 import Project from "../models/project.js";
-
-const getProjectDescription = (projectDoc) => {
-    if (typeof projectDoc?.description === "string" && projectDoc.description.trim()) {
-        return projectDoc.description.trim();
-    }
-
-    if (projectDoc?.projectType === "collaborative") {
-        return "Shared lattice for collaborative work.";
-    }
-
-    return "Personal lattice for your own ideas and bookmarks.";
-};
+import ProjectMember from "../models/projectMember.js";
 
 const normalizeProject = (projectDoc) => ({
     id: projectDoc._id,
     name: projectDoc.name,
     projectType: projectDoc.projectType || "personal",
-    isActive: projectDoc.isActive,
     isPublic: Boolean(projectDoc.isPublic),
-    description: getProjectDescription(projectDoc),
+    parentProjectId: projectDoc.parentProjectId || null,
+    rootProjectId: projectDoc.rootProjectId || null,
+    lineageDepth: Number.isFinite(projectDoc.lineageDepth) ? projectDoc.lineageDepth : 0,
+    remixCount: Number.isFinite(projectDoc.remixCount) ? projectDoc.remixCount : 0,
+    isActive: projectDoc.isActive,
     memberCount: Array.isArray(projectDoc.members) ? projectDoc.members.length : 0,
     createdBy: projectDoc.createdBy
         ? {
             id: projectDoc.createdBy._id,
             name: projectDoc.createdBy.name,
             email: projectDoc.createdBy.email,
+            avatarUrl: projectDoc.createdBy.avatarUrl || null,
         }
         : null,
     createdAt: projectDoc.createdAt,
@@ -68,12 +61,22 @@ export const createProject = async (req, res, next) => {
         const createdProject = await Project.create({
             name: name.trim(),
             projectType,
+            isPublic: false,
+            parentProjectId: null,
+            rootProjectId: null,
+            lineageDepth: 0,
+            remixCount: 0,
             isActive: true,
             createdBy: userId,
             members: [userId],
         });
 
-        const hydratedProject = await Project.findById(createdProject._id).populate("createdBy", "name email");
+        if (!createdProject.rootProjectId) {
+            createdProject.rootProjectId = createdProject._id;
+            await createdProject.save();
+        }
+
+        const hydratedProject = await Project.findById(createdProject._id).populate("createdBy", "name email avatarUrl");
 
         return res.status(201).json({
             success: true,
@@ -84,104 +87,37 @@ export const createProject = async (req, res, next) => {
     }
 };
 
-export const getProjectById = async (req, res, next) => {
+export const getProjectMembership = async (req, res, next) => {
     try {
         const userId = req.user.userId;
         const { projectId } = req.params;
 
-        const project = await Project.findOne({
-            _id: projectId,
-            isActive: true,
-            $or: [{ createdBy: userId }, { members: userId }],
-        })
-            .populate("createdBy", "name email avatarUrl")
-            .populate("members", "name avatarUrl")
-            .lean();
+        const projectMember = await ProjectMember.findOne({ userId, projectId })
+            .populate("roleId", "name permissions");
 
-        if (!project) {
+        if (!projectMember) {
             return res.status(404).json({
                 success: false,
-                message: "Project not found",
+                message: "Membership not found"
             });
         }
 
-        const ownerId = String(project.createdBy?._id || project.createdBy || "");
-        const membersFromProject = Array.isArray(project.members) ? project.members : [];
-        const seenMemberIds = new Set();
-        const members = [];
-
-        if (ownerId) {
-            seenMemberIds.add(ownerId);
-            members.push({
-                _id: ownerId,
-                name: project.createdBy?.name || "User",
-                avatar: project.createdBy?.avatarUrl || null,
-                isOwner: true,
-            });
-        }
-
-        membersFromProject.forEach((member) => {
-            const memberId = String(member?._id || "");
-
-            if (!memberId || seenMemberIds.has(memberId)) {
-                return;
+        return res.status(200).json({
+            success: true,
+            membership: {
+                id: projectMember._id,
+                projectId: projectMember.projectId,
+                userId: projectMember.userId,
+                role: projectMember.roleId
+                    ? {
+                        id: projectMember.roleId._id,
+                        name: projectMember.roleId.name,
+                        permissions: projectMember.roleId.permissions,
+                    }
+                    : null,
             }
-
-            seenMemberIds.add(memberId);
-            members.push({
-                _id: memberId,
-                name: member?.name || "User",
-                avatar: member?.avatarUrl || null,
-                isOwner: memberId === ownerId,
-            });
-        });
-
-        return res.status(200).json({
-            success: true,
-            project: {
-                ...normalizeProject(project),
-                members,
-            },
         });
     } catch (error) {
         return next(error);
     }
 };
-
-export const updateLatticeVisibility = async (req, res, next) => {
-    try {
-        const userId = req.user.userId;
-        const { latticeId } = req.params;
-        const { isPublic } = req.body;
-
-        const lattice = await Project.findById(latticeId);
-
-        if (!lattice || !lattice.isActive) {
-            return res.status(404).json({
-                success: false,
-                message: "Lattice not found",
-            });
-        }
-
-        if (String(lattice.createdBy) !== String(userId)) {
-            return res.status(403).json({
-                success: false,
-                message: "Forbidden: you cannot modify this lattice",
-            });
-        }
-
-        lattice.isPublic = Boolean(isPublic);
-        await lattice.save();
-
-        const hydratedProject = await Project.findById(lattice._id).populate("createdBy", "name email");
-
-        return res.status(200).json({
-            success: true,
-            lattice: normalizeProject(hydratedProject),
-        });
-    } catch (error) {
-        return next(error);
-    }
-};
-
-export { normalizeProject };

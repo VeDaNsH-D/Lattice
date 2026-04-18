@@ -28,11 +28,12 @@ const StreamTile = ({ label, stream, muted = false }) => {
   );
 };
 
-export const ProjectRealtimePanel = ({ projectId, projectName }) => {
+export const ProjectRealtimePanel = ({ projectId, projectName, onParticipantsChange }) => {
   const socketRef = useRef(null);
   const peersRef = useRef(new Map());
   const selfIdRef = useRef('');
   const localPreviewRef = useRef(null);
+  const activeStreamRef = useRef(null);
 
   const [username, setUsername] = useState('Guest');
   const [status, setStatus] = useState('connecting');
@@ -44,6 +45,7 @@ export const ProjectRealtimePanel = ({ projectId, projectName }) => {
   const [micEnabled, setMicEnabled] = useState(true);
   const [cameraEnabled, setCameraEnabled] = useState(true);
   const [error, setError] = useState('');
+  const [callPermission, setCallPermission] = useState('view_only');
 
   const attachLocalTracks = (peer, stream = localStream) => {
     if (!peer || !stream || peer.localTracksAttached) {
@@ -78,6 +80,7 @@ export const ProjectRealtimePanel = ({ projectId, projectName }) => {
     }
 
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+    activeStreamRef.current = stream;
     setLocalStream(stream);
     setMicEnabled(true);
     setCameraEnabled(true);
@@ -88,6 +91,45 @@ export const ProjectRealtimePanel = ({ projectId, projectName }) => {
 
     peersRef.current.forEach((peer) => attachLocalTracks(peer, stream));
     return stream;
+  };
+
+  const stopActiveStream = (stream) => {
+    if (!stream) {
+      return;
+    }
+
+    stream.getTracks().forEach((track) => {
+      try {
+        track.stop();
+      } catch {
+        // no-op
+      }
+    });
+  };
+
+  const endCall = () => {
+    peersRef.current.forEach((peer, peerId) => {
+      try {
+        peer.connection.close();
+      } catch {
+        // no-op
+      }
+
+      cleanupPeer(peerId);
+    });
+
+    stopActiveStream(activeStreamRef.current);
+    activeStreamRef.current = null;
+
+    if (localPreviewRef.current) {
+      localPreviewRef.current.srcObject = null;
+    }
+
+    setLocalStream(null);
+    setRemoteStreams({});
+    setMicEnabled(true);
+    setCameraEnabled(true);
+    setError('');
   };
 
   const createPeer = (remoteId) => {
@@ -224,6 +266,18 @@ export const ProjectRealtimePanel = ({ projectId, projectName }) => {
 
         setUsername(nextName);
 
+        try {
+          const membership = await apiRequest(`/projects/${projectId}/membership`, { method: 'GET' });
+          const nextPermission = membership?.membership?.role?.permissions || 'view_only';
+          if (mounted) {
+            setCallPermission(nextPermission);
+          }
+        } catch {
+          if (mounted) {
+            setCallPermission('view_only');
+          }
+        }
+
         const socket = io(SOCKET_URL, {
           transports: ['websocket'],
           autoConnect: true,
@@ -284,6 +338,13 @@ export const ProjectRealtimePanel = ({ projectId, projectName }) => {
   }, [projectId]);
 
   useEffect(() => {
+    if (!localStream) {
+      peersRef.current.forEach((_, id) => {
+        cleanupPeer(id);
+      });
+      return;
+    }
+
     participants.forEach((participant) => {
       if (participant.id !== selfIdRef.current) {
         const peer = peersRef.current.get(participant.id) || createPeer(participant.id);
@@ -300,8 +361,19 @@ export const ProjectRealtimePanel = ({ projectId, projectName }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [participants, localStream]);
 
+  useEffect(() => {
+    if (typeof onParticipantsChange === 'function') {
+      onParticipantsChange(participants);
+    }
+  }, [onParticipantsChange, participants]);
+
   const startCall = async () => {
     try {
+      if (callPermission === 'view_only') {
+        setError('Your role does not allow starting calls.');
+        return;
+      }
+
       setError('');
       await ensureMedia();
     } catch (mediaError) {
@@ -344,6 +416,7 @@ export const ProjectRealtimePanel = ({ projectId, projectName }) => {
       if (localPreviewRef.current) {
         localPreviewRef.current.srcObject = shareStream;
       }
+      activeStreamRef.current = shareStream;
 
       shareTrack.onended = () => {
         if (!localStream) {
@@ -361,6 +434,8 @@ export const ProjectRealtimePanel = ({ projectId, projectName }) => {
         if (localPreviewRef.current) {
           localPreviewRef.current.srcObject = localStream;
         }
+
+        activeStreamRef.current = localStream;
       };
     } catch (shareError) {
       setError(shareError.message || 'Unable to start screen sharing.');
@@ -384,6 +459,8 @@ export const ProjectRealtimePanel = ({ projectId, projectName }) => {
   };
 
   const activeRemoteStreams = Object.entries(remoteStreams).filter(([, stream]) => Boolean(stream));
+  const isCallActive = Boolean(localStream);
+  const canStartCall = callPermission !== 'view_only';
 
   return (
     <section className="project-realtime-wrap">
@@ -391,12 +468,21 @@ export const ProjectRealtimePanel = ({ projectId, projectName }) => {
         <div>
           <p className="project-realtime-kicker">Collaborative Realtime Room</p>
           <h3>{projectName} Call + Chat</h3>
+          <p className="project-realtime-access-label">Call access: {callPermission.replace(/_/g, ' ')}</p>
         </div>
         <div className={`project-realtime-status status-${status}`}>{status}</div>
       </div>
 
       <div className="project-realtime-actions">
-        <button type="button" onClick={startCall}><Video size={15} /> Start Call</button>
+        <button
+          type="button"
+          onClick={isCallActive ? endCall : startCall}
+          className={isCallActive ? 'danger' : ''}
+          disabled={!canStartCall && !isCallActive}
+          title={!canStartCall ? 'Your role is view-only' : ''}
+        >
+          <Video size={15} /> {isCallActive ? 'End Call' : 'Start Call'}
+        </button>
         <button type="button" onClick={toggleMic}>{micEnabled ? <Mic size={15} /> : <MicOff size={15} />}{micEnabled ? 'Mute' : 'Unmute'}</button>
         <button type="button" onClick={toggleCamera}>{cameraEnabled ? <Video size={15} /> : <VideoOff size={15} />}{cameraEnabled ? 'Camera Off' : 'Camera On'}</button>
         <button type="button" onClick={startShare}><ScreenShare size={15} /> Share Screen</button>

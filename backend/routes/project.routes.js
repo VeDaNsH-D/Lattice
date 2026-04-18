@@ -1,8 +1,7 @@
 import express from "express";
 import { body } from "express-validator";
-import { param } from "express-validator";
 
-import { createProject, getProjectById, listProjects } from "../controllers/project.controller.js";
+import { createProject, getProjectMembership, listProjects } from "../controllers/project.controller.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 import { validateRequest } from "../middlewares/validate.middleware.js";
 
@@ -11,11 +10,9 @@ const router = express.Router();
 router.get("/", authMiddleware, listProjects);
 
 router.get(
-    "/:projectId",
+    "/:projectId/membership",
     authMiddleware,
-    [param("projectId").isMongoId().withMessage("Valid project id is required")],
-    validateRequest,
-    getProjectById
+    getProjectMembership
 );
 
 router.post(

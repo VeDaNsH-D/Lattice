@@ -1,129 +1,130 @@
-# LATTICE
+# Lattice
 
-Realtime collaboration platform backend for Lattice, with Socket.IO-based collaboration events and WebRTC signaling.
+Lattice is a full-stack collaboration app for building, sharing, and remixing project spaces. The current repo includes a Node/Express/MongoDB backend, a React/Vite frontend, realtime Socket.IO collaboration, shared bookmark comments, and public project discovery with fork/remix support.
 
-## Current Progress
-
-### Implemented and intact
-
-- Realtime Socket.IO server in `backend/index.js`
-- Collaborative socket events:
-	- room join/leave
-	- presence updates
-	- chat messages
-	- reactions
-	- cursor updates
-	- screen-share state
-	- WebRTC signaling (`offer/answer/ICE` passthrough)
-	- call leave notifications
-	- in-memory activity feed per room
-- Auth API:
-	- `POST /api/auth/register`
-	- `POST /api/auth/signup`
-	- `POST /api/auth/login`
-	- `GET /api/auth/me`
-- Data models for collaborative domain:
-	- users, projects, project members, roles
-	- rooms, messages
-	- links, comments, invites
-
-### In progress / not fully wired yet
-
-- Most collaboration models exist but do not yet have full CRUD route/controller coverage.
-- Frontend exists as a Vite React scaffold and is not yet connected to backend realtime/auth flows.
-- Realtime room state and activity are in-memory (not persisted in MongoDB yet).
-
-## Local Setup
+## What’s in the repo now
 
 ### Backend
 
-1. Install dependencies:
+- Express API with MongoDB/Mongoose models for users, projects, links, roles, members, invites, rooms, messages, comments, graph data, and timeline/pulse features.
+- Authentication endpoints for register, login, current-user lookup, and Google OAuth flow.
+- Project APIs for create/list plus membership lookup used by the realtime workspace.
+- Search APIs for spotlight and home-page discovery of users and public projects.
+- Remix APIs for listing public projects, forking a public project, toggling visibility, and reading project lineage.
+- Comment APIs for link bookmark threads with resolve/unresolve support.
+- Socket.IO realtime collaboration for room presence, chat, reactions, cursor updates, screen share state, and WebRTC signaling.
+
+### Frontend
+
+- React + Vite application with protected and public routes.
+- Landing page, auth pages, and the Lattice workspace shell.
+- Home page discovery panel for finding users and public projects, then forking public projects into your own space.
+- Three-pane Discord-style project workspace with roles, online presence, bookmark management, and realtime collaboration.
+- Bookmark modal with threaded comments, avatars, and resolution controls.
+- Realtime project panel with start/end call flow, screen share, and role-aware call access.
+
+## Local Setup
+
+### 1. Backend
 
 ```bash
 cd backend
 npm install
 ```
 
-2. Configure environment in `backend/.env`:
+Create `backend/.env` with at least:
 
 ```env
 PORT=8000
 MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret
+FRONTEND_URL=http://localhost:5173
 ```
 
-3. Start backend:
+Optional, if you use Google login:
+
+```env
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_CALLBACK_URL=http://localhost:8000/api/auth/google/callback
+```
+
+Start the backend:
 
 ```bash
 cd backend
-npm start
+npm run dev
 ```
 
-Backend health endpoints:
+Health checks:
 
-- `GET /` -> backend info
-- `GET /health` -> `{ "ok": true }`
+- `GET /` returns a basic service response.
+- `GET /health` returns `{ "ok": true }`.
 
-### Frontend
-
-1. Install frontend dependencies:
+### 2. Frontend
 
 ```bash
 cd frontend
 npm install
-```
-
-2. Start frontend dev server:
-
-```bash
-cd frontend
 npm run dev
 ```
 
-3. Connect frontend to backend base URL:
+The frontend expects the backend on `http://localhost:8000` by default through its API helper.
 
-- `http://localhost:8000`
+To verify the production build:
 
-## Collaborative Backend Event Surface
+```bash
+cd frontend
+npm run build
+```
 
-- `room:join`
-- `room:leave`
-- `room:state`
-- `room:user-joined`
-- `room:user-left`
-- `presence:update`
-- `activity:new`
-- `chat:send`
-- `chat:new`
-- `reaction:send`
-- `reaction:new`
-- `cursor:move`
-- `cursor:update`
-- `screen-share:start`
-- `screen-share:stop`
-- `screen-share:state`
-- `webrtc:signal`
-- `call:leave`
+## Main Features
+
+- Public landing experience with product marketing pages.
+- Auth flow with email/password and Google OAuth.
+- Personal and collaborative project spaces.
+- Role-based access control for collaborative projects.
+- Realtime room presence, chat, reactions, cursor updates, screen share, and WebRTC calls.
+- Bookmark/project-link saving with comments and comment resolution.
+- Public project discovery and remix/fork workflow.
+- Project lineage metadata for tracking ancestry and remix depth.
+- Project graph, timeline, pulse, and invite surfaces.
+
+## Key API Areas
+
+- `/api/auth`
+- `/api/projects`
+- `/api/links`
+- `/api/bookmarks`
+- `/api/comments`
+- `/api/invites`
+- `/api/roles`
+- `/api/search`
+- `/api/remix`
+- `/api/graph`
+- `/api/lattice`
+- `/api/timeline`
+- `/api/pulse`
 
 ## Project Structure
 
 ```text
 README.md
 backend/
-	index.js
-	controllers/
-	middlewares/
-	models/
-	routes/
-	utils/
+  index.js
+  controllers/
+  middlewares/
+  models/
+  routes/
+  utils/
 frontend/
-	src/
-	public/
-	package.json
+  src/
+  public/
+  package.json
 ```
 
 ## Notes
 
-- Socket.IO credentials are not needed for local development.
-- Redis is optional and only needed when scaling Socket.IO across multiple backend instances.
-- TURN credentials are recommended later for production-grade WebRTC connectivity across restrictive NAT networks.
+- Socket.IO is configured for local development without extra credentials.
+- Realtime room state is currently stored in memory on the server.
+- Redis and TURN are still optional future upgrades for scaling and more reliable WebRTC connectivity.

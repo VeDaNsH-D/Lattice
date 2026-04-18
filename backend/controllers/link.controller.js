@@ -1,4 +1,5 @@
 import Link from "../models/link.js";
+import Comment from "../models/comment.js";
 import Message from "../models/message.js";
 import Project from "../models/project.js";
 import Room from "../models/room.js";
@@ -93,10 +94,61 @@ export const listLinks = async (req, res, next) => {
             .limit(100)
             .populate("createdBy", "name email");
 
+        const linkIds = links.map((link) => link._id);
+        const commentStats = new Map();
+
+        if (linkIds.length > 0) {
+            const comments = await Comment.find({
+                targetType: "Link",
+                targetId: { $in: linkIds },
+            })
+                .sort({ createdAt: -1 })
+                .populate("userId", "name avatarUrl email");
+
+            for (const comment of comments) {
+                const key = String(comment.targetId);
+                const current = commentStats.get(key) || {
+                    commentCount: 0,
+                    latestCommenter: null,
+                    latestCommentAt: null,
+                };
+
+                current.commentCount += 1;
+
+                if (!current.latestCommenter) {
+                    current.latestCommenter = comment.userId
+                        ? {
+                            id: comment.userId._id,
+                            name: comment.userId.name,
+                            avatarUrl: comment.userId.avatarUrl || null,
+                        }
+                        : null;
+                    current.latestCommentAt = comment.createdAt;
+                }
+
+                commentStats.set(key, current);
+            }
+        }
+
+        const enrichedLinks = links.map((link) => {
+            const stats = commentStats.get(String(link._id)) || {
+                commentCount: 0,
+                latestCommenter: null,
+                latestCommentAt: null,
+            };
+
+            return {
+                ...link.toObject(),
+                commentCount: stats.commentCount,
+                latestCommenter: stats.latestCommenter,
+                latestCommentAt: stats.latestCommentAt,
+            };
+        });
+
         return res.status(200).json({
             success: true,
-            count: links.length,
-            links
+            count: enrichedLinks.length,
+            links: enrichedLinks
         });
     } catch (error) {
         return next(error);

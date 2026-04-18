@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ExternalLink, X } from 'lucide-react';
+import { CheckCircle2, CircleUserRound, ExternalLink, RotateCcw, X } from 'lucide-react';
 import { apiRequest } from '../utils/api';
 
 const getCommentList = (payload) => {
@@ -39,6 +39,7 @@ export default function LinkModal({ link, onClose }) {
     const [commentsError, setCommentsError] = useState('');
     const [commentText, setCommentText] = useState('');
     const [isSending, setIsSending] = useState(false);
+    const [resolvingCommentId, setResolvingCommentId] = useState('');
     const [isClosing, setIsClosing] = useState(false);
     const commentsEndRef = useRef(null);
     const closeTimeoutRef = useRef(null);
@@ -73,7 +74,7 @@ export default function LinkModal({ link, onClose }) {
             setCommentsError('');
 
             try {
-                const payload = await apiRequest(`/comments/${linkId}`, {
+                const payload = await apiRequest(`/comments/links/${linkId}`, {
                     method: 'GET',
                 });
 
@@ -164,10 +165,10 @@ export default function LinkModal({ link, onClose }) {
         setIsSending(true);
 
         try {
-            const payload = await apiRequest('/comments', {
+            const payload = await apiRequest(`/comments/links/${linkId}`, {
                 method: 'POST',
                 body: JSON.stringify({
-                    linkId,
+                    projectId: link?.projectId,
                     text: trimmed,
                 }),
             });
@@ -187,6 +188,41 @@ export default function LinkModal({ link, onClose }) {
             setCommentsError(error?.message || 'Unable to send comment.');
         } finally {
             setIsSending(false);
+        }
+    };
+
+    const toggleResolve = async (comment) => {
+        const commentId = comment?._id || comment?.id;
+        if (!commentId || resolvingCommentId) {
+            return;
+        }
+
+        setResolvingCommentId(commentId);
+
+        try {
+            const payload = await apiRequest(`/comments/${commentId}/resolve`, {
+                method: 'PATCH',
+                body: JSON.stringify({
+                    projectId: link?.projectId,
+                    resolved: !comment.resolved,
+                }),
+            });
+
+            const updated = payload?.comment || payload?.data || payload;
+            if (updated) {
+                setComments((previous) => previous.map((item) => {
+                    const itemId = item._id || item.id;
+                    if (String(itemId) !== String(commentId)) {
+                        return item;
+                    }
+
+                    return updated;
+                }));
+            }
+        } catch (error) {
+            setCommentsError(error?.message || 'Unable to update comment resolution.');
+        } finally {
+            setResolvingCommentId('');
         }
     };
 
@@ -289,11 +325,46 @@ export default function LinkModal({ link, onClose }) {
                             {comments.map((comment) => {
                                 const commentId = comment._id || comment.id || `${comment.text}-${comment.createdAt}`;
                                 const label = comment.user?.name || comment.userName || 'User';
+                                const avatarUrl = comment.user?.avatarUrl || '';
+                                const initials = label.slice(0, 1).toUpperCase();
 
                                 return (
-                                    <article key={commentId} className="link-modal-comment-card">
-                                        <p className="link-modal-comment-text">{comment.text}</p>
-                                        <p className="link-modal-comment-meta">{label} • {formatTimestamp(comment.createdAt)}</p>
+                                    <article
+                                        key={commentId}
+                                        className={`link-modal-comment-card ${comment.resolved ? 'is-resolved' : ''}`}
+                                    >
+                                        <div className="link-modal-comment-avatar-col">
+                                            <span className="link-modal-comment-avatar">
+                                                {avatarUrl ? <img src={avatarUrl} alt={label} /> : <CircleUserRound size={15} />}
+                                            </span>
+                                        </div>
+
+                                        <div className="link-modal-comment-body">
+                                            <div className="link-modal-comment-topline">
+                                                <p className="link-modal-comment-meta">{label} • {formatTimestamp(comment.createdAt)}</p>
+                                                {comment.resolved ? (
+                                                    <span className="link-modal-comment-resolved-badge">
+                                                        <CheckCircle2 size={12} /> Resolved
+                                                    </span>
+                                                ) : null}
+                                            </div>
+
+                                            <p className="link-modal-comment-text">{comment.text}</p>
+
+                                            <button
+                                                type="button"
+                                                className="link-modal-comment-resolve-btn"
+                                                onClick={() => void toggleResolve(comment)}
+                                                disabled={resolvingCommentId === commentId}
+                                            >
+                                                {comment.resolved ? <RotateCcw size={13} /> : <CheckCircle2 size={13} />}
+                                                {resolvingCommentId === commentId
+                                                    ? 'Updating...'
+                                                    : comment.resolved
+                                                        ? 'Unresolve'
+                                                        : 'Resolve'}
+                                            </button>
+                                        </div>
                                     </article>
                                 );
                             })}

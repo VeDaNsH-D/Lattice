@@ -165,5 +165,27 @@ export const searchSpotlight = ({ query = '', latticeId = '', limit = 8 } = {}) 
   return requestJson(`/search/spotlight${suffix}`, { method: 'GET' });
 };
 
+export const searchDiscover = ({ query = '', limit = 10 } = {}) => {
+  const params = new URLSearchParams();
+
+  if (query) {
+    params.set('q', query);
+  }
+
+  if (limit) {
+    params.set('limit', String(limit));
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+  return requestJson(`/search/discover${suffix}`, { method: 'GET' });
+};
+
+export const forkPublicProject = (projectId, name = '') => {
+  return requestJson(`/remix/projects/${projectId}/fork`, {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+};
+
 export const getBackendBaseUrl = () => BACKEND_BASE_URL;
 export const getBackendOrigin = () => BACKEND_BASE_URL;

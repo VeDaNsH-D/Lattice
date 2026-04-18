@@ -13,6 +13,33 @@ const projectSchema = new mongoose.Schema(
             default: "personal",
             required: true
         },
+        isPublic: {
+            type: Boolean,
+            default: false,
+            index: true
+        },
+        parentProjectId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Project",
+            default: null,
+            index: true
+        },
+        rootProjectId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Project",
+            default: null,
+            index: true
+        },
+        lineageDepth: {
+            type: Number,
+            default: 0,
+            min: 0
+        },
+        remixCount: {
+            type: Number,
+            default: 0,
+            min: 0
+        },
         isActive: {
             type: Boolean,
             default: true
