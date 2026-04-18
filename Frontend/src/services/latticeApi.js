@@ -192,7 +192,11 @@ export const forkPublicProject = (projectId, name = '') => {
 };
 
 export const getForkActivity = () => {
-  return requestJson('/remix/activity', { method: 'GET' });
+  const params = new URLSearchParams();
+  params.set('hours', '48');
+
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+  return requestJson(`/remix/activity${suffix}`, { method: 'GET' });
 };
 
 export const listGraveyardLinks = () => {

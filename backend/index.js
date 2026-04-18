@@ -8,6 +8,7 @@ import mongoose from "mongoose";
 import os from "os";
 import path from "path";
 import passport from "passport";
+import jwt from "jsonwebtoken";
 import { Server } from "socket.io";
 
 import "./config/passport.js";
@@ -24,11 +25,12 @@ import bookmarksRoutes from "./routes/bookmarks.routes.js";
 import projectRoutes from "./routes/project.routes.js";
 import searchRoutes from "./routes/search.routes.js";
 import roleRoutes from "./routes/role.routes.js";
+import remixRoutes from "./routes/remix.routes.js";
 import graphRoutes from "./routes/graph.routes.js";
 import latticeRoutes from "./routes/lattice.routes.js";
 import timelineRoutes from "./routes/timeline.routes.js";
 import userRoutes from "./routes/user.routes.js";
-import aiRoutes from "./routes/ai.routes.js";
+import { recordActivity } from "./services/activityLog.service.js";
 
 const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
 const configuredOrigins = (process.env.FRONTEND_ORIGINS || frontendUrl)
@@ -44,6 +46,21 @@ const io = new Server(server, {
         origin: allowedOrigins,
         methods: ["GET", "POST"],
     },
+});
+
+io.use((socket, next) => {
+    try {
+        const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.replace(/^Bearer\s+/i, "");
+        if (!token) {
+            return next();
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        socket.data.userId = decoded.userId;
+        return next();
+    } catch (error) {
+        return next();
+    }
 });
 
 const rooms = new Map();
@@ -196,6 +213,18 @@ io.on("connection", (socket) => {
             user,
         });
 
+        if (socket.data.userId && mongoose.Types.ObjectId.isValid(roomId)) {
+            void recordActivity({
+                projectId: roomId,
+                actorId: socket.data.userId,
+                type: "collaborator_joined_room",
+                payload: {
+                    roomId,
+                    username,
+                },
+            });
+        }
+
         emitPresence(roomId);
 
         const state = {
@@ -243,6 +272,19 @@ io.on("connection", (socket) => {
             sender: user,
             message,
         });
+
+        if (socket.data.userId && mongoose.Types.ObjectId.isValid(roomId)) {
+            void recordActivity({
+                projectId: roomId,
+                actorId: socket.data.userId,
+                type: "collaborator_sent_chat",
+                payload: {
+                    roomId,
+                    username: user.username,
+                    message,
+                },
+            });
+        }
 
         io.to(roomId).emit("chat:new", chatEvent);
 
@@ -387,7 +429,7 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/bookmarks", bookmarksRoutes);
 app.use("/api/search", searchRoutes);
 app.use("/api/roles", roleRoutes);
-app.use("/api/ai", aiRoutes);
+app.use("/api/remix", remixRoutes);
 app.use("/api", latticeRoutes);
 app.use("/api", graphRoutes);
 app.use("/api/users", userRoutes);

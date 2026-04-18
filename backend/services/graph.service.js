@@ -239,7 +239,7 @@ const upsertDirectedEdge = async ({ from, to, latticeId, weight, type }) => {
     return LatticeEdge.findOneAndUpdate(
         { from, to, latticeId, type },
         { $set: { weight: nextWeight } },
-        { new: true, upsert: true, setDefaultsOnInsert: true }
+        { returnDocument: "after", upsert: true, setDefaultsOnInsert: true }
     );
 };
 
@@ -329,13 +329,13 @@ export const reinforceEdges = async (nodeA, nodeB, increment = 0.05, type = "beh
     const forwardEdge = await LatticeEdge.findOneAndUpdate(
         { from: nodeA._id, to: nodeB._id, latticeId, type },
         { $inc: { weight: increment } },
-        { new: true, upsert: true, setDefaultsOnInsert: true }
+        { returnDocument: "after", upsert: true, setDefaultsOnInsert: true }
     );
 
     const reverseEdge = await LatticeEdge.findOneAndUpdate(
         { from: nodeB._id, to: nodeA._id, latticeId, type },
         { $inc: { weight: increment } },
-        { new: true, upsert: true, setDefaultsOnInsert: true }
+        { returnDocument: "after", upsert: true, setDefaultsOnInsert: true }
     );
 
     forwardEdge.weight = clamp(forwardEdge.weight, 0, 1);

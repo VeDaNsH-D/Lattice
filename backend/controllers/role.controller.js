@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 import Project from "../models/project.js";
 import Role from "../models/role.js";
+import { recordActivity } from "../services/activityLog.service.js";
 
 const normalizeRole = (role) => ({
     id: role._id,
@@ -53,6 +54,17 @@ export const createRole = async (req, res, next) => {
 
         project.roles = [...(project.roles || []), createdRole._id];
         await project.save();
+
+        await recordActivity({
+            projectId,
+            actorId: userId,
+            type: "role_created",
+            payload: {
+                roleId: String(createdRole._id),
+                roleName: createdRole.name,
+                permissions: createdRole.permissions,
+            },
+        });
 
         return res.status(201).json({
             success: true,

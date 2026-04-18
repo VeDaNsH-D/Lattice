@@ -5,6 +5,7 @@ import { fetchMetadata } from "../services/metadata.service.js";
 import { generateAIContent } from "../services/ai.service.js";
 import { ensureLinkEnrichment, processNewLinkForCollision } from "../services/link-intelligence.service.js";
 import { buildGraphNode } from "../services/graph.service.js";
+import { recordActivity } from "../services/activityLog.service.js";
 
 function normalizeBookmarkUrl(rawUrl) {
     try {
@@ -173,10 +174,14 @@ export async function importBookmarks(req, res) {
             });
         }
 
-        const project = await Project.findById(projectId).select("_id");
+        const project = await Project.findOne({
+            _id: projectId,
+            isActive: true,
+            $or: [{ createdBy: userId }, { members: userId }],
+        }).select("_id");
         if (!project) {
-            return res.status(404).json({
-                message: "Project not found",
+            return res.status(403).json({
+                message: "Forbidden: you do not have access to this project",
             });
         }
 
@@ -230,6 +235,16 @@ export async function importBookmarks(req, res) {
 
         if (toInsert.length > 0) {
             const insertedBookmarks = await Bookmark.insertMany(toInsert, { ordered: false });
+
+            await recordActivity({
+                projectId,
+                actorId: userId,
+                type: "bookmarks_imported",
+                payload: {
+                    importedCount: insertedBookmarks.length,
+                    skippedCount: bookmarksToImport.length - toInsert.length,
+                },
+            });
 
             setImmediate(() => {
                 Promise.allSettled(insertedBookmarks.map((item) => enrichImportedBookmark(item._id)))

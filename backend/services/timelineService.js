@@ -107,7 +107,7 @@ export async function getOrCreateMockLink() {
             },
         },
         {
-            new: true,
+            returnDocument: "after",
             upsert: true,
             setDefaultsOnInsert: true,
         }
@@ -134,7 +134,7 @@ async function resolveLinkDoc(link) {
                 },
             },
             {
-                new: true,
+                returnDocument: "after",
                 upsert: true,
                 setDefaultsOnInsert: true,
             }
@@ -154,7 +154,7 @@ async function resolveLinkDoc(link) {
             },
         },
         {
-            new: true,
+            returnDocument: "after",
             upsert: true,
             setDefaultsOnInsert: true,
         }
@@ -235,7 +235,7 @@ export async function createSnapshot(link = null) {
     const updatedLinkDoc = await TimelineLinkModel.findByIdAndUpdate(
         linkDoc._id,
         { last_viewed_at: snapshotDoc.timestamp },
-        { new: true }
+        { returnDocument: "after" }
     ).lean();
     const updatedLink = mapLink(updatedLinkDoc || linkDoc);
 

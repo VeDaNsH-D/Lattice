@@ -278,9 +278,12 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
           }
         }
 
+        const authToken = window.localStorage.getItem('token') || window.localStorage.getItem('latticeToken') || '';
+
         const socket = io(SOCKET_URL, {
           transports: ['websocket'],
           autoConnect: true,
+          auth: authToken ? { token: authToken } : {},
         });
 
         socketRef.current = socket;

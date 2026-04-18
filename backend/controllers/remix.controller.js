@@ -1,5 +1,8 @@
 import Link from "../models/link.js";
 import Project from "../models/project.js";
+import ProjectMember from "../models/projectMember.js";
+import ActivityLog from "../models/activityLog.js";
+import { recordActivity } from "../services/activityLog.service.js";
 
 const toProjectSummary = (project) => ({
     id: String(project._id),
@@ -203,6 +206,19 @@ export const forkProject = async (req, res, next) => {
 
         const hydratedFork = await Project.findById(forkedProject._id).populate("createdBy", "name email avatarUrl");
 
+        await recordActivity({
+            projectId: forkedProject._id,
+            actorId: userId,
+            type: "forked_by_you",
+            payload: {
+                sourceProjectId: String(sourceProject._id),
+                sourceProjectName: sourceProject.name,
+                forkProjectId: String(forkedProject._id),
+                forkProjectName: forkedProject.name,
+                copiedLinks: sourceLinks.length,
+            },
+        });
+
         return res.status(201).json({
             success: true,
             message: "Project forked successfully",
@@ -274,100 +290,104 @@ export const getProjectLineage = async (req, res, next) => {
 export const getForkActivity = async (req, res, next) => {
     try {
         const userId = req.user.userId;
+        const requestedHours = Number(req.query.hours);
+        const windowHours = [24, 48].includes(requestedHours) ? requestedHours : 48;
+        const windowStart = new Date(Date.now() - windowHours * 60 * 60 * 1000);
 
-        const myProjects = await Project.find({
-            isActive: true,
-            createdBy: userId,
-        })
-            .select("_id name")
-            .lean();
-
-        const myProjectIds = myProjects.map((project) => project._id);
-        const myProjectById = new Map(myProjects.map((project) => [String(project._id), project]));
-
-        const [forkedByMe, forksOfMine] = await Promise.all([
+        const [projectDocs, membershipDocs] = await Promise.all([
             Project.find({
                 isActive: true,
-                createdBy: userId,
-                parentProjectId: { $ne: null },
+                $or: [{ createdBy: userId }, { members: userId }],
             })
-                .populate("createdBy", "name email avatarUrl")
-                .populate("parentProjectId", "name createdBy")
-                .sort({ createdAt: -1 })
-                .limit(80)
+                .select("_id name")
                 .lean(),
-            Project.find({
-                isActive: true,
-                parentProjectId: { $in: myProjectIds },
-                createdBy: { $ne: userId },
-            })
-                .populate("createdBy", "name email avatarUrl")
-                .populate("parentProjectId", "name createdBy")
-                .sort({ createdAt: -1 })
-                .limit(80)
+            ProjectMember.find({ userId })
+                .select("projectId")
                 .lean(),
         ]);
 
-        const events = [];
+        const directProjectIds = Array.from(new Set([
+            ...projectDocs.map((project) => String(project._id)),
+            ...membershipDocs.map((membership) => String(membership.projectId)),
+        ])).filter(Boolean);
 
-        for (const project of forkedByMe) {
-            events.push({
-                id: `forked-by-me-${project._id}`,
-                type: "forked_by_you",
-                createdAt: project.createdAt,
-                project: toProjectSummary(project),
-                source: project.parentProjectId
-                    ? {
-                        id: String(project.parentProjectId._id),
-                        name: project.parentProjectId.name,
-                    }
-                    : null,
-            });
+        const directProjects = directProjectIds.length > 0
+            ? await Project.find({ _id: { $in: directProjectIds }, isActive: true })
+                .select("_id rootProjectId")
+                .lean()
+            : [];
 
-            events.push({
-                id: `updated-by-me-${project._id}`,
-                type: "updated_fork",
-                createdAt: project.updatedAt,
-                project: toProjectSummary(project),
-                source: project.parentProjectId
-                    ? {
-                        id: String(project.parentProjectId._id),
-                        name: project.parentProjectId.name,
-                    }
-                    : null,
-            });
-        }
+        const sharedRootIds = Array.from(new Set(
+            directProjects.map((project) => String(project.rootProjectId || project._id)).filter(Boolean)
+        ));
 
-        for (const fork of forksOfMine) {
-            const parentId = String(fork.parentProjectId?._id || "");
-            const parent = myProjectById.get(parentId);
+        const accessibleProjects = (directProjectIds.length > 0 || sharedRootIds.length > 0)
+            ? await Project.find({
+                isActive: true,
+                $or: [
+                    { _id: { $in: directProjectIds } },
+                    { rootProjectId: { $in: sharedRootIds } },
+                ],
+            }).select("_id name rootProjectId parentProjectId createdBy").lean()
+            : [];
 
-            events.push({
-                id: `forked-from-you-${fork._id}`,
-                type: "forked_from_you",
-                createdAt: fork.createdAt,
-                project: toProjectSummary(fork),
-                source: parent
-                    ? {
-                        id: String(parent._id),
-                        name: parent.name,
-                    }
-                    : null,
-                actor: fork.createdBy
-                    ? {
-                        id: String(fork.createdBy._id),
-                        name: fork.createdBy.name,
-                        avatarUrl: fork.createdBy.avatarUrl || null,
-                    }
-                    : null,
+        if (accessibleProjects.length === 0) {
+            return res.status(200).json({
+                success: true,
+                count: 0,
+                windowHours,
+                windowStart,
+                generatedAt: new Date(),
+                events: [],
             });
         }
 
-        events.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        const logs = await ActivityLog.find({
+            projectId: { $in: accessibleProjects.map((project) => project._id) },
+            createdAt: { $gte: windowStart },
+        })
+            .populate("projectId", "name")
+            .populate("actorId", "name avatarUrl")
+            .sort({ createdAt: -1 })
+            .limit(200)
+            .lean();
+
+        const events = logs.map((log) => ({
+            id: String(log._id),
+            type: log.type,
+            createdAt: log.createdAt,
+            project: {
+                id: String(log.projectId?._id || log.projectId),
+                name: log.projectId?.name || "Unknown lattice",
+            },
+            actor: {
+                id: String(log.actorId?._id || log.actorId),
+                name: log.actorId?.name || "Unknown user",
+                avatarUrl: log.actorId?.avatarUrl || null,
+                isYou: String(log.actorId?._id || log.actorId) === String(userId),
+            },
+            payload: log.payload || {},
+            link: log.payload?.linkId
+                ? {
+                    id: String(log.payload.linkId),
+                    title: log.payload.title || "Untitled link",
+                    url: log.payload.url || null,
+                }
+                : null,
+            source: log.payload?.sourceProjectName
+                ? {
+                    id: String(log.payload.sourceProjectId || ""),
+                    name: log.payload.sourceProjectName,
+                }
+                : null,
+        }));
 
         return res.status(200).json({
             success: true,
             count: events.length,
+            windowHours,
+            windowStart,
+            generatedAt: new Date(),
             events: events.slice(0, 120),
         });
     } catch (error) {

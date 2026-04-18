@@ -53,6 +53,8 @@ router.get(
 router.get(
     "/activity",
     authMiddleware,
+    [query("hours").optional().isIn(["24", "48"]).withMessage("hours must be 24 or 48")],
+    validateRequest,
     getForkActivity
 );
 

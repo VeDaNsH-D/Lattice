@@ -9,6 +9,7 @@ import { generateAIContent } from "../services/ai.service.js";
 import { ensureLinkEnrichment, processNewLinkForCollision } from "../services/link-intelligence.service.js";
 import { buildGraphNode } from "../services/graph.service.js";
 import { publishDecayTelemetry } from "../services/realtime-synapse.service.js";
+import { recordActivity } from "../services/activityLog.service.js";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_DECAY_START_DAYS = 14;
@@ -262,6 +263,17 @@ export const createLink = async (req, res, next) => {
 
         const enrichedLink = await Link.findById(link._id);
 
+        await recordActivity({
+            projectId,
+            actorId: req.user.userId,
+            type: "link_added",
+            payload: {
+                linkId: String(link._id),
+                title: resolvedTitle || url,
+                url,
+            },
+        });
+
         setImmediate(() => {
             Promise.resolve()
                 .then(() => ensureLinkEnrichment(link))
@@ -443,6 +455,17 @@ export const deleteLink = async (req, res, next) => {
             userId,
         });
 
+        await recordActivity({
+            projectId: link.projectId,
+            actorId: userId,
+            type: "link_deleted",
+            payload: {
+                linkId: String(link._id),
+                title: link.title || link.url,
+                url: link.url,
+            },
+        });
+
         return res.status(200).json({
             success: true,
             message: "Link moved to graveyard",
@@ -598,6 +621,17 @@ export const restoreLinkFromGraveyard = async (req, res, next) => {
             userId,
         });
 
+        await recordActivity({
+            projectId: link.projectId,
+            actorId: userId,
+            type: "link_restored",
+            payload: {
+                linkId: String(link._id),
+                title: link.title || link.url,
+                url: link.url,
+            },
+        });
+
         return res.status(200).json({
             success: true,
             message: "Link restored from graveyard",
@@ -653,9 +687,11 @@ export const toggleLinkReaction = async (req, res, next) => {
         const userIdString = String(userId);
         const reactions = Array.isArray(link.reactions) ? link.reactions : [];
         const reactionIndex = reactions.findIndex((entry) => entry.emoji === normalizedEmoji);
+        let reactionAction = "added";
 
         if (reactionIndex === -1) {
             reactions.push({ emoji: normalizedEmoji, users: [userId] });
+            reactionAction = "added";
         } else {
             const currentUsers = Array.isArray(reactions[reactionIndex].users)
                 ? reactions[reactionIndex].users.map((entry) => String(entry))
@@ -665,17 +701,32 @@ export const toggleLinkReaction = async (req, res, next) => {
                 reactions[reactionIndex].users = reactions[reactionIndex].users.filter(
                     (entry) => String(entry) !== userIdString
                 );
+                reactionAction = "removed";
 
                 if (!reactions[reactionIndex].users.length) {
                     reactions.splice(reactionIndex, 1);
                 }
             } else {
                 reactions[reactionIndex].users.push(userId);
+                reactionAction = "added";
             }
         }
 
         link.reactions = reactions;
         await link.save();
+
+        await recordActivity({
+            projectId: link.projectId,
+            actorId: userId,
+            type: "reaction_updated",
+            payload: {
+                linkId: String(link._id),
+                title: link.title || link.url,
+                url: link.url,
+                emoji: normalizedEmoji,
+                action: reactionAction,
+            },
+        });
 
         return res.status(200).json({
             success: true,

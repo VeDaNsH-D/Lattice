@@ -5,6 +5,7 @@ import Role from "../models/role.js";
 import User from "../models/user.js";
 import Project from "../models/project.js";
 import { sendInviteEmail } from "../services/email.service.js";
+import { recordActivity } from "../services/activityLog.service.js";
 
 export const inviteUser = async (req, res, next) => {
     try {
@@ -124,6 +125,18 @@ export const inviteUser = async (req, res, next) => {
             invitedBy: requesterId
         });
 
+        await recordActivity({
+            projectId,
+            actorId: requesterId,
+            type: "collaborator_invited",
+            payload: {
+                inviteId: String(invite._id),
+                inviteeEmail: normalizedEmail,
+                roleId: String(role._id),
+                roleName: role.name,
+            },
+        });
+
         // Populate for response
         const populatedInvite = await Invite.findById(invite._id)
             .populate("projectId", "name")
@@ -219,6 +232,19 @@ export const acceptInvite = async (req, res, next) => {
                 userId: user._id,
                 projectId: invite.projectId,
                 roleId: invite.roleId
+            });
+
+            await recordActivity({
+                projectId: invite.projectId,
+                actorId: user._id,
+                type: "collaborator_added",
+                payload: {
+                    collaboratorId: String(user._id),
+                    collaboratorName: user.name,
+                    collaboratorEmail: user.email,
+                    roleId: String(invite.roleId),
+                    invitedBy: String(invite.invitedBy),
+                },
             });
         }
 

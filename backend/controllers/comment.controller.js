@@ -1,6 +1,7 @@
 import Comment from "../models/comment.js";
 import Link from "../models/link.js";
 import Project from "../models/project.js";
+import { recordActivity } from "../services/activityLog.service.js";
 
 const normalizeComment = (commentDoc) => ({
     id: commentDoc._id,
@@ -108,6 +109,18 @@ export const createLinkComment = async (req, res, next) => {
             .populate("userId", "name avatarUrl email")
             .populate("resolvedBy", "name avatarUrl email");
 
+        await recordActivity({
+            projectId: access.link.projectId,
+            actorId: userId,
+            type: "comment_added",
+            payload: {
+                commentId: String(comment._id),
+                linkId: String(access.link._id),
+                title: access.link.title || access.link.url,
+                url: access.link.url,
+            },
+        });
+
         return res.status(201).json({ success: true, comment: normalizeComment(hydrated) });
     } catch (error) {
         return next(error);
@@ -125,7 +138,7 @@ export const toggleLinkCommentResolution = async (req, res, next) => {
             return res.status(404).json({ success: false, message: "Comment not found" });
         }
 
-        const link = await Link.findById(comment.targetId).select("_id projectId isActive");
+        const link = await Link.findById(comment.targetId).select("_id projectId isActive title url");
         if (!link || !link.isActive) {
             return res.status(404).json({ success: false, message: "Link not found" });
         }
@@ -150,6 +163,20 @@ export const toggleLinkCommentResolution = async (req, res, next) => {
         const hydrated = await Comment.findById(comment._id)
             .populate("userId", "name avatarUrl email")
             .populate("resolvedBy", "name avatarUrl email");
+
+        if (nextResolved) {
+            await recordActivity({
+                projectId: link.projectId,
+                actorId: userId,
+                type: "comment_resolved",
+                payload: {
+                    commentId: String(comment._id),
+                    linkId: String(link._id),
+                    title: link.title || link.url,
+                    url: link.url,
+                },
+            });
+        }
 
         return res.status(200).json({ success: true, comment: normalizeComment(hydrated) });
     } catch (error) {

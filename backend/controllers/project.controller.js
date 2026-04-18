@@ -1,6 +1,7 @@
 import Project from "../models/project.js";
 import ProjectMember from "../models/projectMember.js";
 import User from "../models/user.js";
+import { recordActivity } from "../services/activityLog.service.js";
 
 const normalizeProject = (projectDoc) => ({
     id: projectDoc._id,
@@ -76,6 +77,16 @@ export const createProject = async (req, res, next) => {
             createdProject.rootProjectId = createdProject._id;
             await createdProject.save();
         }
+
+        await recordActivity({
+            projectId: createdProject._id,
+            actorId: userId,
+            type: "project_created",
+            payload: {
+                projectName: createdProject.name,
+                projectType: createdProject.projectType,
+            },
+        });
 
         const hydratedProject = await Project.findById(createdProject._id).populate("createdBy", "name email avatarUrl");
 

@@ -4897,6 +4897,26 @@
   gap: 10px;
 }
 
+.activity-since-last-seen {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.activity-since-last-seen::before,
+.activity-since-last-seen::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
 .activity-feed-item {
   display: grid;
   grid-template-columns: 30px minmax(0, 1fr);
@@ -4923,6 +4943,22 @@
   color: #111827;
   font-weight: 700;
   font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.activity-new-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #14532d;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
 }
 
 .activity-feed-meta {
