@@ -4,6 +4,7 @@ import Room from "../models/room.js";
 import { fetchMetadata } from "../services/metadata.service.js";
 import { generateAIContent } from "../services/ai.service.js";
 import { ensureLinkEnrichment, processNewLinkForCollision } from "../services/link-intelligence.service.js";
+import { buildGraphNode } from "../services/graph.service.js";
 
 export const createLink = async (req, res, next) => {
     try {
@@ -59,6 +60,14 @@ export const createLink = async (req, res, next) => {
             Promise.resolve()
                 .then(() => ensureLinkEnrichment(link))
                 .then(() => processNewLinkForCollision(link))
+                .then(() => buildGraphNode({
+                    _id: link._id,
+                    title: link.title || link.url,
+                    summary: link.summary || link.description || "",
+                    tags: link.tags || [],
+                    embedding: link.embedding,
+                    latticeId: link.projectId,
+                }))
                 .catch((error) => {
                     console.error("Link background enrichment failed:", error.message);
                 });
