@@ -33,8 +33,9 @@ function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route path="/lattice" element={<LatticeHomePage />} />
-          <Route path="/lattice/graph" element={<LatticeGraphPage />} />
           <Route path="/lattice/project/:projectId" element={<LatticeProjectPage />} />
+          <Route path="/lattice/project/:projectId/graph" element={<LatticeGraphPage />} />
+          <Route path="/lattice/graph" element={<Navigate to="/lattice" replace />} />
         </Route>
         <Route path="/lattice/features" element={<LatticeFeaturesPage />} />
         <Route path="/lattice/stack" element={<LatticeStackPage />} />

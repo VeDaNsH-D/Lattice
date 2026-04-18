@@ -10,7 +10,6 @@ import {
   Search,
   Bell,
   Plus,
-  Network,
   PanelLeftClose,
   PanelLeftOpen,
   CircleUserRound,
@@ -21,7 +20,6 @@ import './LatticePages.css';
 
 const navItems = [
   { label: 'Home', to: '/lattice', icon: <LayoutDashboard size={16} />, end: true },
-  { label: 'Lattice Map', to: '/lattice/graph', icon: <Network size={16} /> },
   { label: 'My Lattices', to: '/lattice/personal', icon: <Folder size={16} /> },
   { label: 'Shared Spaces', to: '/lattice/shared', icon: <Users size={16} /> },
   { label: 'Recent Activity', to: '/lattice/activity', icon: <Activity size={16} /> },
@@ -32,6 +30,18 @@ export const LatticeFrame = ({ children }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSpotlightOpen, setIsSpotlightOpen] = useState(false);
   const [userAvatarUrl, setUserAvatarUrl] = useState(null);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setIsSpotlightOpen((previous) => !previous);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;

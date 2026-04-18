@@ -1129,6 +1129,12 @@
   white-space: nowrap;
 }
 
+.project-page-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .project-role-panel {
   margin-bottom: 16px;
   border: 1px solid #e5e7eb;
@@ -1364,7 +1370,6 @@
   opacity: 0.65;
   cursor: not-allowed;
 }
-
 .project-links-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

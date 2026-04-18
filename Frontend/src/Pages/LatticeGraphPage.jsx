@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
+  ArrowLeft,
   CornerRightUp,
   Loader2,
   Network,
@@ -11,6 +12,7 @@ import {
   X,
   ChevronRight,
 } from 'lucide-react';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { LatticeFrame } from './LatticeFrame';
 import { getBackendBaseUrl, getLatticeGraph, getRelatedNodes, getLattices, queryLattice } from '../services/latticeApi';
 import './LatticePages.css';
@@ -173,6 +175,9 @@ const normalizeNodeRecord = (node, fallback = {}) => {
 };
 
 export const LatticeGraphPage = () => {
+  const { projectId } = useParams();
+  const location = useLocation();
+
   const [lattices, setLattices] = useState([]);
   const [latticesLoading, setLatticesLoading] = useState(true);
   const [latticesError, setLatticesError] = useState('');
@@ -189,9 +194,11 @@ export const LatticeGraphPage = () => {
   const [queryResult, setQueryResult] = useState('');
   const [queryMatches, setQueryMatches] = useState([]);
 
+  const isProjectScoped = Boolean(projectId);
   const latticeId = selectedLatticeId.trim();
   const liveMode = Boolean(latticeId);
   const baseUrl = getBackendBaseUrl();
+  const routeProjectName = typeof location.state?.projectName === 'string' ? location.state.projectName.trim() : '';
 
   const normalizedGraph = useMemo(() => {
     if (!liveMode) {
@@ -204,6 +211,14 @@ export const LatticeGraphPage = () => {
   const nodeLookup = normalizedGraph.nodeIndex;
 
   useEffect(() => {
+    if (isProjectScoped) {
+      setLattices([]);
+      setLatticesLoading(false);
+      setLatticesError('');
+      setSelectedLatticeId(projectId || '');
+      return;
+    }
+
     let isMounted = true;
 
     const loadLattices = async () => {
@@ -244,7 +259,7 @@ export const LatticeGraphPage = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isProjectScoped, projectId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -258,7 +273,7 @@ export const LatticeGraphPage = () => {
 
       if (!selectedLatticeId) {
         setGraphData(fallbackGraph);
-        setGraphError('Select a lattice loaded from the backend.');
+        setGraphError(isProjectScoped ? 'Project graph is unavailable.' : 'Select a lattice loaded from the backend.');
         return;
       }
 
@@ -277,7 +292,7 @@ export const LatticeGraphPage = () => {
           return;
         }
 
-        setGraphError(error.message || 'Could not load lattice graph.');
+        setGraphError(error.message || 'Could not load project graph.');
         setGraphData(fallbackGraph);
       } finally {
         if (isMounted) {
@@ -291,7 +306,7 @@ export const LatticeGraphPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [selectedLatticeId, liveMode]);
+  }, [isProjectScoped, selectedLatticeId, liveMode]);
 
   useEffect(() => {
     if (!activeNode?.id || !liveMode || !isObjectId(activeNode.id)) {
@@ -384,6 +399,9 @@ export const LatticeGraphPage = () => {
   };
 
   const activeNodeView = activeNode ? normalizeNodeRecord(activeNode) : null;
+  const selectedLatticeName = isProjectScoped
+    ? (routeProjectName || 'Project graph')
+    : (selectedLatticeId ? lattices.find((item) => item.id === selectedLatticeId)?.name || 'Your lattice' : 'Your lattice');
 
   const relatedItems = relatedNodes.length
     ? relatedNodes.map((entry) => ({
@@ -407,33 +425,40 @@ export const LatticeGraphPage = () => {
         <section className="lat-graph-header-card">
           <div>
             <span className="lat-graph-kicker">Your lattice map</span>
-            <h2 className="lat-section-title">
-              {selectedLatticeId ? lattices.find((item) => item.id === selectedLatticeId)?.name || 'Your lattice' : 'Your lattice'}
-            </h2>
+            <h2 className="lat-section-title">{selectedLatticeName}</h2>
             <p className="lat-graph-description">
-              Pick one of your spaces and the map, connections, and smart answers will load automatically.
+              {isProjectScoped
+                ? 'This graph belongs to the current project and updates from its own knowledge only.'
+                : 'Pick one of your spaces and the map, connections, and smart answers will load automatically.'}
             </p>
+            {isProjectScoped ? (
+              <Link to={`/lattice/project/${projectId}`} state={{ projectName: selectedLatticeName }} className="project-back-link" style={{ marginTop: '12px' }}>
+                <ArrowLeft size={14} /> Back to project
+              </Link>
+            ) : null}
           </div>
 
-          <div className="lat-graph-connect-form">
-            <label htmlFor="latticeSelect" className="lat-graph-input-label">Your spaces</label>
-            <div className="lat-graph-connect-row">
-              <select
-                id="latticeSelect"
-                value={selectedLatticeId}
-                onChange={handleLatticeChange}
-                className="lat-graph-connect-input"
-                disabled={latticesLoading || !lattices.length}
-              >
-                {!lattices.length ? <option value="">No spaces available yet</option> : null}
-                {lattices.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
+          {!isProjectScoped ? (
+            <div className="lat-graph-connect-form">
+              <label htmlFor="latticeSelect" className="lat-graph-input-label">Your spaces</label>
+              <div className="lat-graph-connect-row">
+                <select
+                  id="latticeSelect"
+                  value={selectedLatticeId}
+                  onChange={handleLatticeChange}
+                  className="lat-graph-connect-input"
+                  disabled={latticesLoading || !lattices.length}
+                >
+                  {!lattices.length ? <option value="">No spaces available yet</option> : null}
+                  {lattices.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
+          ) : null}
         </section>
 
         <section className="lat-graph-stats-row">
@@ -538,7 +563,7 @@ export const LatticeGraphPage = () => {
               {!normalizedGraph.nodes.length ? (
                 <div className="lat-graph-empty-state">
                   <Search size={18} />
-                  <p>Load a lattice ID to render a live knowledge graph from the backend.</p>
+                  <p>{isProjectScoped ? 'No graph nodes yet for this project.' : 'Load a lattice ID to render a live knowledge graph from the backend.'}</p>
                 </div>
               ) : null}
             </div>
@@ -647,7 +672,7 @@ export const LatticeGraphPage = () => {
           <form className="lat-query-form" onSubmit={handleQuerySubmit}>
             <textarea
               className="lat-query-input"
-              placeholder={latticeId ? 'What would you like to know about this space?' : 'Choose a space first.'}
+              placeholder={latticeId ? 'What would you like to know about this project?' : 'Project not selected.'}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               disabled={!latticeId}

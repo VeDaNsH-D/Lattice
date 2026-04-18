@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { ExternalLink, ImageOff, ArrowLeft, Plus, ChevronDown, UserPlus } from 'lucide-react';
+import { Network } from 'lucide-react';
 import { LatticeFrame } from './LatticeFrame';
 import { apiRequest } from '../utils/api';
 import './LatticePages.css';
@@ -300,8 +301,18 @@ export const LatticeProjectPage = () => {
                         <h2>{projectName}</h2>
                         <p>All bookmarks in this project.</p>
                     </div>
-                    <div className="project-page-count-pill">
-                        {links.length} Bookmark{links.length === 1 ? '' : 's'}
+                    <div className="project-page-actions">
+                        <Link
+                            to={`/lattice/project/${projectId}/graph`}
+                            state={{ projectName }}
+                            className="directory-create-btn"
+                        >
+                            <Network size={15} />
+                            Open Knowledge Graph
+                        </Link>
+                        <div className="project-page-count-pill">
+                            {links.length} Bookmark{links.length === 1 ? '' : 's'}
+                        </div>
                     </div>
                 </header>
 

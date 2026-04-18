@@ -12,12 +12,13 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [aiMode, setAiMode] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const inputRef = useRef(null);
 
-  // Keyboard shortcut listener
+  // Keep Spotlight compact on open until the user interacts.
   useEffect(() => {
-    if (isOpen && inputRef.current) {
-      inputRef.current.focus();
+    if (!isOpen) {
+      setIsInputFocused(false);
     }
   }, [isOpen]);
 
@@ -124,6 +125,7 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
         setContext(null);
         setAiMode(false);
         setError('');
+        setIsInputFocused(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -133,6 +135,8 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
   // Derive state logic
   const isSlashMode = query.startsWith('/');
   const showAiResponse = aiMode && query.length > 5 && !isSlashMode;
+  const shouldExpand = query.trim().length > 0;
+
   const selectedResult = useMemo(() => {
     if (!results.length) {
       return null;
@@ -177,7 +181,10 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
 
   return (
     <div className="spotlight-overlay" onClick={onClose}>
-      <div className="spotlight-modal" onClick={e => e.stopPropagation()}>
+      <div
+        className={`spotlight-modal ${shouldExpand ? 'expanded' : 'collapsed'}`}
+        onClick={e => e.stopPropagation()}
+      >
         
         {/* LEFT PANE */}
         <div className="spotlight-left">
@@ -193,6 +200,8 @@ export const LatticeSpotlight = ({ isOpen, onClose }) => {
                 value={query}
                 onChange={handleInputChange}
                 onKeyDown={handleInputKeyDown}
+                onFocus={() => setIsInputFocused(true)}
+                onBlur={() => setIsInputFocused(false)}
               />
               <div style={{ color: '#a0a0a0', display: 'flex', alignItems: 'center' }}>
                 <Command size={16} /> <span style={{fontSize:'0.75rem', marginLeft:'2px'}}>K</span>

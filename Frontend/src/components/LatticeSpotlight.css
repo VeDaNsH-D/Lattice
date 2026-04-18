@@ -25,17 +25,24 @@
 }
 
 .spotlight-modal {
-  width: 900px;
+  width: min(760px, 94vw);
   max-width: 95vw;
-  height: 540px;
+  height: 72px;
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 18px;
   box-shadow: 0 20px 40px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05);
   display: flex;
   overflow: hidden;
   transform: translateY(10px) scale(0.98);
   animation: slideUp 0.2s forwards cubic-bezier(0.16, 1, 0.3, 1);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  transition: width 0.26s cubic-bezier(0.16, 1, 0.3, 1), height 0.26s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.26s ease;
+}
+
+.spotlight-modal.expanded {
+  width: min(960px, 95vw);
+  height: 540px;
+  border-radius: 16px;
 }
 
 @keyframes slideUp {
@@ -55,12 +62,24 @@
   border-right: 1px solid #f0f0f0;
 }
 
+.spotlight-modal.collapsed .spotlight-left {
+  flex: 1;
+  border-right: none;
+}
+
 .spotlight-header {
   padding: 16px 20px;
   border-bottom: 1px solid #f0f0f0;
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.spotlight-modal.collapsed .spotlight-header {
+  width: 100%;
+  padding: 14px 18px;
+  border-bottom: none;
+  justify-content: center;
 }
 
 .spotlight-input-wrapper {
@@ -81,7 +100,7 @@
   border: none;
   background: transparent;
   outline: none;
-  font-size: 1.4rem;
+  font-size: 1.32rem;
   color: #1a1a1a;
   font-weight: 500;
 }
@@ -108,6 +127,24 @@
 }
 .spotlight-context-badge span {
   opacity: 0.6;
+}
+
+.spotlight-modal.collapsed .spotlight-context-badge,
+.spotlight-modal.collapsed .spotlight-scroll,
+.spotlight-modal.collapsed .spotlight-right {
+  display: none;
+}
+
+.spotlight-modal.collapsed .spotlight-input-wrapper {
+  gap: 10px;
+}
+
+.spotlight-modal.collapsed .spotlight-input {
+  font-size: 1.15rem;
+}
+
+.spotlight-modal.collapsed .spotlight-input::placeholder {
+  color: #8a8f99;
 }
 
 /* Scrollable Content */
