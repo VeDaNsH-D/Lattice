@@ -20,6 +20,7 @@ const linkSchema = new mongoose.Schema(
         summary: String,      // AI generated
         tags: [String],       // AI or user
         vibe: String,         // optional
+        parentHub: String,    // AI category cluster like "Tech", "Educational"
         deadline: {
             type: Date,
             default: null

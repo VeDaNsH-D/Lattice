@@ -7,6 +7,7 @@ import LatticeNode from "../models/latticeNode.js";
 import {
     cleanupEdges,
     decayNodes,
+    getGlobalGraphSnapshot,
     getGraphSnapshot,
     getRelatedNodes,
     queryLattice,
@@ -56,6 +57,23 @@ const ensureNodeAccess = async (req, res, next) => {
 
     return next();
 };
+
+router.get(
+    "/lattice/global/graph",
+    authMiddleware,
+    async (req, res, next) => {
+        try {
+            const graph = await getGlobalGraphSnapshot(req.user.userId);
+
+            return res.status(200).json({
+                success: true,
+                graph,
+            });
+        } catch (error) {
+            return next(error);
+        }
+    }
+);
 
 router.get(
     "/lattice/:id/graph",

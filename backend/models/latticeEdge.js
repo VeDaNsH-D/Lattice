@@ -22,7 +22,7 @@ const latticeEdgeSchema = new mongoose.Schema(
         },
         type: {
             type: String,
-            enum: ["semantic", "tag", "behavior"],
+            enum: ["semantic", "tag", "behavior", "hierarchy"],
             default: "semantic",
         },
         latticeId: {

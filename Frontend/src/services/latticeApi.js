@@ -63,6 +63,10 @@ export const getLatticeGraph = (latticeId) => {
   return requestJson(`/lattice/${latticeId}/graph`, { method: 'GET' });
 };
 
+export const getGlobalLatticeGraph = () => {
+  return requestJson(`/lattice/global/graph`, { method: 'GET' });
+};
+
 export const getRelatedNodes = (nodeId) => {
   return requestJson(`/node/${nodeId}/related`, { method: 'GET' });
 };
