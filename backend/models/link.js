@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { normalizeVibe, VIBE_TYPES } from "../utils/vibe.js";
 
 const linkSchema = new mongoose.Schema(
     {
@@ -19,7 +20,12 @@ const linkSchema = new mongoose.Schema(
 
         summary: String,      // AI generated
         tags: [String],       // AI or user
-        vibe: String,         // optional
+        vibe: {
+            type: String,
+            enum: VIBE_TYPES,
+            default: "general",
+            set: (value) => normalizeVibe(value)
+        },
         parentHub: String,    // AI category cluster like "Tech", "Educational"
         deadline: {
             type: Date,

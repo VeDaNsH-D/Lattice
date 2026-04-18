@@ -9,6 +9,7 @@ import {
     getEmbeddingModelName,
     summarizeLinkToThreeSentences
 } from "./ai.client.js";
+import { resolveVibe } from "../utils/vibe.js";
 
 const SEMANTIC_MATCH_THRESHOLD = Number(process.env.COLLISION_SIMILARITY_THRESHOLD || 0.84);
 const AI_COLLISION_THRESHOLD = Number(process.env.COLLISION_AI_SCORE_THRESHOLD || 0.55);
@@ -78,7 +79,13 @@ async function ensureSummaryAndEmbedding(link) {
             }
         }
         if (!link.vibe && aiContent.vibe) {
-            updates.vibe = aiContent.vibe;
+            updates.vibe = resolveVibe(aiContent.vibe, {
+                title: link.title,
+                description: link.description,
+                url: link.url,
+                tags: updates.tags || link.tags || [],
+                parentHub: updates.parentHub || link.parentHub
+            });
         }
         if (!link.parentHub && aiContent.parentHub) {
             updates.parentHub = aiContent.parentHub;

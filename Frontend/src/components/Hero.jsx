@@ -10,25 +10,7 @@ import { TrustBar } from './TrustBar';
 
 export const Hero = () => {
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
-  const [extensionInstallMessage, setExtensionInstallMessage] = useState('');
   const extensionZipPath = '/lattice-extension.zip';
-
-  const openChromeExtensionsPage = async () => {
-    const extensionsUrl = 'chrome://extensions/';
-
-    try {
-      window.open(extensionsUrl, '_blank', 'noopener,noreferrer');
-    } catch {
-      // Ignore and rely on fallback guidance below.
-    }
-
-    try {
-      await navigator.clipboard.writeText(extensionsUrl);
-      setExtensionInstallMessage('Chrome may block opening internal URLs from websites. We copied chrome://extensions/ to your clipboard. Paste it in Chrome address bar.');
-    } catch {
-      setExtensionInstallMessage('Chrome may block opening internal URLs from websites. Please type chrome://extensions/ in Chrome address bar.');
-    }
-  };
 
   // Hero Parallax hooks for video
   const videoRef = useRef(null);
@@ -85,22 +67,10 @@ export const Hero = () => {
               <a className="btn-secondary hero-extension-download" href={extensionZipPath} download>
                 Download ZIP
               </a>
-              <button
-                className="btn-secondary"
-                onClick={() => {
-                  void openChromeExtensionsPage();
-                }}
-                type="button"
-              >
-                Open Extensions Page
-              </button>
               <button className="btn-primary" onClick={() => setIsExtensionModalOpen(false)} type="button">
                 Done
               </button>
             </div>
-            {extensionInstallMessage ? (
-              <p className="hero-extension-note" role="status">{extensionInstallMessage}</p>
-            ) : null}
           </div>
         </div>
       ) : null}

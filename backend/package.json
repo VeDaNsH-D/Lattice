@@ -22,6 +22,7 @@
   },
   "scripts": {
     "dev": "nodemon index.js",
-    "start": "node index.js"
+    "start": "node index.js",
+    "backfill:vibes": "node scripts/backfill-vibes.js"
   }
 }
