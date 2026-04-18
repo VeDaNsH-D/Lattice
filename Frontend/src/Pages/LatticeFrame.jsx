@@ -6,6 +6,7 @@ import {
   Folder,
   Users,
   Activity,
+  Skull,
   Settings,
   Search,
   Bell,
@@ -23,6 +24,7 @@ const navItems = [
   { label: 'My Lattices', to: '/lattice/personal', icon: <Folder size={16} /> },
   { label: 'Shared Spaces', to: '/lattice/shared', icon: <Users size={16} /> },
   { label: 'Recent Activity', to: '/lattice/activity', icon: <Activity size={16} /> },
+  { label: 'Graveyard', to: '/lattice/graveyard', icon: <Skull size={16} /> },
   { label: 'Settings', to: '/lattice/settings', icon: <Settings size={16} /> },
 ];
 

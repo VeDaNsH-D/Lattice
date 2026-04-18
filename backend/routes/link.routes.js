@@ -5,7 +5,10 @@ import {
     createLink,
     deleteLink,
     listDebateThreads,
+    listGraveyardLinks,
     listLinks,
+    markLinkViewed,
+    restoreLinkFromGraveyard,
     toggleLinkReaction
 } from "../controllers/link.controller.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
@@ -52,12 +55,34 @@ router.get(
     listDebateThreads
 );
 
+router.get(
+    "/graveyard",
+    authMiddleware,
+    listGraveyardLinks
+);
+
 router.delete(
     "/:id",
     authMiddleware,
     [param("id").isMongoId().withMessage("Valid link id is required")],
     validateRequest,
     deleteLink
+);
+
+router.post(
+    "/:id/view",
+    authMiddleware,
+    [param("id").isMongoId().withMessage("Valid link id is required")],
+    validateRequest,
+    markLinkViewed
+);
+
+router.post(
+    "/:id/restore",
+    authMiddleware,
+    [param("id").isMongoId().withMessage("Valid link id is required")],
+    validateRequest,
+    restoreLinkFromGraveyard
 );
 
 router.post(

@@ -187,5 +187,17 @@ export const forkPublicProject = (projectId, name = '') => {
   });
 };
 
+export const listGraveyardLinks = () => {
+  return requestJson('/links/graveyard', { method: 'GET' });
+};
+
+export const restoreGraveyardLink = (linkId) => {
+  return requestJson(`/links/${linkId}/restore`, { method: 'POST' });
+};
+
+export const markLinkViewed = (linkId) => {
+  return requestJson(`/links/${linkId}/view`, { method: 'POST' });
+};
+
 export const getBackendBaseUrl = () => BACKEND_BASE_URL;
 export const getBackendOrigin = () => BACKEND_BASE_URL;

@@ -21,9 +21,23 @@ import { ProjectRealtimePanel } from './ProjectRealtimePanel';
 import ProjectBookmarkImport from '../components/ProjectBookmarkImport';
 import LinkModal from '../components/LinkModal';
 import { apiRequest } from '../utils/api';
+import { markLinkViewed } from '../services/latticeApi';
 import './LatticePages.css';
 
 const BOOKMARK_SIGNAL_KEY = 'bookmarkSaveSignal';
+
+const formatDate = (value) => {
+    if (!value) {
+        return '—';
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+        return '—';
+    }
+
+    return parsed.toLocaleDateString();
+};
 
 export const LatticeProjectPage = () => {
     const reactionOptions = ['👍', '🔥', '❤️', '😂', '👏', '🤯'];
@@ -435,6 +449,33 @@ export const LatticeProjectPage = () => {
         }
     };
 
+    const onLinkOpened = async (linkId) => {
+        if (!linkId) {
+            return;
+        }
+
+        try {
+            const response = await markLinkViewed(linkId);
+            const nextLink = response?.link;
+
+            if (nextLink) {
+                setLinks((previous) => previous.map((item) => {
+                    const itemId = item._id || item.id;
+                    if (String(itemId) !== String(linkId)) {
+                        return item;
+                    }
+
+                    return {
+                        ...item,
+                        ...nextLink,
+                    };
+                }));
+            }
+        } catch {
+            // best-effort tracking
+        }
+    };
+
     const isOwner = Boolean(currentUserId) && Boolean(projectOwnerId) && String(currentUserId) === String(projectOwnerId);
 
     const selectedRoleFilter = roles.find((role) => role.id === selectedRoleFilterId) || null;
@@ -721,11 +762,19 @@ export const LatticeProjectPage = () => {
                             const title = item.title || item.url;
                             const linkId = item._id || item.id;
                             const reactions = Array.isArray(item.reactions) ? item.reactions : [];
+                            const decayProgress = Number.isFinite(item.decayProgress) ? item.decayProgress : 0;
+                            const isDecayWindow = Boolean(item.isDecayWindow);
+                            const scaleValue = isDecayWindow ? Math.max(0.72, 1 - decayProgress * 0.28) : 1;
+                            const saturationValue = isDecayWindow ? Math.max(0.18, 1 - decayProgress * 0.75) : 1;
 
                             return (
                                 <article
                                     key={linkId || item.url}
-                                    className={`bookmark-tile ${item.commentCount > 0 ? 'has-comments' : ''}`}
+                                    className={`bookmark-tile ${item.commentCount > 0 ? 'has-comments' : ''} ${isDecayWindow ? 'is-decaying' : ''}`}
+                                    style={{
+                                        transform: `scale(${scaleValue})`,
+                                        filter: `saturate(${saturationValue})`,
+                                    }}
                                     role="button"
                                     tabIndex={0}
                                     onClick={() => setSelectedLink(item)}
@@ -779,12 +828,18 @@ export const LatticeProjectPage = () => {
                                         </div>
                                         <h3 title={title}>{title}</h3>
                                         <p className="bookmark-tile-summary">{summary}</p>
+                                        <p className="bookmark-tile-dates">
+                                            Last viewed: {formatDate(item.lastViewedAt)} • Last modified: {formatDate(item.lastModifiedAt)}
+                                        </p>
                                         <a
                                             href={item.url}
                                             target="_blank"
                                             rel="noreferrer"
                                             className="bookmark-tile-link"
-                                            onClick={(event) => event.stopPropagation()}
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                void onLinkOpened(linkId);
+                                            }}
                                         >
                                             Visit source
                                             <ExternalLink size={14} />

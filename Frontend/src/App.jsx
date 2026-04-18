@@ -8,6 +8,7 @@ import { PublicOnlyRoute } from './components/PublicOnlyRoute';
 import { LatticeHomePage } from './Pages/LatticeHomePage';
 import { LatticeMyLatticesPage } from './Pages/LatticeMyLatticesPage';
 import { LatticeProjectPage } from './Pages/LatticeProjectPage';
+import { LatticeGraveyardPage } from './Pages/LatticeGraveyardPage';
 import { LatticeProfilePage } from './Pages/LatticeProfilePage';
 import { LatticePublicPage } from './Pages/LatticePublicPage';
 import { LatticeFeaturesPage } from './Pages/LatticeFeaturesPage';
@@ -39,6 +40,7 @@ function App() {
           <Route path="/lattice" element={<LatticeHomePage />} />
           <Route path="/lattice/personal" element={<LatticeMyLatticesPage />} />
           <Route path="/lattice/shared" element={<LatticeMyLatticesPage />} />
+          <Route path="/lattice/graveyard" element={<LatticeGraveyardPage />} />
           <Route path="/lattice/project/:projectId" element={<LatticeProjectPage />} />
           <Route path="/lattice/project/:projectId/graph" element={<LatticeGraphPage />} />
           <Route path="/lattice/graph" element={<Navigate to="/lattice" replace />} />

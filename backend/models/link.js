@@ -46,6 +46,22 @@ const linkSchema = new mongoose.Schema(
             default: Date.now
         },
 
+        movedToCompostAt: {
+            type: Date,
+            default: null
+        },
+
+        deletedAt: {
+            type: Date,
+            default: null
+        },
+
+        graveyardReason: {
+            type: String,
+            enum: ["expired", "deleted"],
+            default: null
+        },
+
         status: {
             type: String,
             enum: ["active", "decaying", "dead"],

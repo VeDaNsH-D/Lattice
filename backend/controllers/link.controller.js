@@ -8,6 +8,84 @@ import { generateAIContent } from "../services/ai.service.js";
 import { ensureLinkEnrichment, processNewLinkForCollision } from "../services/link-intelligence.service.js";
 import { buildGraphNode } from "../services/graph.service.js";
 
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const DECAY_START_DAYS = 14;
+const COMPOST_DAYS = 30;
+
+const toLinkWithAgingMeta = (linkDoc) => {
+    const link = linkDoc?.toObject ? linkDoc.toObject() : linkDoc;
+    const lastViewedAt = link.lastClickedAt || link.createdAt;
+    const lastTouchedAt = new Date(lastViewedAt || Date.now());
+    const inactiveDays = Math.max(0, Math.floor((Date.now() - lastTouchedAt.getTime()) / DAY_IN_MS));
+
+    const isDecayWindow = inactiveDays >= DECAY_START_DAYS && inactiveDays < COMPOST_DAYS;
+    const decayProgress = isDecayWindow
+        ? (inactiveDays - DECAY_START_DAYS) / (COMPOST_DAYS - DECAY_START_DAYS)
+        : 0;
+
+    return {
+        ...link,
+        lastViewedAt,
+        lastModifiedAt: link.updatedAt,
+        inactiveDays,
+        isDecayWindow,
+        decayProgress: Number(decayProgress.toFixed(3)),
+    };
+};
+
+const updateAgingStatusesForProjects = async (projectIds) => {
+    if (!Array.isArray(projectIds) || projectIds.length === 0) {
+        return;
+    }
+
+    const compostThreshold = new Date(Date.now() - COMPOST_DAYS * DAY_IN_MS);
+    const decayThreshold = new Date(Date.now() - DECAY_START_DAYS * DAY_IN_MS);
+
+    await Link.updateMany(
+        {
+            projectId: { $in: projectIds },
+            status: { $ne: "dead" },
+            lastClickedAt: { $lte: compostThreshold },
+        },
+        {
+            $set: {
+                status: "dead",
+                movedToCompostAt: new Date(),
+                graveyardReason: "expired",
+            },
+        }
+    );
+
+    await Link.updateMany(
+        {
+            projectId: { $in: projectIds },
+            status: { $ne: "dead" },
+            lastClickedAt: { $lte: decayThreshold, $gt: compostThreshold },
+        },
+        {
+            $set: {
+                status: "decaying",
+            },
+        }
+    );
+
+    await Link.updateMany(
+        {
+            projectId: { $in: projectIds },
+            status: "decaying",
+            lastClickedAt: { $gt: decayThreshold },
+        },
+        {
+            $set: {
+                status: "active",
+            },
+            $unset: {
+                movedToCompostAt: 1,
+            },
+        }
+    );
+};
+
 export const createLink = async (req, res, next) => {
     try {
         const {
@@ -89,7 +167,12 @@ export const listLinks = async (req, res, next) => {
     try {
         const { projectId } = req.query;
 
-        const links = await Link.find({ projectId })
+        await updateAgingStatusesForProjects([projectId]);
+
+        const links = await Link.find({
+            projectId,
+            status: { $ne: "dead" },
+        })
             .sort({ createdAt: -1 })
             .limit(100)
             .populate("createdBy", "name email");
@@ -138,7 +221,7 @@ export const listLinks = async (req, res, next) => {
             };
 
             return {
-                ...link.toObject(),
+                ...toLinkWithAgingMeta(link),
                 commentCount: stats.commentCount,
                 latestCommenter: stats.latestCommenter,
                 latestCommentAt: stats.latestCommentAt,
@@ -195,7 +278,7 @@ export const deleteLink = async (req, res, next) => {
         const { id } = req.params;
         const userId = req.user.userId;
 
-        const link = await Link.findById(id).select("_id projectId createdBy");
+        const link = await Link.findById(id);
         if (!link) {
             return res.status(404).json({
                 success: false,
@@ -216,12 +299,153 @@ export const deleteLink = async (req, res, next) => {
             });
         }
 
-        await Link.deleteOne({ _id: link._id });
+        link.status = "dead";
+        link.deletedAt = new Date();
+        link.movedToCompostAt = new Date();
+        link.graveyardReason = "deleted";
+        await link.save();
 
         return res.status(200).json({
             success: true,
-            message: "Link deleted successfully",
-            deletedLinkId: String(link._id)
+            message: "Link moved to graveyard",
+            deletedLinkId: String(link._id),
+        });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+export const markLinkViewed = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.userId;
+
+        const link = await Link.findById(id);
+        if (!link) {
+            return res.status(404).json({
+                success: false,
+                message: "Link not found",
+            });
+        }
+
+        const project = await Project.findOne({
+            _id: link.projectId,
+            isActive: true,
+            $or: [{ createdBy: userId }, { members: userId }],
+        }).select("_id");
+
+        if (!project) {
+            return res.status(403).json({
+                success: false,
+                message: "Forbidden: you do not have access to this project",
+            });
+        }
+
+        link.clickCount = (link.clickCount || 0) + 1;
+        link.lastClickedAt = new Date();
+        link.status = "active";
+        link.deletedAt = null;
+        link.movedToCompostAt = null;
+        link.graveyardReason = null;
+        await link.save();
+
+        return res.status(200).json({
+            success: true,
+            link: toLinkWithAgingMeta(link),
+        });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+export const listGraveyardLinks = async (req, res, next) => {
+    try {
+        const userId = req.user.userId;
+
+        const accessibleProjects = await Project.find({
+            isActive: true,
+            $or: [{ createdBy: userId }, { members: userId }],
+        })
+            .select("_id name projectType")
+            .lean();
+
+        const projectIds = accessibleProjects.map((project) => project._id);
+        await updateAgingStatusesForProjects(projectIds);
+
+        const projectById = new Map(accessibleProjects.map((project) => [String(project._id), project]));
+
+        const links = await Link.find({
+            projectId: { $in: projectIds },
+            status: "dead",
+        })
+            .sort({ movedToCompostAt: -1, updatedAt: -1 })
+            .limit(300)
+            .populate("createdBy", "name email")
+            .lean();
+
+        const items = links.map((link) => {
+            const project = projectById.get(String(link.projectId));
+            const normalized = toLinkWithAgingMeta(link);
+
+            return {
+                ...normalized,
+                project: project
+                    ? {
+                        id: String(project._id),
+                        name: project.name,
+                        projectType: project.projectType,
+                    }
+                    : null,
+            };
+        });
+
+        return res.status(200).json({
+            success: true,
+            count: items.length,
+            links: items,
+        });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+export const restoreLinkFromGraveyard = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.userId;
+
+        const link = await Link.findById(id);
+        if (!link) {
+            return res.status(404).json({
+                success: false,
+                message: "Link not found",
+            });
+        }
+
+        const project = await Project.findOne({
+            _id: link.projectId,
+            isActive: true,
+            $or: [{ createdBy: userId }, { members: userId }],
+        }).select("_id");
+
+        if (!project) {
+            return res.status(403).json({
+                success: false,
+                message: "Forbidden: you do not have access to this project",
+            });
+        }
+
+        link.status = "active";
+        link.deletedAt = null;
+        link.movedToCompostAt = null;
+        link.graveyardReason = null;
+        link.lastClickedAt = new Date();
+        await link.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Link restored from graveyard",
+            link: toLinkWithAgingMeta(link),
         });
     } catch (error) {
         return next(error);
