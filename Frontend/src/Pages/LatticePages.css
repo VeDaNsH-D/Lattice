@@ -1129,6 +1129,242 @@
   white-space: nowrap;
 }
 
+.project-role-panel {
+  margin-bottom: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbf3 100%);
+  padding: 18px;
+  box-shadow: 0 8px 22px rgba(17, 24, 39, 0.06);
+}
+
+.project-role-panel-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #111827;
+}
+
+.project-role-panel-head p {
+  margin: 6px 0 0 0;
+  color: #6b7280;
+  font-size: 0.88rem;
+}
+
+.project-role-form {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.project-role-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.project-role-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.project-role-submit {
+  border: 1px solid #5f7f1f;
+  background: #6b8e23;
+  color: #ffffff;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.project-role-submit:hover {
+  background: #5f7f1f;
+  border-color: #56741c;
+}
+
+.project-role-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.project-role-list-wrap {
+  margin-top: 10px;
+}
+
+.project-role-list-title {
+  margin: 0 0 8px 0;
+  font-size: 0.82rem;
+  color: #4b5563;
+  font-weight: 600;
+}
+
+.project-role-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.project-role-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #1f2937;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.project-role-pill-permission {
+  color: #6b7280;
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+.project-invite-panel {
+  margin-bottom: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f6fafc 100%);
+  padding: 18px;
+  box-shadow: 0 8px 22px rgba(17, 24, 39, 0.06);
+}
+
+.project-invite-panel-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #111827;
+}
+
+.project-invite-panel-head p {
+  margin: 6px 0 0 0;
+  color: #6b7280;
+  font-size: 0.88rem;
+}
+
+.project-invite-form {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.project-invite-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
+}
+
+.project-invite-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.project-invite-submit {
+  border: 1px solid #2b6cb0;
+  background: #3182ce;
+  color: #ffffff;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.project-invite-submit:hover {
+  background: #2b6cb0;
+  border-color: #245e99;
+}
+
+.project-invite-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.project-bookmark-panel {
+  margin-bottom: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcf8 100%);
+  padding: 18px;
+  box-shadow: 0 8px 22px rgba(17, 24, 39, 0.06);
+}
+
+.project-bookmark-panel-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #111827;
+}
+
+.project-bookmark-panel-head p {
+  margin: 6px 0 0 0;
+  color: #6b7280;
+  font-size: 0.88rem;
+}
+
+.project-bookmark-form {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.project-bookmark-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
+}
+
+.project-bookmark-field-wide {
+  grid-column: auto;
+}
+
+.project-bookmark-roles {
+  margin-top: 2px;
+}
+
+.project-bookmark-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.project-bookmark-submit {
+  border: 1px solid #5f7f1f;
+  background: #6b8e23;
+  color: #ffffff;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.project-bookmark-submit:hover {
+  background: #5f7f1f;
+  border-color: #56741c;
+}
+
+.project-bookmark-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 .project-links-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1852,6 +2088,18 @@
   .project-page-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .project-bookmark-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .project-role-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .project-invite-grid {
+    grid-template-columns: 1fr;
   }
 
   .project-links-grid {

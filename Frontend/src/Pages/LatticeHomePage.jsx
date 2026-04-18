@@ -331,6 +331,7 @@ export const LatticeHomePage = () => {
     navigate(`/lattice/project/${project.id}`, {
       state: {
         projectName: project.name,
+        projectType: project.projectType,
       },
     });
   };
