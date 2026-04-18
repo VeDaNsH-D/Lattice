@@ -20,6 +20,16 @@ const linkSchema = new mongoose.Schema(
         summary: String,      // AI generated
         tags: [String],       // AI or user
         vibe: String,         // optional
+        deadline: {
+            type: Date,
+            default: null
+        },
+        embedding: {
+            type: [Number],
+            default: undefined
+        },
+        embeddingModel: String,
+        collisionCheckedAt: Date,
 
         createdBy: {
             type: mongoose.Schema.Types.ObjectId,
@@ -66,5 +76,6 @@ linkSchema.path("allowedRoles").validate(function validateAllowedRoles(value) {
 }, "allowedRoles must contain at least one role when accessType is role_based");
 
 linkSchema.index({ title: "text", summary: "text", tags: "text" });
+linkSchema.index({ projectId: 1, createdAt: -1 });
 
 export default mongoose.model("Link", linkSchema);

@@ -3,15 +3,26 @@ import "dotenv/config";
 import http from "http";
 import cors from "cors";
 import express from "express";
+import session from "express-session";
 import mongoose from "mongoose";
 import os from "os";
+import path from "path";
+import passport from "passport";
 import { Server } from "socket.io";
 
+import "./config/passport.js";
 import {
     globalErrorHandler,
     notFoundHandler
 } from "./middlewares/error.middleware.js";
 import authRoutes from "./routes/auth.routes.js";
+import pulseRoutes from "./routes/pulse.routes.js";
+import { scheduleDailyPulseJob } from "./services/daily-pulse.service.js";
+import inviteRoutes from "./routes/invite.routes.js";
+import linkRoutes from "./routes/link.routes.js";
+import projectRoutes from "./routes/project.routes.js";
+import searchRoutes from "./routes/search.routes.js";
+import roleRoutes from "./routes/role.routes.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -26,6 +37,16 @@ const rooms = new Map();
 
 app.use(cors());
 app.use(express.json());
+app.use("/media", express.static(path.join(process.cwd(), "generated")));
+app.use(
+    session({
+        secret: process.env.SESSION_SECRET || process.env.JWT_SECRET,
+        resave: false,
+        saveUninitialized: false
+    })
+);
+app.use(passport.initialize());
+app.use(passport.session());
 
 const PORT = process.env.PORT || 8000;
 
@@ -338,12 +359,20 @@ io.on("connection", (socket) => {
 
 /* App routes */
 app.use("/api/auth", authRoutes);
+app.use("/api/links", linkRoutes);
+app.use("/api/pulse", pulseRoutes);
+app.use("/api/invites", inviteRoutes);
+app.use("/api/projects", projectRoutes);
+app.use("/api/search", searchRoutes);
+app.use("/api/roles", roleRoutes);
 
 /* Not found + global errors */
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
 
 /* Start server */
+scheduleDailyPulseJob();
+
 server.listen(PORT, () => {
     const networkInterfaces = os.networkInterfaces();
     let networkIP = "localhost";
