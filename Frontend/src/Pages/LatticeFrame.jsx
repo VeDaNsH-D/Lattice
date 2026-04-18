@@ -74,46 +74,33 @@ export const LatticeFrame = ({ children }) => {
 
   return (
     <div className="lattice-dashboard">
-      <aside className={`lattice-secondary-sidebar${isSidebarCollapsed ? ' collapsed' : ''}`}>
-        <div className="secondary-header">
-          <div className="secondary-brand">
-            <Command size={22} strokeWidth={2.4} />
-            <h2>LATTICE</h2>
-          </div>
-          <button
-            type="button"
-            className="secondary-toggle-btn"
-            onClick={() => setIsSidebarCollapsed((previous) => !previous)}
-            aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {isSidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-          </button>
-        </div>
-
-        <nav className="secondary-nav-list">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) => (isActive ? 'secondary-nav-item active' : 'secondary-nav-item')}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              <span className="nav-label">{item.label}</span>
-            </NavLink>
-          ))}
-        </nav>
-      </aside>
-
       <main className="lattice-main-content">
         <header className="main-topbar">
-          <div className="search-bar" onClick={() => setIsSpotlightOpen(true)} style={{ cursor: 'pointer' }}>
-            <Search size={16} color="#9ca3af" />
-            <input type="text" placeholder="Search your lattices..." readOnly style={{ cursor: 'pointer' }} />
-            <span style={{ fontSize: '0.85rem', color: '#6b7280', marginLeft: '8px' }}>⌘K</span>
+          <div className="topbar-left" style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
+            <div className="topbar-brand" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#111827' }}>
+              <Command size={22} strokeWidth={2.4} />
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, letterSpacing: '-0.025em' }}>LATTICE</h2>
+            </div>
+            
+            <nav className="topbar-nav-list" style={{ display: 'flex', gap: '6px' }}>
+              {navItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  className={({ isActive }) => (isActive ? 'topbar-nav-item active' : 'topbar-nav-item')}
+                >
+                  <span className="nav-icon">{item.icon}</span>
+                  <span className="nav-label">{item.label}</span>
+                </NavLink>
+              ))}
+            </nav>
           </div>
 
           <div className="topbar-actions">
+            <button className="action-circle" onClick={() => setIsSpotlightOpen(true)} aria-label="Search">
+              <Search size={18} />
+            </button>
             <button className="action-circle" aria-label="Create">
               <Plus size={18} />
             </button>

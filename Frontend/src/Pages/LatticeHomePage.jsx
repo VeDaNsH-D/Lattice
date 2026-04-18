@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LatticeFrame } from './LatticeFrame';
-import { BookOpen, PenTool, Code2, Share2, ArrowUpRight, Atom, Blocks, Plus, X, Link as LinkIcon, ChevronDown } from 'lucide-react';
+import { BookOpen, PenTool, Code2, Share2, ArrowUpRight, Atom, Blocks, Plus, X, Link as LinkIcon, ChevronDown, SlidersHorizontal, ArrowDownUp, LayoutGrid } from 'lucide-react';
 import { apiRequest } from '../utils/api';
 import './LatticePages.css';
 
@@ -18,10 +18,11 @@ const renderProjectCards = (projects, icons, onProjectClick, idOffset = 0) => {
       {projects.map((project, index) => {
         const IconComponent = icons[index % icons.length];
         const displayIndex = String(index + 1 + idOffset).padStart(2, '0');
+        const variantIndex = index % 6;
 
         return (
           <div
-            className="dir-card"
+            className={`dir-card dir-variant-${variantIndex}`}
             key={project.id}
             role="button"
             tabIndex={0}
@@ -33,26 +34,35 @@ const renderProjectCards = (projects, icons, onProjectClick, idOffset = 0) => {
               }
             }}
           >
-            <div className="dir-hover-bg"></div>
-
-            <div className="dir-index">{`{ ${displayIndex} }`}</div>
-
-            <div className="dir-icon-wrapper">
-              <div className="dir-icon-blob"></div>
-              <div className="dir-icon"><IconComponent color="#7a9b3e" size={26} /></div>
-            </div>
-
-            <div className="dir-bottom">
-              <h3 className="dir-title">{project.name.toUpperCase()}</h3>
-              <div className="dir-meta">
-                <span>{project.createdBy?.name || 'You'}</span>
-                <span className="dir-line"></span>
-                <span>{project.memberCount} Member{project.memberCount === 1 ? '' : 's'}</span>
+            <div className="dir-top-meta">
+              <span className="dir-lessons-badge">{project.memberCount * 2 + 10} modules</span>
+              <div className="dir-action-circle" style={{ opacity: 1, position: 'relative', bottom: 'auto', right: 'auto', transform: 'none', background: 'transparent', boxShadow: 'none', width: 'auto', height: 'auto'}}>
+                <span style={{fontSize: '0.8rem', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '500'}}>
+                  {project.projectType === 'collaborative' ? 'Shared' : 'Private'} <ArrowUpRight size={14} strokeWidth={2.5} color="#6b7280" />
+                </span>
               </div>
             </div>
 
-            <div className="dir-action-circle">
-              <ArrowUpRight size={18} strokeWidth={2.5} color="#5e8027" />
+            <div className="dir-icon-area">
+               <div className="dir-icon-squircle">
+                 <IconComponent size={32} />
+               </div>
+            </div>
+
+            <div className="dir-tags">
+              <span className="dir-tag">{project.projectType === 'personal' ? 'UX design' : 'Architecture'}</span>
+              <span className="dir-tag">{index % 2 === 0 ? 'Visual design' : 'System logic'}</span>
+            </div>
+
+            <h3 className="dir-title">{project.name}</h3>
+
+            <div className="dir-bottom">
+              <span className="dir-level">Level: <strong style={{color: '#374151'}}>{index % 3 === 0 ? 'Advance' : index % 2 === 0 ? 'Medium' : 'Junior'}</strong></span>
+              <div className="dir-progress-wrap">
+                <span style={{color: '#6b7280', fontWeight: '500'}}>Progress:</span>
+                <div className="dir-progress-ring"></div>
+                <span>{index * 15 + 10}%</span>
+              </div>
             </div>
           </div>
         );
@@ -472,32 +482,62 @@ export const LatticeHomePage = () => {
           </form>
         </section>
 
-        <header className="directory-header directory-header-row">
-          <h2>Personal Hub</h2>
-          <button
-            type="button"
-            className="directory-create-btn"
-            onClick={() => openCreateModal('personal')}
-            disabled={creatingType !== null}
-          >
-            <Plus size={16} />
-            {creatingType === 'personal' ? 'Creating...' : 'New Personal Project'}
-          </button>
+        <header className="directory-dashboard-header">
+          <div className="dash-header-title">
+            <h2>Personal Projects</h2>
+            <span className="dash-header-count">{personalProjects.length}</span>
+          </div>
+
+          <div className="dash-header-controls">
+            <button 
+              className="dash-control-btn" 
+              onClick={() => openCreateModal('personal')} 
+              disabled={creatingType !== null}
+              style={{ background: '#111827', color: '#fff', border: 'none' }}
+            >
+              <Plus size={14} /> New Personal Project
+            </button>
+            <div style={{width: 1, height: 24, background: 'rgba(0,0,0,0.1)', margin: '0 6px'}} />
+            <button className="dash-control-btn">
+              <SlidersHorizontal size={14} /> Filter
+            </button>
+            <button className="dash-control-btn">
+              <ArrowDownUp size={14} /> Sort
+            </button>
+            <button className="dash-control-btn-icon">
+              <LayoutGrid size={16} />
+            </button>
+          </div>
         </header>
 
         {loading ? <p className="directory-status">Loading projects...</p> : renderProjectCards(personalProjects, personalIcons, onProjectOpen)}
 
-        <header className="directory-header directory-header-row" style={{ marginTop: '60px' }}>
-          <h2>Collaborative Hub</h2>
-          <button
-            type="button"
-            className="directory-create-btn"
-            onClick={() => openCreateModal('collaborative')}
-            disabled={creatingType !== null}
-          >
-            <Plus size={16} />
-            {creatingType === 'collaborative' ? 'Creating...' : 'New Collaborative Project'}
-          </button>
+        <header className="directory-dashboard-header" style={{ marginTop: '50px' }}>
+          <div className="dash-header-title">
+            <h2>Group Projects</h2>
+            <span className="dash-header-count">{collaborativeProjects.length}</span>
+          </div>
+
+          <div className="dash-header-controls">
+            <button 
+              className="dash-control-btn" 
+              onClick={() => openCreateModal('collaborative')} 
+              disabled={creatingType !== null}
+              style={{ background: '#111827', color: '#fff', border: 'none' }}
+            >
+              <Plus size={14} /> New Group Project
+            </button>
+            <div style={{width: 1, height: 24, background: 'rgba(0,0,0,0.1)', margin: '0 6px'}} />
+            <button className="dash-control-btn">
+              <SlidersHorizontal size={14} /> Filter
+            </button>
+            <button className="dash-control-btn">
+              <ArrowDownUp size={14} /> Sort
+            </button>
+            <button className="dash-control-btn-icon">
+              <LayoutGrid size={16} />
+            </button>
+          </div>
         </header>
 
         {loading ? null : renderProjectCards(collaborativeProjects, collaborativeIcons, onProjectOpen, 50)}
