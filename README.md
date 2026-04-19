@@ -274,7 +274,7 @@ Without this rewrite, auth callback redirects like /login?token=... can return 4
 - `GET /health` returns `{ "ok": true }`.
 - Frontend served at `http://127.0.0.1:5173` in local dev.
 
-## Current Realtime Note
+## Current Realtime Note:
 
 The project now includes a Redis distributed synchronization layer for realtime telemetry and cross-instance Socket.IO event propagation. In single-node local mode, it automatically falls back to in-memory behavior when Redis is not configured.
 Vercel requires owner to deploy the code (new update).
