@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { Command } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { API_BASE_URL, apiRequest } from '../utils/api';
 import './AuthPage.css';
@@ -58,52 +57,10 @@ export const AuthPage = ({ mode = 'signup' }) => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [lottieComponent, setLottieComponent] = useState(null);
-  const [animationData, setAnimationData] = useState(null);
-  const LottieComponent = lottieComponent;
 
   useEffect(() => {
     document.title = mode === 'login' ? 'Login | LATTICE' : 'Sign Up | LATTICE';
   }, [mode]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadAnimationAssets = async () => {
-      try {
-        const [lottieModule, animationResponse] = await Promise.all([
-          import('lottie-react'),
-          fetch('/illustration.json'),
-        ]);
-
-        const resolvedAnimationData = animationResponse.ok
-          ? await animationResponse.json()
-          : null;
-
-        if (!isMounted) {
-          return;
-        }
-
-        const resolvedLottie = typeof lottieModule?.default === 'function'
-          ? lottieModule.default
-          : lottieModule;
-
-        setLottieComponent(() => resolvedLottie);
-        setAnimationData(resolvedAnimationData);
-      } catch {
-        if (isMounted) {
-          setLottieComponent(null);
-          setAnimationData(null);
-        }
-      }
-    };
-
-    void loadAnimationAssets();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   useEffect(() => {
     if (tokenFromGoogle) {
@@ -175,7 +132,7 @@ export const AuthPage = ({ mode = 'signup' }) => {
         {/* LEFT COLUMN */}
         <div className="auth-left">
           <Link to="/" className="auth-brand" style={{ textDecoration: 'none' }}>
-            <Command size={24} color="white" strokeWidth={2.5} />
+            <span aria-hidden="true" style={{ fontSize: '22px', lineHeight: 1 }}>◆</span>
             LATTICE
           </Link>
 
@@ -188,15 +145,7 @@ export const AuthPage = ({ mode = 'signup' }) => {
             ))}
           </h1>
 
-          <div className="auth-lottie">
-            {LottieComponent && animationData ? (
-              <LottieComponent
-                animationData={animationData}
-                loop={true}
-                style={{ width: '100%', height: '100%', maxHeight: '420px', objectFit: 'contain' }}
-              />
-            ) : null}
-          </div>
+          <div className="auth-lottie" />
         </div>
 
         {/* RIGHT COLUMN */}
