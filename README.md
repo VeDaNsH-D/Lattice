@@ -200,6 +200,67 @@ Build frontend:
 npm run build
 ```
 
+## Deployment Setup (Render + Vercel)
+
+Use this configuration for the deployed stack:
+
+- Frontend: https://lattice-cyan.vercel.app
+- Backend: https://se-hack.onrender.com
+
+### Render (backend) environment variables
+
+- PORT=8000
+- MONGO_URI=...
+- JWT_SECRET=...
+- FRONTEND_URL=https://lattice-cyan.vercel.app
+- FRONTEND_ORIGINS=https://lattice-cyan.vercel.app
+- GOOGLE_CLIENT_ID=...
+- GOOGLE_CLIENT_SECRET=...
+- GOOGLE_CALLBACK_URL=https://se-hack.onrender.com/api/auth/google/callback
+- GROQ_API_KEY=...
+
+Optional realtime scaling:
+
+- REDIS_URL=... or UPSTASH_REDIS_URL=... or UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN
+
+### Vercel (frontend) environment variables
+
+- VITE_API_BASE_URL=https://se-hack.onrender.com/api
+- VITE_SOCKET_URL=https://se-hack.onrender.com
+
+For robust cross-network WebRTC calls, also add TURN-capable ICE servers:
+
+- VITE_ICE_SERVERS=[{"urls":["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]},{"urls":"turn:global.relay.metered.ca:80","username":"YOUR_USER","credential":"YOUR_PASS"},{"urls":"turn:global.relay.metered.ca:443","username":"YOUR_USER","credential":"YOUR_PASS"},{"urls":"turns:global.relay.metered.ca:443","username":"YOUR_USER","credential":"YOUR_PASS"}]
+
+After setting variables, redeploy both services.
+
+### Google OAuth redirect URI
+
+In Google Cloud Console, for the OAuth client used by this app, add:
+
+- Authorized redirect URI: https://se-hack.onrender.com/api/auth/google/callback
+
+Without this exact value, Google auth returns redirect_uri_mismatch.
+
+### Vercel SPA routing
+
+The frontend uses BrowserRouter, so Vercel requires an SPA rewrite file at frontend/vercel.json that rewrites all paths to /index.html.
+
+Without this rewrite, auth callback redirects like /login?token=... can return 404 NOT_FOUND.
+
+## Realtime and Media Notes
+
+- Chat and room presence can work even when media fails.
+- WebRTC across different networks generally requires TURN, not STUN-only.
+- The call panel now supports websocket and polling fallback and queues ICE candidates until remote description is available.
+
+## TTS and Podcast Notes
+
+- The previous playai-tts model is deprecated.
+- Current default TTS model is canopylabs/orpheus-v1-english.
+- Orpheus requires response_format: wav and valid voices such as autumn, diana, hannah, austin, daniel, or troy.
+- Podcast download and content type are aligned to WAV output.
+
 ## Health and Verification
 
 - `GET /` confirms backend service startup.
