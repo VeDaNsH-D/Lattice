@@ -8,6 +8,7 @@ import {
     resolveContexts as resolveContextData,
     hasValidContextData 
 } from "./contextResolver.js";
+import Project from "../models/project.js";
 
 const DEFAULT_MAX_TOKENS = 1000;
 const DEFAULT_TEMPERATURE = 0.4;
@@ -106,6 +107,26 @@ export async function processContextQuery({
 
         // Step 1: Parse input to extract contexts and query
         const parsed = parseQuery(userInput);
+
+        // If the user asks from inside a project without @mentions, treat the
+        // current project as the implicit context so Ask AI still works.
+        if (!parsed.contexts.length && projectId) {
+            const project = await Project.findOne({
+                _id: projectId,
+                isActive: true,
+                $or: [
+                    { createdBy: userId },
+                    { members: userId },
+                    { isPublic: true }
+                ]
+            })
+                .select('name projectType')
+                .lean();
+
+            if (project) {
+                parsed.contexts = [project.name.toLowerCase()];
+            }
+        }
 
         // Step 2: Validate contexts and normalize query text.
         if (!parsed.contexts.length) {
