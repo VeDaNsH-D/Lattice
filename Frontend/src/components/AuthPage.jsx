@@ -1,12 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Command } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import Lottie from 'lottie-react';
-import illustrationAnimation from '../assets/illustration.json';
 import { API_BASE_URL, apiRequest } from '../utils/api';
 import './AuthPage.css';
-
-const LottieComponent = typeof Lottie === 'function' ? Lottie : Lottie?.default;
 
 const AUTH_MODE_COPY = {
   signup: {
@@ -62,10 +58,52 @@ export const AuthPage = ({ mode = 'signup' }) => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [lottieComponent, setLottieComponent] = useState(null);
+  const [animationData, setAnimationData] = useState(null);
+  const LottieComponent = lottieComponent;
 
   useEffect(() => {
     document.title = mode === 'login' ? 'Login | LATTICE' : 'Sign Up | LATTICE';
   }, [mode]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadAnimationAssets = async () => {
+      try {
+        const [lottieModule, animationResponse] = await Promise.all([
+          import('lottie-react'),
+          fetch('/illustration.json'),
+        ]);
+
+        const resolvedAnimationData = animationResponse.ok
+          ? await animationResponse.json()
+          : null;
+
+        if (!isMounted) {
+          return;
+        }
+
+        const resolvedLottie = typeof lottieModule?.default === 'function'
+          ? lottieModule.default
+          : lottieModule;
+
+        setLottieComponent(() => resolvedLottie);
+        setAnimationData(resolvedAnimationData);
+      } catch {
+        if (isMounted) {
+          setLottieComponent(null);
+          setAnimationData(null);
+        }
+      }
+    };
+
+    void loadAnimationAssets();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (tokenFromGoogle) {
@@ -151,9 +189,9 @@ export const AuthPage = ({ mode = 'signup' }) => {
           </h1>
 
           <div className="auth-lottie">
-            {LottieComponent ? (
+            {LottieComponent && animationData ? (
               <LottieComponent
-                animationData={illustrationAnimation}
+                animationData={animationData}
                 loop={true}
                 style={{ width: '100%', height: '100%', maxHeight: '420px', objectFit: 'contain' }}
               />
