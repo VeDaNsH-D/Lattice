@@ -9,6 +9,7 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:8000';
 const AGORA_APP_ID = import.meta.env.VITE_AGORA_APP_ID || '';
 const AGORA_TEMP_TOKEN = import.meta.env.VITE_AGORA_TEMP_TOKEN || import.meta.env.VITE_AGORA_TOKEN || '';
 const AGORA_CHANNEL_PREFIX = import.meta.env.VITE_AGORA_CHANNEL_PREFIX || 'lattice';
+const AGORA_FORCE_NO_TOKEN = String(import.meta.env.VITE_AGORA_FORCE_NO_TOKEN || '').trim().toLowerCase() === 'true';
 const SHELF_ACTIVITY_WINDOW_MS = 15 * 60 * 1000;
 
 const buildAgoraChannelName = (projectId) => `${AGORA_CHANNEL_PREFIX}-${String(projectId || 'room')}`;
@@ -343,8 +344,8 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
       return agoraUidRef.current;
     }
 
-    if (!isAgoraConfigured) {
-      throw new Error('Missing Agora config. Add VITE_AGORA_APP_ID and VITE_AGORA_TEMP_TOKEN to the frontend environment.');
+    if (!AGORA_APP_ID.trim()) {
+      throw new Error('Missing Agora config. Add VITE_AGORA_APP_ID to the frontend environment.');
     }
 
     joinInFlightRef.current = true;
@@ -353,7 +354,46 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
     try {
       const client = ensureAgoraClient();
       const channel = buildAgoraChannelName(projectId);
-      const uid = await client.join(AGORA_APP_ID.trim(), channel, AGORA_TEMP_TOKEN.trim(), 0);
+      let initialToken = null;
+      let agoraUid = 0;
+
+      // Try to get a fresh token from the backend (recommended approach)
+      if (!AGORA_FORCE_NO_TOKEN) {
+        try {
+          const tokenResponse = await apiRequest('POST', '/agora/token', {
+            projectId,
+            role: 'publisher',
+          });
+
+          if (tokenResponse?.success && tokenResponse?.token) {
+            initialToken = tokenResponse.token;
+            agoraUid = tokenResponse.uid || 0;
+          }
+        } catch (tokenError) {
+          console.warn('Failed to fetch token from backend, will attempt fallback:', tokenError?.message);
+          // If backend token fetch fails, fall through to env var or no-token mode
+          if (AGORA_TEMP_TOKEN.trim()) {
+            initialToken = AGORA_TEMP_TOKEN.trim();
+          }
+        }
+      }
+
+      let uid;
+
+      try {
+        uid = await client.join(AGORA_APP_ID.trim(), channel, initialToken, agoraUid);
+      } catch (joinError) {
+        const message = String(joinError?.message || '').toLowerCase();
+        const tokenLikelyInvalid = message.includes('invalid token') || message.includes('can_not_get_gateway_server') || message.includes('authorized failed');
+
+        if (initialToken && tokenLikelyInvalid) {
+          // Fallback for "no-auth" Agora projects where App Certificate is disabled.
+          uid = await client.join(AGORA_APP_ID.trim(), channel, null, 0);
+          setError('Agora token was invalid/expired. Joined without token (no-auth mode).');
+        } else {
+          throw joinError;
+        }
+      }
 
       agoraUidRef.current = String(uid);
 
@@ -548,13 +588,14 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
 
         try {
           const membership = await apiRequest(`/projects/${projectId}/membership`, { method: 'GET' });
-          const nextPermission = membership?.membership?.role?.permissions || 'view_only';
+          const nextPermission = membership?.membership?.role?.permissions || 'edit';
           if (mounted) {
             setCallPermission(nextPermission);
           }
         } catch {
           if (mounted) {
-            setCallPermission('view_only');
+            // Do not block calling if membership endpoint is unavailable.
+            setCallPermission('edit');
           }
         }
 

@@ -1470,7 +1470,7 @@ export const LatticeProjectPage = () => {
                                     projectName={projectName}
                                     projectMembers={projectMembers}
                                     activeLinkId={String(getLinkKey(selectedLink) || '')}
-                                    roleBasedCalls={true}
+                                    roleBasedCalls={false}
                                     onParticipantsChange={setOnlineParticipants}
                                 />
 

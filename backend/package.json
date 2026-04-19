@@ -2,6 +2,8 @@
   "type": "module",
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",
+    "agora-access-token": "^2.0.4",
+    "agora-token": "^2.0.5",
     "axios": "^1.15.0",
     "bcryptjs": "^2.4.3",
     "cheerio": "^1.2.0",
