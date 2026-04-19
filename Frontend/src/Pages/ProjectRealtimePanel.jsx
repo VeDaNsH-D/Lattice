@@ -5,7 +5,25 @@ import { apiRequest } from '../utils/api';
 import './ProjectRealtimePanel.css';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:8000';
-const ICE_SERVERS = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
+
+const getIceServers = () => {
+  const rawIceServers = import.meta.env.VITE_ICE_SERVERS;
+
+  if (rawIceServers) {
+    try {
+      const parsed = JSON.parse(rawIceServers);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    } catch {
+      // Fallback to default STUN list when env JSON is invalid.
+    }
+  }
+
+  return [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
+};
+
+const ICE_SERVERS = getIceServers();
 
 const StreamTile = ({ label, stream, muted = false }) => {
   const ref = useRef(null);
