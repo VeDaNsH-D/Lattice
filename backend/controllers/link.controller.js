@@ -340,11 +340,15 @@ export const listLinks = async (req, res, next) => {
                 const key = String(comment.targetId);
                 const current = commentStats.get(key) || {
                     commentCount: 0,
+                    unresolvedCommentCount: 0,
                     latestCommenter: null,
                     latestCommentAt: null,
                 };
 
                 current.commentCount += 1;
+                if (!comment.resolved) {
+                    current.unresolvedCommentCount += 1;
+                }
 
                 if (!current.latestCommenter) {
                     current.latestCommenter = comment.userId
@@ -364,6 +368,7 @@ export const listLinks = async (req, res, next) => {
         const enrichedLinks = links.map((link) => {
             const stats = commentStats.get(String(link._id)) || {
                 commentCount: 0,
+                unresolvedCommentCount: 0,
                 latestCommenter: null,
                 latestCommentAt: null,
             };
@@ -371,6 +376,7 @@ export const listLinks = async (req, res, next) => {
             return {
                 ...toLinkWithAgingMeta(link, resolveSettingsForLink(link, agingContext)),
                 commentCount: stats.commentCount,
+                unresolvedCommentCount: stats.unresolvedCommentCount,
                 latestCommenter: stats.latestCommenter,
                 latestCommentAt: stats.latestCommentAt,
             };

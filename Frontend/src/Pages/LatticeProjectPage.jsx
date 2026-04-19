@@ -20,7 +20,7 @@ import { LatticeFrame } from './LatticeFrame';
 import { ProjectRealtimePanel } from './ProjectRealtimePanel';
 import ProjectBookmarkImport from '../components/ProjectBookmarkImport';
 import LinkModal from '../components/LinkModal';
-import { apiRequest } from '../utils/api';
+import { API_BASE_URL, apiRequest } from '../utils/api';
 import { markLinkViewed } from '../services/latticeApi';
 import { formatVibeLabel, getVibeTheme } from '../utils/vibeTheme';
 import './LatticePages.css';
@@ -66,6 +66,23 @@ function isLinkEnrichmentPending(link) {
 
 function getLinkKey(link) {
     return link?._id || link?.id || link?.url || '';
+}
+
+function normalizeCommentStats(stats = {}) {
+    return {
+        commentCount: Number(stats?.commentCount || 0),
+        unresolvedCommentCount: Number(stats?.unresolvedCount || 0),
+        latestCommenter: stats?.latestCommenter || null,
+        latestCommentAt: stats?.latestCommentAt || null,
+    };
+}
+
+function resolveParticipantName(participant) {
+    return participant?.username || participant?.name || 'Guest';
+}
+
+function resolveParticipantIdentity(participant) {
+    return participant?.userId || participant?.id || '';
 }
 
 function normalizeTrendLabel(value) {
@@ -138,6 +155,10 @@ export const LatticeProjectPage = () => {
     const timelineInFlightRef = useRef(new Set());
     const [projectMembers, setProjectMembers] = useState([]);
     const [isMembersLoading, setIsMembersLoading] = useState(false);
+    const [podcastAudioUrl, setPodcastAudioUrl] = useState('');
+    const [podcastGenerating, setPodcastGenerating] = useState(false);
+    const [podcastError, setPodcastError] = useState('');
+    const [podcastHours, setPodcastHours] = useState(24);
 
     const projectName = useMemo(() => {
         if (typeof resolvedProjectName === 'string' && resolvedProjectName.trim()) {
@@ -194,6 +215,65 @@ export const LatticeProjectPage = () => {
         }
     }, [projectId]);
 
+    useEffect(() => {
+        return () => {
+            if (podcastAudioUrl) {
+                URL.revokeObjectURL(podcastAudioUrl);
+            }
+        };
+    }, [podcastAudioUrl]);
+
+    const generatePodcast = useCallback(async () => {
+        if (!projectId || podcastGenerating) {
+            return;
+        }
+
+        setPodcastGenerating(true);
+        setPodcastError('');
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/pulse/projects/${projectId}/podcast?hours=${podcastHours}`, {
+                method: 'GET',
+                headers: {
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+            });
+
+            if (!response.ok) {
+                let message = `Request failed with status ${response.status}`;
+                try {
+                    const payload = await response.json();
+                    message = payload?.message || message;
+                } catch {
+                    const text = await response.text();
+                    if (text) {
+                        message = text;
+                    }
+                }
+                throw new Error(message);
+            }
+
+            const blob = await response.blob();
+            const nextAudioUrl = URL.createObjectURL(blob);
+
+            setPodcastAudioUrl((previous) => {
+                if (previous) {
+                    URL.revokeObjectURL(previous);
+                }
+                return nextAudioUrl;
+            });
+
+            const audio = new Audio(nextAudioUrl);
+            audio.play().catch(() => {
+                // Playback may be blocked; controls remain available.
+            });
+        } catch (error) {
+            setPodcastError(error?.message || 'Unable to generate podcast.');
+        } finally {
+            setPodcastGenerating(false);
+        }
+    }, [podcastGenerating, projectId, podcastHours, token]);
+
     const hasPendingEnrichment = useMemo(
         () => links.some((link) => isLinkEnrichmentPending(link)),
         [links],
@@ -203,6 +283,38 @@ export const LatticeProjectPage = () => {
         const selectedKey = getLinkKey(selectedLink);
         return selectedKey ? timelineByLinkId[selectedKey] : null;
     }, [selectedLink, timelineByLinkId]);
+
+    const handleCommentsChanged = useCallback((linkId, stats) => {
+        if (!linkId || !stats) {
+            return;
+        }
+
+        const normalized = normalizeCommentStats(stats);
+
+        setLinks((previous) => previous.map((item) => {
+            const key = getLinkKey(item);
+            if (String(key) !== String(linkId)) {
+                return item;
+            }
+
+            return {
+                ...item,
+                ...normalized,
+            };
+        }));
+
+        setSelectedLink((previous) => {
+            const key = getLinkKey(previous);
+            if (String(key) !== String(linkId)) {
+                return previous;
+            }
+
+            return {
+                ...previous,
+                ...normalized,
+            };
+        });
+    }, []);
 
     const loadContextFeedForLink = useCallback(async (link, options = {}) => {
         const { force = false, triggerSnapshot = false } = options;
@@ -781,6 +893,28 @@ export const LatticeProjectPage = () => {
 
     const selectedRoleFilter = roles.find((role) => role.id === selectedRoleFilterId) || null;
 
+    const viewedByLinkId = useMemo(() => {
+        const map = new Map();
+
+        onlineParticipants.forEach((participant) => {
+            const activeId = String(participant?.activeLinkId || '').trim();
+            if (!activeId) {
+                return;
+            }
+
+            const participantIdentity = resolveParticipantIdentity(participant);
+            if (participantIdentity && currentUserId && String(participantIdentity) === String(currentUserId)) {
+                return;
+            }
+
+            const current = map.get(activeId) || [];
+            current.push(resolveParticipantName(participant));
+            map.set(activeId, current);
+        });
+
+        return map;
+    }, [onlineParticipants, currentUserId]);
+
     const visibleLinks = useMemo(() => {
         if (selectedRoleFilterId === 'all') {
             return links;
@@ -818,6 +952,26 @@ export const LatticeProjectPage = () => {
                             <Network size={15} />
                             Open Knowledge Graph
                         </Link>
+                        <button
+                            type="button"
+                            className="directory-create-btn project-podcast-btn"
+                            onClick={() => void generatePodcast()}
+                            disabled={podcastGenerating}
+                        >
+                            {podcastGenerating ? `Generating ${podcastHours}h Podcast...` : `${podcastHours}h Podcast`}
+                        </button>
+                        <div className="project-podcast-select-wrap">
+                            <select
+                                value={podcastHours}
+                                onChange={(event) => setPodcastHours(Number(event.target.value))}
+                                className="project-podcast-select"
+                                aria-label="Podcast duration"
+                            >
+                                <option value={24}>24h</option>
+                                <option value={48}>48h</option>
+                                <option value={72}>72h</option>
+                            </select>
+                        </div>
                         <div className="project-page-count-pill">
                             {links.length} Bookmark{links.length === 1 ? '' : 's'}
                         </div>
@@ -833,6 +987,23 @@ export const LatticeProjectPage = () => {
                         ) : null}
                     </div>
                 </header>
+
+                {podcastAudioUrl ? (
+                    <section className="project-podcast-player">
+                        <div className="project-podcast-player-head">
+                            <div>
+                                <h3>{podcastHours}h Project Podcast</h3>
+                                <p>Playable and downloadable MP3 for the latest project changes.</p>
+                            </div>
+                                    <a className="project-podcast-download" href={podcastAudioUrl} download={`${projectName || 'project'}-${podcastHours}h-podcast.wav`}>
+                                Download WAV
+                            </a>
+                        </div>
+                        <audio controls src={podcastAudioUrl} className="project-podcast-audio" />
+                    </section>
+                ) : null}
+
+                {podcastError ? <p className="directory-status directory-status-error">{podcastError}</p> : null}
 
                 <div className="project-workspace-grid">
                     <aside className="project-left-rail">
@@ -1075,11 +1246,16 @@ export const LatticeProjectPage = () => {
                                     const trend = timelineMeta?.insights?.trend || 'stable';
                                     const vibeTheme = getVibeTheme(item.vibe);
                                     const vibeLabel = formatVibeLabel(item.vibe);
+                                    const tileViewers = viewedByLinkId.get(String(linkId)) || [];
+                                    const isBeingViewed = tileViewers.length > 0;
+                                    const viewerLabel = tileViewers.length === 1
+                                        ? `${tileViewers[0]} is viewing this`
+                                        : `${tileViewers.length} collaborators are viewing this`;
 
                                     return (
                                         <article
                                             key={linkId || item.url}
-                                            className={`bookmark-tile ${item.commentCount > 0 ? 'has-comments' : ''} ${isDecayWindow ? 'is-decaying' : ''}${enrichmentPending ? ' bookmark-tile-pending' : ''}`}
+                                            className={`bookmark-tile ${item.commentCount > 0 ? 'has-comments' : ''} ${isDecayWindow ? 'is-decaying' : ''}${enrichmentPending ? ' bookmark-tile-pending' : ''}${isBeingViewed ? ' is-live-viewed' : ''}`}
                                             style={{
                                                 transform: `scale(${scaleValue})`,
                                                 filter: `saturate(${saturationValue})`,
@@ -1093,6 +1269,7 @@ export const LatticeProjectPage = () => {
                                                 '--vibe-badge-border': vibeTheme.badgeBorder,
                                                 '--vibe-badge-text': vibeTheme.badgeText,
                                             }}
+                                            title={isBeingViewed ? viewerLabel : ''}
                                             role="button"
                                             tabIndex={0}
                                             onClick={() => {
@@ -1118,6 +1295,13 @@ export const LatticeProjectPage = () => {
                                                     </div>
                                                 )}
                                             </div>
+
+                                            {isBeingViewed ? (
+                                                <div className="bookmark-tile-live-viewers" aria-label={viewerLabel}>
+                                                    <span className="bookmark-tile-live-dot" />
+                                                    <span className="bookmark-tile-live-text">{viewerLabel}</span>
+                                                </div>
+                                            ) : null}
 
                                             {item.commentCount > 0 ? (
                                                 <div className="bookmark-tile-comment-badge" aria-label={`${item.commentCount} comments`}>
@@ -1265,6 +1449,8 @@ export const LatticeProjectPage = () => {
                                     projectId={projectId}
                                     projectName={projectName}
                                     projectMembers={projectMembers}
+                                    activeLinkId={String(getLinkKey(selectedLink) || '')}
+                                    roleBasedCalls={true}
                                     onParticipantsChange={setOnlineParticipants}
                                 />
 
@@ -1389,6 +1575,7 @@ export const LatticeProjectPage = () => {
                                 void loadContextFeedForLink(selectedLink, { force: true, ...options });
                             }
                         }}
+                        onCommentsChanged={handleCommentsChanged}
                         onClose={() => setSelectedLink(null)}
                     />
                 ) : null}

@@ -53,11 +53,48 @@
   color: #8e1f1f;
 }
 
+.project-realtime-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.project-realtime-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.project-realtime-badge.is-live {
+  background: #e8f8e9;
+  border-color: #a9ddb0;
+  color: #1f6b2f;
+}
+
+.project-realtime-badge.is-share {
+  background: #e8f1ff;
+  border-color: #b8cdf6;
+  color: #274c93;
+}
+
 .project-realtime-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
+}
+
+.project-realtime-share-status {
+  margin: 10px 0 0;
+  color: #166534;
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
 .project-realtime-actions button {

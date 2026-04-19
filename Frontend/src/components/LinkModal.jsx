@@ -145,7 +145,7 @@ const truncateSummary = (text, maxChars = SUMMARY_PREVIEW_MAX_CHARS) => {
     };
 };
 
-export default function LinkModal({ link, contextFeed, onRefreshContextFeed, onClose }) {
+export default function LinkModal({ link, contextFeed, onRefreshContextFeed, onCommentsChanged, onClose }) {
     const [comments, setComments] = useState([]);
     const [isLoadingComments, setIsLoadingComments] = useState(false);
     const [commentsError, setCommentsError] = useState('');
@@ -230,7 +230,7 @@ export default function LinkModal({ link, contextFeed, onRefreshContextFeed, onC
             setCommentsError('');
 
             try {
-                const payload = await apiRequest(`/comments/links/${linkId}`, {
+                const payload = await apiRequest(`/links/${linkId}/comments`, {
                     method: 'GET',
                 });
 
@@ -321,7 +321,7 @@ export default function LinkModal({ link, contextFeed, onRefreshContextFeed, onC
         setIsSending(true);
 
         try {
-            const payload = await apiRequest(`/comments/links/${linkId}`, {
+            const payload = await apiRequest(`/links/${linkId}/comments`, {
                 method: 'POST',
                 body: JSON.stringify({
                     projectId: link?.projectId,
@@ -336,9 +336,11 @@ export default function LinkModal({ link, contextFeed, onRefreshContextFeed, onC
                 createdAt: created?.createdAt || new Date().toISOString(),
                 user: created?.user,
                 userName: created?.userName,
+                resolved: Boolean(created?.resolved),
             };
 
             setComments((previous) => [...previous, optimisticComment]);
+            onCommentsChanged?.(linkId, payload?.stats || null);
             setCommentText('');
         } catch (error) {
             setCommentsError(error?.message || 'Unable to send comment.');
@@ -349,14 +351,14 @@ export default function LinkModal({ link, contextFeed, onRefreshContextFeed, onC
 
     const toggleResolve = async (comment) => {
         const commentId = comment?._id || comment?.id;
-        if (!commentId || resolvingCommentId) {
+        if (!linkId || !commentId || resolvingCommentId) {
             return;
         }
 
         setResolvingCommentId(commentId);
 
         try {
-            const payload = await apiRequest(`/comments/${commentId}/resolve`, {
+            const payload = await apiRequest(`/links/${linkId}/comments/${commentId}/resolve`, {
                 method: 'PATCH',
                 body: JSON.stringify({
                     projectId: link?.projectId,
@@ -375,6 +377,7 @@ export default function LinkModal({ link, contextFeed, onRefreshContextFeed, onC
                     return updated;
                 }));
             }
+            onCommentsChanged?.(linkId, payload?.stats || null);
         } catch (error) {
             setCommentsError(error?.message || 'Unable to update comment resolution.');
         } finally {

@@ -3,6 +3,40 @@ import Link from "../models/link.js";
 import Project from "../models/project.js";
 import { recordActivity } from "../services/activityLog.service.js";
 
+const buildLinkCommentStats = async (linkId) => {
+    if (!linkId) {
+        return {
+            linkId: null,
+            commentCount: 0,
+            unresolvedCount: 0,
+            latestCommenter: null,
+            latestCommentAt: null,
+        };
+    }
+
+    const [commentCount, unresolvedCount, latestComment] = await Promise.all([
+        Comment.countDocuments({ targetType: "Link", targetId: linkId }),
+        Comment.countDocuments({ targetType: "Link", targetId: linkId, resolved: false }),
+        Comment.findOne({ targetType: "Link", targetId: linkId })
+            .sort({ createdAt: -1 })
+            .populate("userId", "name avatarUrl email"),
+    ]);
+
+    return {
+        linkId,
+        commentCount,
+        unresolvedCount,
+        latestCommenter: latestComment?.userId
+            ? {
+                id: latestComment.userId._id,
+                name: latestComment.userId.name,
+                avatarUrl: latestComment.userId.avatarUrl || null,
+            }
+            : null,
+        latestCommentAt: latestComment?.createdAt || null,
+    };
+};
+
 const normalizeComment = (commentDoc) => ({
     id: commentDoc._id,
     _id: commentDoc._id,
@@ -32,8 +66,8 @@ const normalizeComment = (commentDoc) => ({
 });
 
 const ensureLinkAccess = async ({ userId, linkId }) => {
-    const link = await Link.findById(linkId).select("_id projectId createdBy isActive accessType allowedRoles");
-    if (!link || !link.isActive) {
+    const link = await Link.findById(linkId).select("_id projectId createdBy status deletedAt accessType allowedRoles title url");
+    if (!link || link.status === "dead" || link.deletedAt) {
         return { ok: false, status: 404, message: "Link not found" };
     }
 
@@ -68,10 +102,13 @@ export const listLinkComments = async (req, res, next) => {
             .populate("userId", "name avatarUrl email")
             .populate("resolvedBy", "name avatarUrl email");
 
+        const stats = await buildLinkCommentStats(access.link._id);
+
         return res.status(200).json({
             success: true,
             count: comments.length,
             comments: comments.map(normalizeComment),
+            stats,
         });
     } catch (error) {
         return next(error);
@@ -121,7 +158,13 @@ export const createLinkComment = async (req, res, next) => {
             },
         });
 
-        return res.status(201).json({ success: true, comment: normalizeComment(hydrated) });
+        const stats = await buildLinkCommentStats(access.link._id);
+
+        return res.status(201).json({
+            success: true,
+            comment: normalizeComment(hydrated),
+            stats,
+        });
     } catch (error) {
         return next(error);
     }
@@ -138,8 +181,8 @@ export const toggleLinkCommentResolution = async (req, res, next) => {
             return res.status(404).json({ success: false, message: "Comment not found" });
         }
 
-        const link = await Link.findById(comment.targetId).select("_id projectId isActive title url");
-        if (!link || !link.isActive) {
+        const link = await Link.findById(comment.targetId).select("_id projectId status deletedAt title url");
+        if (!link || link.status === "dead" || link.deletedAt) {
             return res.status(404).json({ success: false, message: "Link not found" });
         }
 
@@ -178,7 +221,13 @@ export const toggleLinkCommentResolution = async (req, res, next) => {
             });
         }
 
-        return res.status(200).json({ success: true, comment: normalizeComment(hydrated) });
+        const stats = await buildLinkCommentStats(link._id);
+
+        return res.status(200).json({
+            success: true,
+            comment: normalizeComment(hydrated),
+            stats,
+        });
     } catch (error) {
         return next(error);
     }

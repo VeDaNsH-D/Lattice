@@ -11,8 +11,19 @@ let embeddingDisabled = !EMBEDDINGS_ENABLED;
 
 const TTS_BASE_URL = process.env.TTS_BASE_URL || AI_BASE_URL;
 const TTS_API_KEY = process.env.TTS_API_KEY || AI_API_KEY;
-const TTS_MODEL = process.env.TTS_MODEL || "playai-tts";
-const TTS_VOICE = process.env.TTS_VOICE || "alloy";
+const TTS_MODEL = process.env.TTS_MODEL || "canopylabs/orpheus-v1-english";
+const ORPHEUS_VOICES = ["autumn", "diana", "hannah", "austin", "daniel", "troy"];
+const TTS_VOICE = process.env.TTS_VOICE || "autumn";
+const TTS_RESPONSE_FORMAT = "wav";
+
+function resolveTtsVoice(voice) {
+    const normalized = String(voice || "").trim().toLowerCase();
+    if (ORPHEUS_VOICES.includes(normalized)) {
+        return normalized;
+    }
+
+    return "autumn";
+}
 
 function assertApiKey(keyName, value) {
     if (!value) {
@@ -226,24 +237,43 @@ export async function generateDailyPulseScript({ projectName, linkCount, summari
 
 export async function synthesizeSpeechToFile({ text, outputFilePath }) {
     assertApiKey("TTS_API_KEY/AI_API_KEY/GROQ_API_KEY", TTS_API_KEY);
+    const requestedVoice = resolveTtsVoice(TTS_VOICE);
 
-    const response = await fetch(`${TTS_BASE_URL}/audio/speech`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${TTS_API_KEY}`
-        },
-        body: JSON.stringify({
-            model: TTS_MODEL,
-            voice: TTS_VOICE,
-            input: text,
-            format: "mp3"
-        })
-    });
+    const sendTtsRequest = async (voice) => {
+        const response = await fetch(`${TTS_BASE_URL}/audio/speech`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${TTS_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: TTS_MODEL,
+                voice,
+                input: text,
+                response_format: TTS_RESPONSE_FORMAT
+            })
+        });
+
+        return response;
+    };
+
+    let response = await sendTtsRequest(requestedVoice);
 
     if (!response.ok) {
         const message = await parseErrorResponse(response);
-        throw new Error(`TTS generation failed: ${response.status} ${message}`);
+        if (
+            response.status === 400
+            && /voice must be one of/i.test(message)
+            && requestedVoice !== "autumn"
+        ) {
+            response = await sendTtsRequest("autumn");
+            if (!response.ok) {
+                const fallbackMessage = await parseErrorResponse(response);
+                throw new Error(`TTS generation failed: ${response.status} ${fallbackMessage}`);
+            }
+        } else {
+            throw new Error(`TTS generation failed: ${response.status} ${message}`);
+        }
     }
 
     const audioBytes = Buffer.from(await response.arrayBuffer());

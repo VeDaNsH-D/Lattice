@@ -1430,6 +1430,21 @@
   gap: 10px;
 }
 
+.project-podcast-select-wrap {
+  position: relative;
+}
+
+.project-podcast-select {
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #1f2937;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .project-role-panel {
   margin-bottom: 16px;
   border: 1px solid rgba(0, 0, 0, 0.05);
@@ -1597,6 +1612,53 @@
   gap: 12px;
   padding: 12px;
   border-radius: 12px;
+.project-podcast-player {
+  margin: -12px 0 28px;
+  padding: 16px 18px;
+  border: 1px solid #dbe3d0;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #fcfdf8 0%, #f6faf1 100%);
+  box-shadow: 0 14px 32px -24px rgba(25, 25, 25, 0.18);
+}
+.project-podcast-player-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.project-podcast-player-head h3 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  color: #24331b;
+}
+.project-podcast-player-head p {
+  margin: 0;
+  color: #5f6f4a;
+  font-size: 0.84rem;
+}
+.project-podcast-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 9px 14px;
+  background: #111827;
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.project-podcast-download:hover {
+  background: #1f2937;
+}
+.project-podcast-audio {
+  width: 100%;
+  display: block;
+}
+.project-podcast-btn {
+  border: 1px solid #c6d6b6;
+}
   background: #f9fafb;
   border: 1px solid transparent;
   text-decoration: none;
@@ -1914,6 +1976,19 @@
     0 18px 40px -28px color-mix(in srgb, var(--vibe-tint) 42%, transparent 58%);
 }
 
+.bookmark-tile.is-live-viewed {
+  border-color: rgba(34, 197, 94, 0.55);
+  box-shadow:
+    0 0 0 2px rgba(34, 197, 94, 0.18),
+    0 16px 30px -20px rgba(22, 163, 74, 0.35);
+}
+
+.bookmark-tile.is-live-viewed:hover {
+  box-shadow:
+    0 0 0 2px rgba(34, 197, 94, 0.24),
+    0 24px 44px -20px rgba(22, 163, 74, 0.42);
+}
+
 .bookmark-tile-pending .bookmark-tile-visual {
   overflow: hidden;
   background: linear-gradient(135deg, #fff7e6 0%, #fef3c7 100%);
@@ -2053,6 +2128,40 @@
   color: #334155;
   font-size: 0.76rem;
   font-weight: 800;
+}
+
+.bookmark-tile-live-viewers {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  max-width: calc(100% - 28px);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(240, 253, 244, 0.94);
+  border: 1px solid rgba(34, 197, 94, 0.36);
+  box-shadow: 0 8px 18px rgba(20, 83, 45, 0.16);
+  z-index: 3;
+}
+
+.bookmark-tile-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.16);
+}
+
+.bookmark-tile-live-text {
+  color: #14532d;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .bookmark-tile-actions {
@@ -2220,7 +2329,7 @@
   margin-top: 2px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 10px;
 }
 
@@ -2228,6 +2337,8 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  margin-left: auto;
+  justify-content: flex-end;
 }
 
 .bookmark-reaction-chip {

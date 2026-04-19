@@ -28,12 +28,14 @@ const StreamTile = ({ label, stream, muted = false }) => {
   );
 };
 
-export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = [], onParticipantsChange }) => {
+export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = [], activeLinkId = '', roleBasedCalls = true, onParticipantsChange }) => {
   const socketRef = useRef(null);
   const peersRef = useRef(new Map());
   const selfIdRef = useRef('');
   const localPreviewRef = useRef(null);
   const activeStreamRef = useRef(null);
+  const resumeCallRef = useRef(typeof window !== 'undefined' && window.sessionStorage.getItem(`lattice:active-meet:${projectId}`) === '1');
+  const isCallActiveRef = useRef(false);
 
   const [username, setUsername] = useState('Guest');
   const [status, setStatus] = useState('connecting');
@@ -46,6 +48,9 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
   const [cameraEnabled, setCameraEnabled] = useState(true);
   const [error, setError] = useState('');
   const [callPermission, setCallPermission] = useState('view_only');
+  const [roomCallActive, setRoomCallActive] = useState(false);
+  const [screenShareOwner, setScreenShareOwner] = useState('');
+  const enforceRoleBasedCalls = roleBasedCalls !== false;
 
   const attachLocalTracks = (peer, stream = localStream) => {
     if (!peer || !stream || peer.localTracksAttached) {
@@ -130,6 +135,14 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
     setMicEnabled(true);
     setCameraEnabled(true);
     setError('');
+    isCallActiveRef.current = false;
+    resumeCallRef.current = false;
+    setRoomCallActive(false);
+    setScreenShareOwner('');
+    window.sessionStorage.removeItem(`lattice:active-meet:${projectId}`);
+
+    socketRef.current?.emit('call:leave', { roomId: projectId });
+    socketRef.current?.emit('screen-share:stop', { roomId: projectId });
   };
 
   const createPeer = (remoteId) => {
@@ -245,7 +258,9 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
       } else if (signal?.type === 'answer') {
         await connection.setRemoteDescription(signal.description);
       } else if (signal?.type === 'candidate' && signal.candidate) {
-        await connection.addIceCandidate(signal.candidate);
+        if (!peer.ignoreOffer) {
+          await connection.addIceCandidate(signal.candidate);
+        }
       }
     } catch (signalError) {
       setError(signalError.message || 'WebRTC signaling failed.');
@@ -259,6 +274,8 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
       try {
         const me = await apiRequest('/auth/me', { method: 'GET' });
         const nextName = me?.user?.name || me?.user?.username || me?.user?.email || 'Guest';
+        const nextUserId = me?.user?.id || me?.user?._id || '';
+        const nextAvatarUrl = me?.user?.avatarUrl || '';
 
         if (!mounted) {
           return;
@@ -290,7 +307,13 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
 
         socket.on('connect', () => {
           setStatus('connected');
-          socket.emit('room:join', { roomId: projectId, username: nextName });
+          socket.emit('room:join', {
+            roomId: projectId,
+            username: nextName,
+            userId: nextUserId,
+            avatarUrl: nextAvatarUrl,
+          });
+
         });
 
         socket.on('connect_error', () => setStatus('offline'));
@@ -299,6 +322,8 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
         socket.on('room:state', (state) => {
           selfIdRef.current = state?.me?.id || '';
           setParticipants(state?.users || []);
+          setRoomCallActive(Boolean(state?.call?.active));
+          setScreenShareOwner(state?.screenShare?.active ? state?.screenShare?.username || 'Collaborator' : '');
         });
 
         socket.on('presence:update', ({ users = [] }) => {
@@ -311,8 +336,29 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
           }
         });
 
+        socket.on('call:state', (payload = {}) => {
+          setRoomCallActive(Boolean(payload?.active));
+          if (!payload?.active) {
+            setScreenShareOwner('');
+            peersRef.current.forEach((_, id) => {
+              cleanupPeer(id);
+            });
+          }
+        });
+
+        socket.on('call:leave', ({ userId }) => {
+          if (userId) {
+            cleanupPeer(userId);
+          }
+        });
+
         socket.on('chat:new', (entry) => {
           setMessages((prev) => [entry, ...prev].slice(0, 80));
+        });
+
+        socket.on('screen-share:state', (payload = {}) => {
+          const ownerName = payload?.active ? payload?.username || 'Collaborator' : '';
+          setScreenShareOwner(ownerName);
         });
 
         socket.on('webrtc:signal', (payload) => {
@@ -328,16 +374,47 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
 
     return () => {
       mounted = false;
+      if (isCallActiveRef.current) {
+        window.sessionStorage.setItem(`lattice:active-meet:${projectId}`, '1');
+      }
       if (socketRef.current) {
         socketRef.current.removeAllListeners();
         socketRef.current.disconnect();
       }
       peersRef.current.forEach((_, id) => cleanupPeer(id));
-      if (localStream) {
-        localStream.getTracks().forEach((track) => track.stop());
+      if (activeStreamRef.current) {
+        activeStreamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  useEffect(() => {
+    resumeCallRef.current = window.sessionStorage.getItem(`lattice:active-meet:${projectId}`) === '1';
+  }, [projectId]);
+
+  useEffect(() => {
+    if (status === 'connected' && callPermission !== 'view_only' && resumeCallRef.current && !isCallActiveRef.current) {
+      void startCall();
+    }
+  }, [callPermission, status]);
+
+  useEffect(() => {
+    const onOpenChat = (event) => {
+      const nextProjectId = event?.detail?.projectId;
+      const nextQuery = event?.detail?.query;
+
+      if (nextProjectId && String(nextProjectId) !== String(projectId)) {
+        return;
+      }
+
+      if (typeof nextQuery === 'string' && nextQuery.trim()) {
+        setInput(nextQuery.trim());
+      }
+    };
+
+    window.addEventListener('lattice:open-chat', onOpenChat);
+    return () => window.removeEventListener('lattice:open-chat', onOpenChat);
   }, [projectId]);
 
   useEffect(() => {
@@ -357,23 +434,6 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
 
     const ids = new Set(participants.map((participant) => participant.id));
 
-    useEffect(() => {
-      const onOpenChat = (event) => {
-        const nextProjectId = event?.detail?.projectId;
-        const nextQuery = event?.detail?.query;
-
-        if (nextProjectId && String(nextProjectId) !== String(projectId)) {
-          return;
-        }
-
-        if (typeof nextQuery === 'string' && nextQuery.trim()) {
-          setInput(nextQuery.trim());
-        }
-      };
-
-      window.addEventListener('lattice:open-chat', onOpenChat);
-      return () => window.removeEventListener('lattice:open-chat', onOpenChat);
-    }, [projectId]);
     Array.from(peersRef.current.keys()).forEach((id) => {
       if (!ids.has(id)) {
         cleanupPeer(id);
@@ -388,15 +448,30 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
     }
   }, [onParticipantsChange, participants]);
 
+  useEffect(() => {
+    if (!socketRef.current || !projectId) {
+      return;
+    }
+
+    socketRef.current.emit('link:view', {
+      roomId: projectId,
+      linkId: activeLinkId || '',
+    });
+  }, [activeLinkId, projectId]);
+
   const startCall = async () => {
     try {
-      if (callPermission === 'view_only') {
+      if (enforceRoleBasedCalls && callPermission === 'view_only') {
         setError('Your role does not allow starting calls.');
         return;
       }
 
       setError('');
+      resumeCallRef.current = true;
+      isCallActiveRef.current = true;
+      window.sessionStorage.setItem(`lattice:active-meet:${projectId}`, '1');
       await ensureMedia();
+      socketRef.current?.emit('call:start', { roomId: projectId });
     } catch (mediaError) {
       setError(mediaError.message || 'Unable to access camera/microphone.');
     }
@@ -438,6 +513,8 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
         localPreviewRef.current.srcObject = shareStream;
       }
       activeStreamRef.current = shareStream;
+      setScreenShareOwner('You');
+      socketRef.current?.emit('screen-share:start', { roomId: projectId });
 
       shareTrack.onended = () => {
         if (!localStream) {
@@ -457,6 +534,8 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
         }
 
         activeStreamRef.current = localStream;
+        setScreenShareOwner('');
+        socketRef.current?.emit('screen-share:stop', { roomId: projectId });
       };
     } catch (shareError) {
       setError(shareError.message || 'Unable to start screen sharing.');
@@ -481,9 +560,10 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
 
   const activeRemoteStreams = Object.entries(remoteStreams).filter(([, stream]) => Boolean(stream));
   const isCallActive = Boolean(localStream);
-  const canStartCall = callPermission !== 'view_only';
+  const canStartCall = !enforceRoleBasedCalls || callPermission !== 'view_only';
   const hasProjectMembers = Array.isArray(projectMembers) && projectMembers.length > 0;
   const participantCount = hasProjectMembers ? projectMembers.length : participants.length;
+  const callAccessLabel = enforceRoleBasedCalls ? callPermission.replace(/_/g, ' ') : 'open';
 
   return (
     <section className="project-realtime-wrap">
@@ -491,9 +571,14 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
         <div>
           <p className="project-realtime-kicker">Collaborative Realtime Room</p>
           <h3>{projectName} Call + Chat</h3>
-          <p className="project-realtime-access-label">Call access: {callPermission.replace(/_/g, ' ')}</p>
+          <p className="project-realtime-access-label">Call access: {callAccessLabel}</p>
         </div>
         <div className={`project-realtime-status status-${status}`}>{status}</div>
+      </div>
+
+      <div className="project-realtime-badges">
+        {isCallActive || roomCallActive ? <span className="project-realtime-badge is-live">Meet live</span> : null}
+        {screenShareOwner ? <span className="project-realtime-badge is-share">Shared screen: {screenShareOwner}</span> : null}
       </div>
 
       <div className="project-realtime-actions">
@@ -510,6 +595,8 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
         <button type="button" onClick={toggleCamera}>{cameraEnabled ? <Video size={15} /> : <VideoOff size={15} />}{cameraEnabled ? 'Camera Off' : 'Camera On'}</button>
         <button type="button" onClick={startShare}><ScreenShare size={15} /> Share Screen</button>
       </div>
+
+      {screenShareOwner ? <p className="project-realtime-share-status">{screenShareOwner} is sharing screen</p> : null}
 
       {error ? <p className="project-realtime-error">{error}</p> : null}
 
