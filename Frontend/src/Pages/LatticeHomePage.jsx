@@ -384,7 +384,7 @@ export const LatticeHomePage = () => {
 
   const [expandedHubs, setExpandedHubs] = useState({});
   const [activePreviewNode, setActivePreviewNode] = useState(null);
-  const [graphViewMode, setGraphViewMode] = useState('3d');
+  const [graphViewMode, setGraphViewMode] = useState('2d');
   const [graphViewport, setGraphViewport] = useState({ width: 0, height: 0 });
   const graphCanvasRef = useRef(null);
 
@@ -773,6 +773,35 @@ export const LatticeHomePage = () => {
     }
   }, []);
 
+  const cacheHeroGraph = useCallback((graph) => {
+    try {
+      window.localStorage.setItem('lattice:hero-graph-cache', JSON.stringify({
+        cachedAt: Date.now(),
+        graph,
+      }));
+    } catch {
+      // Ignore storage failures.
+    }
+  }, []);
+
+  const readHeroGraphCache = useCallback(() => {
+    try {
+      const raw = window.localStorage.getItem('lattice:hero-graph-cache');
+      if (!raw) {
+        return null;
+      }
+
+      const parsed = JSON.parse(raw);
+      if (!parsed?.graph || (Date.now() - Number(parsed.cachedAt || 0)) > 5 * 60 * 1000) {
+        return null;
+      }
+
+      return parsed.graph;
+    } catch {
+      return null;
+    }
+  }, []);
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadProjects();
@@ -850,8 +879,33 @@ export const LatticeHomePage = () => {
   }, [discoverQuery]);
 
   useEffect(() => {
-    void loadHeroGraph();
-  }, [loadHeroGraph]);
+    const cachedGraph = readHeroGraphCache();
+    if (cachedGraph) {
+      setHeroGraphData(cachedGraph);
+    }
+
+    const scheduleLoad = () => {
+      void loadHeroGraph({ silent: Boolean(cachedGraph) });
+    };
+
+    const idleCallback = window.requestIdleCallback
+      ? window.requestIdleCallback(scheduleLoad, { timeout: 800 })
+      : window.setTimeout(scheduleLoad, 180);
+
+    return () => {
+      if (typeof window.cancelIdleCallback === 'function' && typeof idleCallback === 'number') {
+        window.cancelIdleCallback(idleCallback);
+      } else {
+        window.clearTimeout(idleCallback);
+      }
+    };
+  }, [loadHeroGraph, readHeroGraphCache]);
+
+  useEffect(() => {
+    if (heroGraph.nodes.length > 0) {
+      cacheHeroGraph(heroGraph);
+    }
+  }, [cacheHeroGraph, heroGraph]);
 
   const handleForkPublicProject = async (project) => {
     const projectId = project?.id;

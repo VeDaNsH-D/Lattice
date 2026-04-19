@@ -11,6 +11,44 @@ const DEFAULT_EMBEDDING_DIMENSION = 64;
 const SIMILARITY_THRESHOLD = 0.75;
 const RELATED_NODE_LIMIT = 5;
 const ROOT_NODE_TITLE = "Knowledge Root";
+const GRAPH_SNAPSHOT_TTL_MS = 30_000;
+
+const graphSnapshotCache = new Map();
+
+const getGraphCacheKey = (type, scopeId) => `${type}:${String(scopeId || "global")}`;
+
+const readGraphSnapshotCache = (type, scopeId) => {
+    const cacheKey = getGraphCacheKey(type, scopeId);
+    const cached = graphSnapshotCache.get(cacheKey);
+
+    if (!cached) {
+        return null;
+    }
+
+    if (Date.now() - cached.cachedAt > GRAPH_SNAPSHOT_TTL_MS) {
+        graphSnapshotCache.delete(cacheKey);
+        return null;
+    }
+
+    return cached.data;
+};
+
+const writeGraphSnapshotCache = (type, scopeId, data) => {
+    graphSnapshotCache.set(getGraphCacheKey(type, scopeId), {
+        cachedAt: Date.now(),
+        data,
+    });
+};
+
+export const invalidateGraphSnapshotCache = (scopeId = null) => {
+    if (!scopeId) {
+        graphSnapshotCache.clear();
+        return;
+    }
+
+    graphSnapshotCache.delete(getGraphCacheKey("global", scopeId));
+    graphSnapshotCache.delete(getGraphCacheKey("project", scopeId));
+};
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
@@ -444,7 +482,7 @@ const ensureRootNode = async (latticeId) => {
                 embedding: [],
             },
         },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
     );
 };
 
@@ -469,7 +507,7 @@ const ensureHubNode = async (latticeId, parentHub) => {
                 embedding: [],
             },
         },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
     );
 };
 
@@ -557,7 +595,7 @@ export const buildGraphNode = async (newNode) => {
     const savedNode = await LatticeNode.findOneAndUpdate(
         uniqueFilter,
         { $set: nodePayload },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
     );
 
     const createdEdges = [];
@@ -590,6 +628,8 @@ export const buildGraphNode = async (newNode) => {
     await updateNodeImportance(hubNode);
     await updateNodeImportance(rootNode);
 
+    invalidateGraphSnapshotCache(newNode.latticeId);
+
     return {
         node: savedNode,
         relatedNodes: similarNodes,
@@ -598,6 +638,11 @@ export const buildGraphNode = async (newNode) => {
 };
 
 export const getGraphSnapshot = async (latticeId) => {
+    const cachedSnapshot = readGraphSnapshotCache("project", latticeId);
+    if (cachedSnapshot) {
+        return cachedSnapshot;
+    }
+
     let [nodes, edges] = await Promise.all([
         LatticeNode.find({ latticeId }).sort({ createdAt: -1 }).lean(),
         LatticeEdge.find({ latticeId }).sort({ weight: -1 }).lean(),
@@ -611,10 +656,17 @@ export const getGraphSnapshot = async (latticeId) => {
         ]);
     }
 
-    return { nodes, edges };
+    const snapshot = { nodes, edges };
+    writeGraphSnapshotCache("project", latticeId, snapshot);
+    return snapshot;
 };
 
 export const getGlobalGraphSnapshot = async (userId) => {
+    const cachedSnapshot = readGraphSnapshotCache("global", userId);
+    if (cachedSnapshot) {
+        return cachedSnapshot;
+    }
+
     const projects = await Project.find({
         isActive: true,
         $or: [{ createdBy: userId }, { members: userId }],
@@ -631,7 +683,9 @@ export const getGlobalGraphSnapshot = async (userId) => {
         LatticeEdge.find({ latticeId: { $in: latticeIds } }).sort({ weight: -1 }).lean(),
     ]);
 
-    return { nodes, edges };
+    const snapshot = { nodes, edges };
+    writeGraphSnapshotCache("global", userId, snapshot);
+    return snapshot;
 };
 
 export const getRelatedNodes = async (nodeId) => {
@@ -723,11 +777,13 @@ export const decayNodes = async ({ cutoffDays = 14, archiveDays = 30 } = {}) => 
     }
 
     await Promise.all(updates);
+    invalidateGraphSnapshotCache();
 
     return { updated: updates.length };
 };
 
 export const cleanupEdges = async ({ threshold = 0.25 } = {}) => {
     const result = await LatticeEdge.deleteMany({ weight: { $lt: threshold } });
+    invalidateGraphSnapshotCache();
     return { removed: result.deletedCount || 0 };
 };
