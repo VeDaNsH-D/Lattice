@@ -22,7 +22,8 @@ import ProjectBookmarkImport from '../components/ProjectBookmarkImport';
 import LinkModal from '../components/LinkModal';
 import { API_BASE_URL, apiRequest } from '../utils/api';
 import { markLinkViewed } from '../services/latticeApi';
-import { formatVibeLabel, getVibeTheme } from '../utils/vibeTheme';
+import { formatVibeLabel } from '../utils/vibeTheme';
+import { vibeStyles } from '../utils/vibeStyles';
 import './LatticePages.css';
 
 const BOOKMARK_SIGNAL_KEY = 'bookmarkSaveSignal';
@@ -995,7 +996,7 @@ export const LatticeProjectPage = () => {
                                 <h3>{podcastHours}h Project Podcast</h3>
                                 <p>Playable and downloadable MP3 for the latest project changes.</p>
                             </div>
-                                    <a className="project-podcast-download" href={podcastAudioUrl} download={`${projectName || 'project'}-${podcastHours}h-podcast.wav`}>
+                            <a className="project-podcast-download" href={podcastAudioUrl} download={`${projectName || 'project'}-${podcastHours}h-podcast.wav`}>
                                 Download WAV
                             </a>
                         </div>
@@ -1244,7 +1245,10 @@ export const LatticeProjectPage = () => {
                                     const sinceMinor = Number(timelineMeta?.sinceLastSeen?.minor || 0);
                                     const hasSinceLastSeen = sinceMajor > 0 || sinceMinor > 0;
                                     const trend = timelineMeta?.insights?.trend || 'stable';
-                                    const vibeTheme = getVibeTheme(item.vibe);
+                                    const vibeKey = String(item.vibe || 'neutral').trim().toLowerCase().replace(/[-\s]+/g, '_');
+                                    const vibeVisual = vibeStyles[vibeKey] || vibeStyles.neutral;
+                                    const isDarkVibe = ['chaotic', 'cursed'].includes(vibeKey);
+                                    const isEnergeticVibe = vibeKey === 'chaotic' || vibeKey === 'cursed';
                                     const vibeLabel = formatVibeLabel(item.vibe);
                                     const tileViewers = viewedByLinkId.get(String(linkId)) || [];
                                     const isBeingViewed = tileViewers.length > 0;
@@ -1255,19 +1259,10 @@ export const LatticeProjectPage = () => {
                                     return (
                                         <article
                                             key={linkId || item.url}
-                                            className={`bookmark-tile ${item.commentCount > 0 ? 'has-comments' : ''} ${isDecayWindow ? 'is-decaying' : ''}${enrichmentPending ? ' bookmark-tile-pending' : ''}${isBeingViewed ? ' is-live-viewed' : ''}`}
+                                            className={`bookmark-tile ${item.commentCount > 0 ? 'has-comments' : ''} ${isDecayWindow ? 'is-decaying' : ''}${enrichmentPending ? ' bookmark-tile-pending' : ''}${isBeingViewed ? ' is-live-viewed' : ''} relative overflow-hidden rounded-2xl p-[2px] shadow-md transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_60px_rgba(0,0,0,0.3)]`}
                                             style={{
-                                                transform: `scale(${scaleValue})`,
+                                                '--tile-scale': scaleValue,
                                                 filter: `saturate(${saturationValue})`,
-                                                '--vibe-bg-start': vibeTheme.start,
-                                                '--vibe-bg-mid': vibeTheme.mid,
-                                                '--vibe-bg-end': vibeTheme.end,
-                                                '--vibe-glow': vibeTheme.glow,
-                                                '--vibe-tint': vibeTheme.tint,
-                                                '--vibe-card-tint': vibeTheme.cardTint,
-                                                '--vibe-badge-bg': vibeTheme.badgeBg,
-                                                '--vibe-badge-border': vibeTheme.badgeBorder,
-                                                '--vibe-badge-text': vibeTheme.badgeText,
                                             }}
                                             title={isBeingViewed ? viewerLabel : ''}
                                             role="button"
@@ -1285,155 +1280,180 @@ export const LatticeProjectPage = () => {
                                             }}
                                             aria-label={`Open details for ${title}`}
                                         >
-                                            <div className="bookmark-tile-visual" aria-hidden="true">
-                                                {item.image ? (
-                                                    <img src={item.image} alt={title} loading="lazy" />
-                                                ) : (
-                                                    <div className="bookmark-tile-placeholder">
-                                                        <ImageOff size={18} />
-                                                        <span>No preview</span>
+                                            <div
+                                                className={`relative flex h-full min-h-[380px] flex-col overflow-hidden rounded-2xl ${vibeVisual.className} ${isEnergeticVibe ? 'animate-[pulseGlow_3s_infinite]' : ''}`}
+                                                style={{ backgroundImage: vibeVisual.backgroundImage }}
+                                            >
+                                                <div
+                                                    className="absolute inset-0 z-0"
+                                                    style={{
+                                                        backgroundImage: vibeVisual.backgroundImage,
+                                                        backgroundSize: '100% 100%',
+                                                        backgroundRepeat: 'no-repeat'
+                                                    }}
+                                                    aria-hidden="true"
+                                                />
+                                                <div className="bookmark-tile-visual relative z-10 overflow-hidden" aria-hidden="true">
+                                                    {item.image ? (
+                                                        <img src={item.image} alt={title} loading="lazy" />
+                                                    ) : (
+                                                        <div className="bookmark-tile-placeholder">
+                                                            <ImageOff size={18} />
+                                                            <span>No preview</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {isBeingViewed ? (
+                                                    <div className="bookmark-tile-live-viewers" aria-label={viewerLabel}>
+                                                        <span className="bookmark-tile-live-dot" />
+                                                        <span className="bookmark-tile-live-text">{viewerLabel}</span>
                                                     </div>
-                                                )}
-                                            </div>
+                                                ) : null}
 
-                                            {isBeingViewed ? (
-                                                <div className="bookmark-tile-live-viewers" aria-label={viewerLabel}>
-                                                    <span className="bookmark-tile-live-dot" />
-                                                    <span className="bookmark-tile-live-text">{viewerLabel}</span>
-                                                </div>
-                                            ) : null}
-
-                                            {item.commentCount > 0 ? (
-                                                <div className="bookmark-tile-comment-badge" aria-label={`${item.commentCount} comments`}>
-                                                    <span className="bookmark-tile-comment-avatar">
-                                                        {item.latestCommenter?.avatarUrl ? (
-                                                            <img src={item.latestCommenter.avatarUrl} alt={item.latestCommenter.name || 'Commenter'} />
-                                                        ) : (
-                                                            <MessageCircle size={13} />
-                                                        )}
-                                                    </span>
-                                                    <span className="bookmark-tile-comment-count">{item.commentCount}</span>
-                                                </div>
-                                            ) : null}
-
-                                            <div className="bookmark-tile-body">
-                                                <div className="bookmark-tile-actions">
-                                                    <div className="bookmark-tile-statuses">
-                                                        <span className="bookmark-status-badge bookmark-status-badge-vibe">
-                                                            {vibeLabel}
+                                                {item.commentCount > 0 ? (
+                                                    <div className="bookmark-tile-comment-badge" aria-label={`${item.commentCount} comments`}>
+                                                        <span className="bookmark-tile-comment-avatar">
+                                                            {item.latestCommenter?.avatarUrl ? (
+                                                                <img src={item.latestCommenter.avatarUrl} alt={item.latestCommenter.name || 'Commenter'} />
+                                                            ) : (
+                                                                <MessageCircle size={13} />
+                                                            )}
                                                         </span>
-                                                        {enrichmentPending ? (
-                                                            <span className="bookmark-status-badge bookmark-status-badge-pending">
-                                                                Enrichment pending
-                                                            </span>
-                                                        ) : null}
-                                                        {!enrichmentPending && hasSinceLastSeen ? (
-                                                            <span className="bookmark-status-badge bookmark-status-badge-since">
-                                                                Since seen: {sinceMajor ? `${sinceMajor} major` : ''}{sinceMajor && sinceMinor ? ' • ' : ''}{sinceMinor ? `${sinceMinor} minor` : ''}
-                                                            </span>
-                                                        ) : null}
-                                                        {!enrichmentPending && !hasSinceLastSeen ? (
-                                                            <span className={`bookmark-status-badge ${getTrendClassName(trend)}`}>
-                                                                {normalizeTrendLabel(trend)}
-                                                            </span>
-                                                        ) : null}
+                                                        <span className="bookmark-tile-comment-count">{item.commentCount}</span>
                                                     </div>
-                                                    <button
-                                                        type="button"
-                                                        className="bookmark-tile-delete"
+                                                ) : null}
+
+                                                <div
+                                                    className={`bookmark-tile-body relative z-10 m-3 rounded-xl border p-3 shadow-sm backdrop-blur-md ${isDarkVibe ? 'border-white/25 text-white' : 'border-white/30 text-gray-900'}`}
+                                                    style={{ backgroundColor: isDarkVibe ? 'rgba(15, 23, 42, 0.18)' : 'rgba(255, 255, 255, 0.08)' }}
+                                                >
+                                                    <div className="bookmark-tile-actions">
+                                                        <div className="bookmark-tile-statuses">
+                                                            <span
+                                                                className="bookmark-status-badge bookmark-status-badge-vibe"
+                                                                style={{
+                                                                    background: vibeVisual?.pill?.backgroundColor,
+                                                                    borderColor: vibeVisual?.pill?.borderColor,
+                                                                    color: vibeVisual?.pill?.color
+                                                                }}
+                                                            >
+                                                                {vibeLabel}
+                                                            </span>
+                                                            {enrichmentPending ? (
+                                                                <span className="bookmark-status-badge bookmark-status-badge-pending">
+                                                                    Enrichment pending
+                                                                </span>
+                                                            ) : null}
+                                                            {!enrichmentPending && hasSinceLastSeen ? (
+                                                                <span className="bookmark-status-badge bookmark-status-badge-since">
+                                                                    Since seen: {sinceMajor ? `${sinceMajor} major` : ''}{sinceMajor && sinceMinor ? ' • ' : ''}{sinceMinor ? `${sinceMinor} minor` : ''}
+                                                                </span>
+                                                            ) : null}
+                                                            {!enrichmentPending && !hasSinceLastSeen ? (
+                                                                <span className={`bookmark-status-badge ${getTrendClassName(trend)}`}>
+                                                                    {normalizeTrendLabel(trend)}
+                                                                </span>
+                                                            ) : null}
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            className="bookmark-tile-delete"
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                onDeleteLink(linkId);
+                                                            }}
+                                                            disabled={!linkId || deletingLinkId === linkId}
+                                                            aria-label="Delete bookmark"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                            {deletingLinkId === linkId ? 'Deleting...' : 'Delete'}
+                                                        </button>
+                                                    </div>
+                                                    <h3 className={isDarkVibe ? '!text-white' : '!text-gray-900'} title={title}>{title}</h3>
+                                                    <p className={`bookmark-tile-summary ${isDarkVibe ? '!text-white/90' : '!text-gray-700'}`}>{summary}</p>
+                                                    <p className={`bookmark-tile-dates ${isDarkVibe ? '!text-white/80' : '!text-gray-600'}`}>
+                                                        Last viewed: {formatDate(item.lastViewedAt)} • Last modified: {formatDate(item.lastModifiedAt)}
+                                                    </p>
+                                                    <a
+                                                        href={item.url}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className={`bookmark-tile-link ${isDarkVibe ? '!text-white' : '!text-gray-900'}`}
                                                         onClick={(event) => {
                                                             event.stopPropagation();
-                                                            onDeleteLink(linkId);
+                                                            void onLinkOpened(linkId);
                                                         }}
-                                                        disabled={!linkId || deletingLinkId === linkId}
-                                                        aria-label="Delete bookmark"
                                                     >
-                                                        <Trash2 size={14} />
-                                                        {deletingLinkId === linkId ? 'Deleting...' : 'Delete'}
-                                                    </button>
-                                                </div>
-                                                <h3 title={title}>{title}</h3>
-                                                <p className="bookmark-tile-summary">{summary}</p>
-                                                <p className="bookmark-tile-dates">
-                                                    Last viewed: {formatDate(item.lastViewedAt)} • Last modified: {formatDate(item.lastModifiedAt)}
-                                                </p>
-                                                <a
-                                                    href={item.url}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="bookmark-tile-link"
-                                                    onClick={(event) => {
-                                                        event.stopPropagation();
-                                                        void onLinkOpened(linkId);
-                                                    }}
-                                                >
-                                                    Visit source
-                                                    <ExternalLink size={14} />
-                                                </a>
+                                                        Visit source
+                                                        <ExternalLink size={14} />
+                                                    </a>
 
-                                                {isCollaborativeProject ? (
-                                                    <div className="bookmark-tile-reactions-wrap">
-                                                        <div className="bookmark-tile-reactions">
-                                                            {reactions.map((reaction) => {
-                                                                const count = Array.isArray(reaction.users) ? reaction.users.length : 0;
+                                                    {isCollaborativeProject ? (
+                                                        <div className="bookmark-tile-reactions-wrap">
+                                                            <div className="bookmark-tile-reactions">
+                                                                {reactions.map((reaction) => {
+                                                                    const count = Array.isArray(reaction.users) ? reaction.users.length : 0;
 
-                                                                if (!count) {
-                                                                    return null;
-                                                                }
+                                                                    if (!count) {
+                                                                        return null;
+                                                                    }
 
-                                                                return (
-                                                                    <button
-                                                                        key={`${linkId}-${reaction.emoji}`}
-                                                                        type="button"
-                                                                        className="bookmark-reaction-chip"
-                                                                        onClick={(event) => {
-                                                                            event.stopPropagation();
-                                                                            onReactToLink(linkId, reaction.emoji);
-                                                                        }}
-                                                                        disabled={reactingLinkId === linkId}
-                                                                    >
-                                                                        <span>{reaction.emoji}</span>
-                                                                        <span>{count}</span>
-                                                                    </button>
-                                                                );
-                                                            })}
-                                                        </div>
-
-                                                        <div className="bookmark-reaction-picker-wrap">
-                                                            <button
-                                                                type="button"
-                                                                className="bookmark-reaction-add"
-                                                                onClick={(event) => {
-                                                                    event.stopPropagation();
-                                                                    setReactionPickerLinkId((previous) => (previous === linkId ? '' : linkId));
-                                                                }}
-                                                                disabled={reactingLinkId === linkId}
-                                                                aria-label="Add emoji reaction"
-                                                            >
-                                                                <SmilePlus size={14} />
-                                                            </button>
-
-                                                            {reactionPickerLinkId === linkId ? (
-                                                                <div className="bookmark-reaction-popover">
-                                                                    {reactionOptions.map((emoji) => (
+                                                                    return (
                                                                         <button
-                                                                            key={`${linkId}-${emoji}`}
+                                                                            key={`${linkId}-${reaction.emoji}`}
                                                                             type="button"
-                                                                            className="bookmark-reaction-option"
+                                                                            className="bookmark-reaction-chip"
                                                                             onClick={(event) => {
                                                                                 event.stopPropagation();
-                                                                                onReactToLink(linkId, emoji);
+                                                                                onReactToLink(linkId, reaction.emoji);
                                                                             }}
                                                                             disabled={reactingLinkId === linkId}
                                                                         >
-                                                                            {emoji}
+                                                                            <span>{reaction.emoji}</span>
+                                                                            <span>{count}</span>
                                                                         </button>
-                                                                    ))}
-                                                                </div>
-                                                            ) : null}
+                                                                    );
+                                                                })}
+                                                            </div>
+
+                                                            <div className="bookmark-reaction-picker-wrap">
+                                                                <button
+                                                                    type="button"
+                                                                    className="bookmark-reaction-add"
+                                                                    onClick={(event) => {
+                                                                        event.stopPropagation();
+                                                                        setReactionPickerLinkId((previous) => (previous === linkId ? '' : linkId));
+                                                                    }}
+                                                                    disabled={reactingLinkId === linkId}
+                                                                    aria-label="Add emoji reaction"
+                                                                >
+                                                                    <SmilePlus size={14} />
+                                                                </button>
+
+                                                                {reactionPickerLinkId === linkId ? (
+                                                                    <div className="bookmark-reaction-popover">
+                                                                        {reactionOptions.map((emoji) => (
+                                                                            <button
+                                                                                key={`${linkId}-${emoji}`}
+                                                                                type="button"
+                                                                                className="bookmark-reaction-option"
+                                                                                onClick={(event) => {
+                                                                                    event.stopPropagation();
+                                                                                    setReactionPickerLinkId('');
+                                                                                    onReactToLink(linkId, emoji);
+                                                                                }}
+                                                                                disabled={reactingLinkId === linkId}
+                                                                            >
+                                                                                {emoji}
+                                                                            </button>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : null}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ) : null}
+                                                    ) : null}
+                                                </div>
                                             </div>
                                         </article>
                                     );

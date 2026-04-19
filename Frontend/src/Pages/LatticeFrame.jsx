@@ -110,33 +110,33 @@ export const LatticeFrame = ({ children }) => {
     const intervalId = window.setInterval(() => {
       void syncUnreadActivity();
     }, 15000);
-              <div className="user-menu-wrap" ref={userMenuWrapRef}>
-                <button
-                  className="user-avatar user-avatar-button"
-                  onClick={() => setIsUserMenuOpen((previous) => !previous)}
-                  aria-label="User menu"
-                  aria-expanded={isUserMenuOpen}
-                >
-                  {userAvatarUrl ? (
-                    <img src={userAvatarUrl} alt="User profile" className="user-avatar-image" />
-                  ) : (
-                    <CircleUserRound size={20} strokeWidth={1.8} />
-                  )}
-                </button>
-                {isUserMenuOpen && (
-                  <div className="user-menu-dropdown">
-                    {userProfileId && (
-                      <Link to={`/profile/${userProfileId}`} className="user-menu-item" onClick={() => setIsUserMenuOpen(false)}>
-                        Profile
-                      </Link>
-                    )}
-                    <button className="user-menu-item user-menu-logout" onClick={handleLogout}>
-                      <LogOut size={14} />
-                      Logout
-                    </button>
-                  </div>
-                )}
-              </div>
+    <div className="user-menu-wrap" ref={userMenuWrapRef}>
+      <button
+        className="user-avatar user-avatar-button"
+        onClick={() => setIsUserMenuOpen((previous) => !previous)}
+        aria-label="User menu"
+        aria-expanded={isUserMenuOpen}
+      >
+        {userAvatarUrl ? (
+          <img src={userAvatarUrl} alt="User profile" className="user-avatar-image" />
+        ) : (
+          <CircleUserRound size={20} strokeWidth={1.8} />
+        )}
+      </button>
+      {isUserMenuOpen && (
+        <div className="user-menu-dropdown">
+          {userProfileId && (
+            <Link to={`/profile/${userProfileId}`} className="user-menu-item" onClick={() => setIsUserMenuOpen(false)}>
+              Profile
+            </Link>
+          )}
+          <button className="user-menu-item user-menu-logout" onClick={handleLogout}>
+            <LogOut size={14} />
+            Logout
+          </button>
+        </div>
+      )}
+    </div>
 
     const onSeen = () => {
       if (isMounted) {
@@ -277,7 +277,7 @@ export const LatticeFrame = ({ children }) => {
               <Command size={22} strokeWidth={2.4} />
               <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, letterSpacing: '-0.025em', fontFamily: 'var(--font-display)' }}>LATTICE</h2>
             </div>
-            
+
             <nav className="topbar-nav-list" style={{ display: 'flex', gap: '6px' }}>
               {navItems.map((item) => (
                 <NavLink

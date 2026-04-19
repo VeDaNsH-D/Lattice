@@ -41,6 +41,11 @@ const configuredOrigins = (process.env.FRONTEND_ORIGINS || frontendUrl)
     .map((origin) => origin.trim().replace(/\/+$/, ""))
     .filter(Boolean);
 const allowedOrigins = Array.from(new Set([...configuredOrigins, frontendUrl]));
+const sessionSecret = process.env.SESSION_SECRET || process.env.JWT_SECRET || "lattice-local-session-secret";
+
+if (!process.env.SESSION_SECRET && !process.env.JWT_SECRET) {
+    console.warn("SESSION_SECRET and JWT_SECRET are missing. Using a local fallback session secret.");
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -77,7 +82,7 @@ app.use(express.json());
 app.use("/media", express.static(path.join(process.cwd(), "generated")));
 app.use(
     session({
-        secret: process.env.SESSION_SECRET || process.env.JWT_SECRET,
+        secret: sessionSecret,
         resave: false,
         saveUninitialized: false
     })

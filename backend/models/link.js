@@ -23,7 +23,7 @@ const linkSchema = new mongoose.Schema(
         vibe: {
             type: String,
             enum: VIBE_TYPES,
-            default: "general",
+            default: "neutral",
             set: (value) => normalizeVibe(value)
         },
         parentHub: String,    // AI category cluster like "Tech", "Educational"
