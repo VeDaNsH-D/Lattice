@@ -60,6 +60,27 @@
   margin-top: 10px;
 }
 
+.project-realtime-network-note {
+  margin: 10px 0 0;
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.project-realtime-network-note.has-turn {
+  background: #eef8ee;
+  color: #1f5e2a;
+  border: 1px solid #c7e3ca;
+}
+
+.project-realtime-network-note.needs-turn {
+  background: #fff6e8;
+  color: #8c5200;
+  border: 1px solid #f0d2a0;
+}
+
 .project-realtime-badge {
   display: inline-flex;
   align-items: center;

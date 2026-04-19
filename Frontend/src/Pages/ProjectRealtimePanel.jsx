@@ -6,24 +6,47 @@ import './ProjectRealtimePanel.css';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:8000';
 
-const getIceServers = () => {
+const DEFAULT_ICE_SERVERS = [
+  { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+  {
+    urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turns:openrelay.metered.ca:443'],
+    username: 'openrelayproject',
+    credential: 'openrelayproject',
+  },
+];
+
+const hasTurnServer = (servers) => Array.isArray(servers) && servers.some((entry) => {
+  const urls = Array.isArray(entry?.urls) ? entry.urls : [entry?.urls];
+  return urls.some((url) => typeof url === 'string' && url.startsWith('turn'));
+});
+
+const getIceConfig = () => {
   const rawIceServers = import.meta.env.VITE_ICE_SERVERS;
 
   if (rawIceServers) {
     try {
       const parsed = JSON.parse(rawIceServers);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        return {
+          servers: parsed,
+          hasTurn: hasTurnServer(parsed),
+          source: 'env',
+        };
       }
     } catch {
       // Fallback to default STUN list when env JSON is invalid.
     }
   }
 
-  return [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
+  return {
+    servers: DEFAULT_ICE_SERVERS,
+    hasTurn: true,
+    source: 'fallback',
+  };
 };
 
-const ICE_SERVERS = getIceServers();
+const ICE_CONFIG = getIceConfig();
+const ICE_SERVERS = ICE_CONFIG.servers;
 
 const StreamTile = ({ label, stream, muted = false }) => {
   const ref = useRef(null);
@@ -605,6 +628,11 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
   const hasProjectMembers = Array.isArray(projectMembers) && projectMembers.length > 0;
   const participantCount = hasProjectMembers ? projectMembers.length : participants.length;
   const callAccessLabel = enforceRoleBasedCalls ? callPermission.replace(/_/g, ' ') : 'open';
+  const networkNote = ICE_CONFIG.source === 'env'
+    ? ICE_CONFIG.hasTurn
+      ? 'TURN relay configured for cross-network calling.'
+      : 'ICE servers are set, but no TURN relay is present. Cross-network calls may fail.'
+    : 'Using the built-in TURN fallback. Add VITE_ICE_SERVERS for your own relay in production.';
 
   return (
     <section className="project-realtime-wrap">
@@ -621,6 +649,10 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
         {isCallActive || roomCallActive ? <span className="project-realtime-badge is-live">Meet live</span> : null}
         {screenShareOwner ? <span className="project-realtime-badge is-share">Shared screen: {screenShareOwner}</span> : null}
       </div>
+
+      <p className={`project-realtime-network-note ${ICE_CONFIG.hasTurn ? 'has-turn' : 'needs-turn'}`}>
+        {networkNote}
+      </p>
 
       <div className="project-realtime-actions">
         <button

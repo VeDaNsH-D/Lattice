@@ -1978,6 +1978,8 @@
 
 .bookmark-tile.is-live-viewed {
   border-color: rgba(34, 197, 94, 0.55);
+  outline: 2px solid rgba(34, 197, 94, 0.18);
+  outline-offset: 2px;
   box-shadow:
     0 0 0 2px rgba(34, 197, 94, 0.18),
     0 16px 30px -20px rgba(22, 163, 74, 0.35);
@@ -1987,6 +1989,12 @@
   box-shadow:
     0 0 0 2px rgba(34, 197, 94, 0.24),
     0 24px 44px -20px rgba(22, 163, 74, 0.42);
+}
+
+.bookmark-tile.is-live-viewed .bookmark-tile-visual {
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 197, 94, 0.16),
+    0 0 0 1px rgba(34, 197, 94, 0.12);
 }
 
 .bookmark-tile-pending .bookmark-tile-visual {
