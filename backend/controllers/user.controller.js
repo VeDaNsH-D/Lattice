@@ -13,6 +13,15 @@ const VIBE_ROLE_LABELS = {
     general: "Explorer",
 };
 
+const VIBE_TIE_BREAK_ORDER = [
+    "high-signal",
+    "educational",
+    "motivational",
+    "chaotic",
+    "cursed",
+    "general",
+];
+
 const buildProfileRole = (vibes = []) => {
     const counts = new Map();
 
@@ -34,7 +43,8 @@ const buildProfileRole = (vibes = []) => {
     let dominantVibe = "general";
     let dominantCount = 0;
 
-    for (const [vibe, count] of counts.entries()) {
+    for (const vibe of VIBE_TIE_BREAK_ORDER) {
+        const count = counts.get(vibe) || 0;
         if (count > dominantCount) {
             dominantVibe = vibe;
             dominantCount = count;
@@ -79,7 +89,6 @@ export const getUserProfile = async (req, res, next) => {
         const bookmarks = latticeIds.length > 0
             ? await Link.find({
                 projectId: { $in: latticeIds },
-                createdBy: userId,
                 deletedAt: null,
             })
                 .select("vibe projectId")
