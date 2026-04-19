@@ -273,10 +273,10 @@ export const LatticeFrame = ({ children }) => {
       <main className="lattice-main-content">
         <header className="main-topbar">
           <div className="topbar-left" style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
-            <div className="topbar-brand" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#111827' }}>
+            <Link to="/" className="topbar-brand" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#111827', textDecoration: 'none' }} aria-label="Go to landing page">
               <Command size={22} strokeWidth={2.4} />
               <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, letterSpacing: '-0.025em', fontFamily: 'var(--font-display)' }}>LATTICE</h2>
-            </div>
+            </Link>
 
             <nav className="topbar-nav-list" style={{ display: 'flex', gap: '6px' }}>
               {navItems.map((item) => (
@@ -339,6 +339,9 @@ export const LatticeFrame = ({ children }) => {
                 )}
               </div>
             )}
+            <button type="button" className="action-circle topbar-logout-btn" onClick={handleLogout} aria-label="Logout">
+              <LogOut size={18} />
+            </button>
           </div>
         </header>
 

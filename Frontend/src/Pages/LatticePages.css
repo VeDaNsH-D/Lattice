@@ -308,6 +308,16 @@
   background: #f8fafc;
 }
 
+.topbar-logout-btn {
+  color: #b91c1c;
+}
+
+.topbar-logout-btn:hover {
+  color: #991b1b;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
 .notification-dropdown {
   position: absolute;
   top: calc(100% + 12px);
