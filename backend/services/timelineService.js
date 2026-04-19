@@ -8,6 +8,10 @@ import { generateSummary } from "./summaryService.js";
 
 const MOCK_LINK_URL = "https://en.wikipedia.org/wiki/Artificial_intelligence";
 const MOCK_LINK_TITLE = "Test Link";
+const EMPTY_WORLD_CONTEXT_MARKERS = new Set([
+    "no additional context available",
+    "no context available",
+]);
 
 function mapLink(linkDoc) {
     if (!linkDoc) {
@@ -37,6 +41,7 @@ function mapSnapshot(snapshotDoc) {
         context_summary: snapshotDoc.context_summary || "",
         summary_engine: snapshotDoc.summary_engine || "legacy",
         change_level: snapshotDoc.change_level,
+        change_source: snapshotDoc.change_source || "page",
     };
 }
 
@@ -65,6 +70,17 @@ function compactSignalText(value, maxChars = 320) {
     }
 
     return `${cleaned.slice(0, maxChars - 3).trim()}...`;
+}
+
+function sanitizeWorldContext(value) {
+    const normalized = compactSignalText(value || "", 500);
+    const lowered = normalized.toLowerCase();
+
+    if (!normalized || EMPTY_WORLD_CONTEXT_MARKERS.has(lowered)) {
+        return "";
+    }
+
+    return normalized;
 }
 
 function extractKeywordFromUrl(url) {
@@ -192,7 +208,7 @@ export async function createSnapshot(link = null) {
     }
 
     const fullPageSignal = pageContent || mappedLink.title || mappedLink.url;
-    const fullContextSignal = searchContext || "";
+    const fullContextSignal = sanitizeWorldContext(searchContext);
     const pageSummaryInput = compactSignalText(fullPageSignal);
     const contextSummaryInput = compactSignalText(fullContextSignal);
 
@@ -228,6 +244,7 @@ export async function createSnapshot(link = null) {
         context_summary: contextSummaryInput,
         summary_engine: "overtime",
         change_level: change.level,
+        change_source: change.source || change.change_source || "page",
     });
     const snapshot = mapSnapshot(snapshotDoc);
 

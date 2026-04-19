@@ -2857,6 +2857,13 @@
   color: #475569;
 }
 
+.context-feed-flow-source {
+  margin: 4px 0 0 0;
+  color: #0f766e;
+  font-size: 0.77rem;
+  font-weight: 700;
+}
+
 .context-feed-flow-description {
   margin: 5px 0 0 0;
   color: #1f2937;

@@ -95,6 +95,33 @@ const normalizeSummaryForGrouping = (value) => {
         .toLowerCase();
 };
 
+const normalizeChangeSource = (value) => {
+    const source = String(value || 'page').trim().toLowerCase();
+    if (source === 'world') {
+        return 'world';
+    }
+
+    if (source === 'both') {
+        return 'both';
+    }
+
+    return 'page';
+};
+
+const formatChangeSourceLabel = (value) => {
+    const source = normalizeChangeSource(value);
+
+    if (source === 'world') {
+        return 'World';
+    }
+
+    if (source === 'both') {
+        return 'Page + World';
+    }
+
+    return 'Page';
+};
+
 const buildCompactedSnapshotLogs = (snapshots) => {
     const compacted = [];
 
@@ -102,13 +129,15 @@ const buildCompactedSnapshotLogs = (snapshots) => {
         const changeLevel = String(snapshot?.change_level || '').toLowerCase();
         const summary = String(snapshot?.summary || '').trim();
         const summaryKey = normalizeSummaryForGrouping(summary);
+        const sourceKey = normalizeChangeSource(snapshot?.change_source || snapshot?.source);
         const previous = compacted[compacted.length - 1];
 
         const canGroupWithPrevious =
             previous &&
             previous.change_level === 'none' &&
             changeLevel === 'none' &&
-            previous.summaryKey === summaryKey;
+            previous.summaryKey === summaryKey &&
+            previous.source_key === sourceKey;
 
         if (canGroupWithPrevious) {
             previous.grouped_count += 1;
@@ -121,6 +150,7 @@ const buildCompactedSnapshotLogs = (snapshots) => {
             grouped_count: 1,
             oldest_timestamp: snapshot?.timestamp,
             summaryKey,
+            source_key: sourceKey,
         });
     });
 
@@ -531,6 +561,7 @@ export default function LinkModal({ link, contextFeed, onRefreshContextFeed, onC
                                         const isMajor = eventType === 'major';
                                         const isMinor = eventType === 'minor';
                                         const summaryText = String(snapshot?.summary || '').trim() || 'Summary unavailable for this check.';
+                                        const changeSourceLabel = formatChangeSourceLabel(snapshot?.change_source || snapshot?.source);
                                         const checkedAt = snapshot?.timestamp;
                                         const groupedCount = Number(snapshot?.grouped_count || 1);
                                         const rowKey = snapshot?.id || `${snapshot?.timestamp}-${index}`;
@@ -556,6 +587,7 @@ export default function LinkModal({ link, contextFeed, onRefreshContextFeed, onC
                                                     <p className={`context-feed-flow-type ${isMajor ? 'context-feed-flow-type-major' : isMinor ? 'context-feed-flow-type-minor' : 'context-feed-flow-type-none'}`}>
                                                         {isMajor ? 'Major update detected' : isMinor ? 'Minor update detected' : 'No significant update'}
                                                     </p>
+                                                    <p className="context-feed-flow-source">Scope: {changeSourceLabel}</p>
                                                     <p className="context-feed-flow-description">Summary: {displaySummary}</p>
                                                     {!isShowingFullLog && isTruncated ? (
                                                         <button

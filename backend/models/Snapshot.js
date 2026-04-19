@@ -33,6 +33,11 @@ const snapshotSchema = new mongoose.Schema(
             enum: ["none", "minor", "major"],
             required: true,
         },
+        change_source: {
+            type: String,
+            enum: ["page", "world", "both"],
+            default: "page",
+        },
     },
     {
         versionKey: false,
