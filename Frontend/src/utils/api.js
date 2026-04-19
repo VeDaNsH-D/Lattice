@@ -1,4 +1,27 @@
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+const DEFAULT_PROD_BACKEND_ORIGIN = 'https://se-hack.onrender.com';
+
+const resolveApiBaseUrl = () => {
+    const configuredBase = String(import.meta.env.VITE_API_BASE_URL || '').trim();
+    if (configuredBase) {
+        return configuredBase.replace(/\/+$/, '');
+    }
+
+    if (typeof window !== 'undefined') {
+        const host = String(window.location.hostname || '').toLowerCase();
+        const isLocalHost = host === 'localhost' || host === '127.0.0.1';
+
+        if (isLocalHost) {
+            return 'http://localhost:8000/api';
+        }
+
+        return `${DEFAULT_PROD_BACKEND_ORIGIN}/api`;
+    }
+
+    return `${DEFAULT_PROD_BACKEND_ORIGIN}/api`;
+};
+
+export const API_BASE_URL = resolveApiBaseUrl();
+export const BACKEND_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, '');
 
 const HTTP_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD']);
 
@@ -65,7 +88,7 @@ function resolveApiRequestArgs(arg1, arg2, arg3) {
 
 export async function apiRequest(arg1, arg2 = {}, arg3) {
     const { endpoint, options } = resolveApiRequestArgs(arg1, arg2, arg3);
-    const token = localStorage.getItem('token');
+    const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : '';
     const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
     const headers = new Headers(options.headers || {});

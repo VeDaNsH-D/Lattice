@@ -218,6 +218,8 @@ Use this configuration for the deployed stack:
 - GOOGLE_CLIENT_SECRET=...
 - GOOGLE_CALLBACK_URL=https://se-hack.onrender.com/api/auth/google/callback
 - GROQ_API_KEY=...
+- AGORA_APP_ID=...
+- AGORA_APP_CERTIFICATE=... (or AGORA_CHANNEL_CERTIFICATE=...)
 
 Optional realtime scaling:
 
@@ -227,6 +229,9 @@ Optional realtime scaling:
 
 - VITE_API_BASE_URL=https://se-hack.onrender.com/api
 - VITE_SOCKET_URL=https://se-hack.onrender.com
+- VITE_AGORA_APP_ID=... (must match Render AGORA_APP_ID)
+- VITE_AGORA_FORCE_NO_TOKEN=false
+- VITE_AGORA_ALLOW_TEMP_TOKEN_FALLBACK=false
 
 For robust cross-network WebRTC calls, also add TURN-capable ICE servers:
 
@@ -245,6 +250,8 @@ Without this exact value, Google auth returns redirect_uri_mismatch.
 ### Vercel SPA routing
 
 The frontend uses BrowserRouter, so Vercel requires an SPA rewrite file at frontend/vercel.json that rewrites all paths to /index.html.
+
+If Vercel is configured to deploy from repository root instead of the Frontend directory, a root vercel.json is also provided so build/install/output resolve to Frontend automatically.
 
 Without this rewrite, auth callback redirects like /login?token=... can return 404 NOT_FOUND.
 

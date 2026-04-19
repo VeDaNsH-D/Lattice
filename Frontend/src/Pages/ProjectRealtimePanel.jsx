@@ -2,10 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import AgoraRTC from 'agora-rtc-sdk-ng';
 import { io } from 'socket.io-client';
 import { Mic, MicOff, ScreenShare, Send, Users, Video, VideoOff } from 'lucide-react';
-import { apiRequest } from '../utils/api';
+import { apiRequest, BACKEND_ORIGIN } from '../utils/api';
 import './ProjectRealtimePanel.css';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:8000';
+const SOCKET_URL = String(import.meta.env.VITE_SOCKET_URL || '').trim() || BACKEND_ORIGIN;
 const AGORA_APP_ID = import.meta.env.VITE_AGORA_APP_ID || '';
 const AGORA_TEMP_TOKEN = import.meta.env.VITE_AGORA_TEMP_TOKEN || import.meta.env.VITE_AGORA_TOKEN || '';
 const AGORA_CHANNEL_PREFIX = import.meta.env.VITE_AGORA_CHANNEL_PREFIX || 'lattice';
