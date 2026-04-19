@@ -1,53 +1,17 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import AgoraRTC from 'agora-rtc-sdk-ng';
 import { io } from 'socket.io-client';
 import { Mic, MicOff, ScreenShare, Send, Users, Video, VideoOff } from 'lucide-react';
 import { apiRequest } from '../utils/api';
 import './ProjectRealtimePanel.css';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:8000';
-
-const DEFAULT_ICE_SERVERS = [
-  { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
-  {
-    urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turns:openrelay.metered.ca:443'],
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
-];
-
-const hasTurnServer = (servers) => Array.isArray(servers) && servers.some((entry) => {
-  const urls = Array.isArray(entry?.urls) ? entry.urls : [entry?.urls];
-  return urls.some((url) => typeof url === 'string' && url.startsWith('turn'));
-});
-
-const getIceConfig = () => {
-  const rawIceServers = import.meta.env.VITE_ICE_SERVERS;
-
-  if (rawIceServers) {
-    try {
-      const parsed = JSON.parse(rawIceServers);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return {
-          servers: parsed,
-          hasTurn: hasTurnServer(parsed),
-          source: 'env',
-        };
-      }
-    } catch {
-      // Fallback to default STUN list when env JSON is invalid.
-    }
-  }
-
-  return {
-    servers: DEFAULT_ICE_SERVERS,
-    hasTurn: true,
-    source: 'fallback',
-  };
-};
-
-const ICE_CONFIG = getIceConfig();
-const ICE_SERVERS = ICE_CONFIG.servers;
+const AGORA_APP_ID = import.meta.env.VITE_AGORA_APP_ID || '';
+const AGORA_TEMP_TOKEN = import.meta.env.VITE_AGORA_TEMP_TOKEN || import.meta.env.VITE_AGORA_TOKEN || '';
+const AGORA_CHANNEL_PREFIX = import.meta.env.VITE_AGORA_CHANNEL_PREFIX || 'lattice';
 const SHELF_ACTIVITY_WINDOW_MS = 15 * 60 * 1000;
+
+const buildAgoraChannelName = (projectId) => `${AGORA_CHANNEL_PREFIX}-${String(projectId || 'room')}`;
 
 const resolveShelfWeather = ({ participantCount, activeRemoteCount, recentChatCount, isCallActive, roomCallActive, screenShareOwner }) => {
   const signalScore = (
@@ -59,38 +23,18 @@ const resolveShelfWeather = ({ participantCount, activeRemoteCount, recentChatCo
   );
 
   if (signalScore >= 12 || (participantCount >= 3 && recentChatCount >= 2) || ((isCallActive || roomCallActive) && participantCount >= 2)) {
-    return {
-      label: 'Stormy',
-      description: 'Heavy collaboration is rolling through the shelf.',
-      tone: 'stormy',
-      score: signalScore,
-    };
+    return { label: 'Stormy', description: 'Heavy collaboration is rolling through the shelf.', tone: 'stormy', score: signalScore };
   }
 
   if (signalScore >= 6) {
-    return {
-      label: 'Breezy',
-      description: 'The shelf is active with light collaboration.',
-      tone: 'breezy',
-      score: signalScore,
-    };
+    return { label: 'Breezy', description: 'The shelf is active with light collaboration.', tone: 'breezy', score: signalScore };
   }
 
   if (signalScore >= 2) {
-    return {
-      label: 'Hazy',
-      description: 'A few signals are still drifting through.',
-      tone: 'hazy',
-      score: signalScore,
-    };
+    return { label: 'Hazy', description: 'A few signals are still drifting through.', tone: 'hazy', score: signalScore };
   }
 
-  return {
-    label: 'Foggy',
-    description: 'The shelf is quiet and has been left alone.',
-    tone: 'foggy',
-    score: signalScore,
-  };
+  return { label: 'Foggy', description: 'The shelf is quiet and has been left alone.', tone: 'foggy', score: signalScore };
 };
 
 const isRecentActivity = (createdAt) => {
@@ -106,43 +50,106 @@ const isRecentActivity = (createdAt) => {
   return Date.now() - parsed.getTime() <= SHELF_ACTIVITY_WINDOW_MS;
 };
 
-const StreamTile = ({ label, stream, muted = false }) => {
-  const ref = useRef(null);
+const stopTrack = (track) => {
+  if (!track) {
+    return;
+  }
+
+  try {
+    track.stop?.();
+  } catch {
+    // no-op
+  }
+
+  try {
+    track.close?.();
+  } catch {
+    // no-op
+  }
+};
+
+const MediaTile = ({ label, videoTrack, audioTrack = null, muted = false, emptyLabel = 'No stream' }) => {
+  const containerRef = useRef(null);
 
   useEffect(() => {
-    if (ref.current) {
-      ref.current.srcObject = stream || null;
+    const container = containerRef.current;
+    if (!container) {
+      return undefined;
     }
-  }, [stream]);
+
+    container.innerHTML = '';
+
+    if (videoTrack) {
+      try {
+        videoTrack.play(container);
+      } catch {
+        // keep the empty state if play fails
+      }
+    }
+
+    return () => {
+      try {
+        videoTrack?.stop?.();
+      } catch {
+        // no-op
+      }
+
+      if (container) {
+        container.innerHTML = '';
+      }
+    };
+  }, [videoTrack]);
+
+  useEffect(() => {
+    if (!audioTrack || muted) {
+      return undefined;
+    }
+
+    try {
+      audioTrack.play();
+    } catch {
+      // autoplay can be blocked by the browser
+    }
+
+    return () => {
+      try {
+        audioTrack?.stop?.();
+      } catch {
+        // no-op
+      }
+    };
+  }, [audioTrack, muted]);
 
   return (
     <div className="realtime-stream-tile">
       <span className="realtime-stream-label">{label}</span>
-      {stream ? (
-        <video ref={ref} autoPlay playsInline muted={muted} className="realtime-video" />
-      ) : (
-        <div className="realtime-stream-empty">No stream</div>
-      )}
+      {videoTrack ? <div ref={containerRef} className="realtime-video" /> : <div className="realtime-stream-empty">{emptyLabel}</div>}
     </div>
   );
 };
 
+const normalizeParticipantName = (participant) => participant?.username || participant?.name || 'Guest';
+const normalizeParticipantIdentity = (participant) => participant?.agoraUid || participant?.userId || participant?.id || '';
+const toUidKey = (value) => String(value ?? '').trim();
+
 export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = [], activeLinkId = '', roleBasedCalls = true, onParticipantsChange }) => {
   const socketRef = useRef(null);
-  const peersRef = useRef(new Map());
-  const selfIdRef = useRef('');
-  const localPreviewRef = useRef(null);
-  const activeStreamRef = useRef(null);
+  const agoraClientRef = useRef(null);
+  const localAudioTrackRef = useRef(null);
+  const localVideoTrackRef = useRef(null);
+  const screenVideoTrackRef = useRef(null);
+  const screenSourceStreamRef = useRef(null);
+  const agoraUidRef = useRef('');
+  const joinInFlightRef = useRef(false);
   const resumeCallRef = useRef(typeof window !== 'undefined' && window.sessionStorage.getItem(`lattice:active-meet:${projectId}`) === '1');
-  const isCallActiveRef = useRef(false);
 
   const [username, setUsername] = useState('Guest');
   const [status, setStatus] = useState('connecting');
   const [participants, setParticipants] = useState([]);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
-  const [localStream, setLocalStream] = useState(null);
-  const [remoteStreams, setRemoteStreams] = useState({});
+  const [localVideoTrack, setLocalVideoTrack] = useState(null);
+  const [remoteMediaByUid, setRemoteMediaByUid] = useState({});
   const [micEnabled, setMicEnabled] = useState(true);
   const [cameraEnabled, setCameraEnabled] = useState(true);
   const [error, setError] = useState('');
@@ -151,241 +158,376 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
   const [screenShareOwner, setScreenShareOwner] = useState('');
   const enforceRoleBasedCalls = roleBasedCalls !== false;
 
-  const attachLocalTracks = (peer, stream = localStream) => {
-    if (!peer || !stream || peer.localTracksAttached) {
-      return;
-    }
+  const isAgoraConfigured = Boolean(AGORA_APP_ID.trim()) && Boolean(AGORA_TEMP_TOKEN.trim());
 
-    peer.senders = stream.getTracks().map((track) => peer.connection.addTrack(track, stream));
-    peer.localTracksAttached = true;
+  const activeRemoteEntries = useMemo(
+    () => Object.entries(remoteMediaByUid).filter(([, media]) => Boolean(media?.videoTrack || media?.audioTrack)),
+    [remoteMediaByUid],
+  );
+
+  const resolveRemoteLabel = (uid) => {
+    const uidKey = toUidKey(uid);
+    const participant = participants.find((entry) => toUidKey(normalizeParticipantIdentity(entry)) === uidKey);
+    return normalizeParticipantName(participant) || 'Collaborator';
   };
 
-  const cleanupPeer = (peerId) => {
-    const peer = peersRef.current.get(peerId);
-    if (peer) {
-      try {
-        peer.connection.close();
-      } catch {
-        // no-op
-      }
-      peersRef.current.delete(peerId);
-    }
+  const syncParticipants = (nextParticipants, snapshot = null) => {
+    const safeParticipants = Array.isArray(nextParticipants) ? nextParticipants : [];
+    setParticipants(safeParticipants);
 
-    setRemoteStreams((prev) => {
-      const next = { ...prev };
-      delete next[peerId];
+    if (typeof onParticipantsChange === 'function') {
+      onParticipantsChange(safeParticipants, snapshot);
+    }
+  };
+
+  const clearRemoteMedia = (uid) => {
+    const uidKey = toUidKey(uid);
+    setRemoteMediaByUid((previous) => {
+      const next = { ...previous };
+      delete next[uidKey];
       return next;
     });
   };
 
-  const ensureMedia = async () => {
-    if (localStream) {
-      return localStream;
+  const ensureAgoraClient = () => {
+    if (agoraClientRef.current) {
+      return agoraClientRef.current;
     }
 
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-    activeStreamRef.current = stream;
-    setLocalStream(stream);
-    setMicEnabled(true);
-    setCameraEnabled(true);
-
-    if (localPreviewRef.current) {
-      localPreviewRef.current.srcObject = stream;
+    if (!AgoraRTC.checkSystemRequirements()) {
+      throw new Error('This browser does not support the Agora Web SDK.');
     }
 
-    peersRef.current.forEach((peer) => attachLocalTracks(peer, stream));
-    return stream;
-  };
+    AgoraRTC.setLogLevel(2);
 
-  const stopActiveStream = (stream) => {
-    if (!stream) {
-      return;
-    }
+    const client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
 
-    stream.getTracks().forEach((track) => {
-      try {
-        track.stop();
-      } catch {
-        // no-op
-      }
-    });
-  };
-
-  const endCall = () => {
-    peersRef.current.forEach((peer, peerId) => {
-      try {
-        peer.connection.close();
-      } catch {
-        // no-op
-      }
-
-      cleanupPeer(peerId);
-    });
-
-    stopActiveStream(activeStreamRef.current);
-    activeStreamRef.current = null;
-
-    if (localPreviewRef.current) {
-      localPreviewRef.current.srcObject = null;
-    }
-
-    setLocalStream(null);
-    setRemoteStreams({});
-    setMicEnabled(true);
-    setCameraEnabled(true);
-    setError('');
-    isCallActiveRef.current = false;
-    resumeCallRef.current = false;
-    setRoomCallActive(false);
-    setScreenShareOwner('');
-    window.sessionStorage.removeItem(`lattice:active-meet:${projectId}`);
-
-    socketRef.current?.emit('call:leave', { roomId: projectId });
-    socketRef.current?.emit('screen-share:stop', { roomId: projectId });
-  };
-
-  const createPeer = (remoteId) => {
-    if (!remoteId || remoteId === selfIdRef.current) {
-      return null;
-    }
-
-    if (peersRef.current.has(remoteId)) {
-      return peersRef.current.get(remoteId);
-    }
-
-    const connection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-    const peer = {
-      connection,
-      polite: String(selfIdRef.current) < String(remoteId),
-      makingOffer: false,
-      ignoreOffer: false,
-      pendingCandidates: [],
-      localTracksAttached: false,
-      senders: [],
-    };
-
-    attachLocalTracks(peer);
-
-    connection.ontrack = (event) => {
-      const [stream] = event.streams;
-      if (!stream) {
+    client.on('user-published', async (user, mediaType) => {
+      const uid = toUidKey(user.uid);
+      if (!uid || uid === toUidKey(agoraUidRef.current)) {
         return;
       }
 
-      setRemoteStreams((prev) => ({ ...prev, [remoteId]: stream }));
-    };
-
-    connection.onicecandidate = (event) => {
-      if (!event.candidate) {
+      try {
+        await client.subscribe(user, mediaType);
+      } catch (subscribeError) {
+        setError(subscribeError?.message || 'Unable to subscribe to remote media.');
         return;
       }
 
-      socketRef.current?.emit('webrtc:signal', {
-        roomId: projectId,
-        targetId: remoteId,
-        signal: {
-          type: 'candidate',
-          candidate: event.candidate,
-        },
-      });
-    };
+      if (mediaType === 'audio') {
+        try {
+          user.audioTrack?.play();
+        } catch {
+          // autoplay may be blocked until the user interacts with the page
+        }
+      }
 
-    connection.onnegotiationneeded = async () => {
-      try {
-        peer.makingOffer = true;
-        await connection.setLocalDescription(await connection.createOffer());
-        socketRef.current?.emit('webrtc:signal', {
-          roomId: projectId,
-          targetId: remoteId,
-          signal: {
-            type: 'offer',
-            description: connection.localDescription,
+      setRemoteMediaByUid((previous) => {
+        const current = previous[uid] || { videoTrack: null, audioTrack: null };
+        return {
+          ...previous,
+          [uid]: {
+            videoTrack: mediaType === 'video' ? user.videoTrack : current.videoTrack,
+            audioTrack: mediaType === 'audio' ? user.audioTrack : current.audioTrack,
           },
-        });
-      } catch {
-        // ignore negotiation races
-      } finally {
-        peer.makingOffer = false;
-      }
-    };
+        };
+      });
+    });
 
-    connection.onconnectionstatechange = () => {
-      if (['failed', 'disconnected', 'closed'].includes(connection.connectionState)) {
-        cleanupPeer(remoteId);
-      }
-    };
-
-    peersRef.current.set(remoteId, peer);
-    return peer;
-  };
-
-  const handleSignal = async ({ from, targetId, signal }) => {
-    if (!from || from === selfIdRef.current) {
-      return;
-    }
-
-    const currentSocketId = selfIdRef.current || socketRef.current?.id || '';
-    if (targetId && currentSocketId && targetId !== currentSocketId) {
-      return;
-    }
-
-    const peer = peersRef.current.get(from) || createPeer(from);
-    if (!peer) {
-      return;
-    }
-
-    const connection = peer.connection;
-    const flushPendingCandidates = async () => {
-      if (!connection.remoteDescription) {
+    client.on('user-unpublished', (user, mediaType) => {
+      const uid = toUidKey(user.uid);
+      if (!uid) {
         return;
       }
 
-      while (peer.pendingCandidates.length > 0) {
-        const candidate = peer.pendingCandidates.shift();
-        if (!candidate) {
-          continue;
+      setRemoteMediaByUid((previous) => {
+        const current = previous[uid];
+        if (!current) {
+          return previous;
         }
 
-        await connection.addIceCandidate(candidate);
+        const next = { ...previous };
+        const updated = {
+          videoTrack: mediaType === 'video' ? null : current.videoTrack,
+          audioTrack: mediaType === 'audio' ? null : current.audioTrack,
+        };
+
+        if (!updated.videoTrack && !updated.audioTrack) {
+          delete next[uid];
+        } else {
+          next[uid] = updated;
+        }
+
+        return next;
+      });
+    });
+
+    client.on('user-left', (user) => {
+      clearRemoteMedia(user?.uid);
+    });
+
+    client.on('connection-state-change', (currentState) => {
+      if (currentState === 'DISCONNECTED') {
+        setStatus('offline');
       }
-    };
+    });
+
+    agoraClientRef.current = client;
+    return client;
+  };
+
+  const leaveAgoraCall = async ({ announce = true } = {}) => {
+    const client = agoraClientRef.current;
+    const audioTrack = localAudioTrackRef.current;
+    const videoTrack = localVideoTrackRef.current;
+    const screenTrack = screenVideoTrackRef.current;
 
     try {
-      if (signal?.type === 'offer') {
-        const offerCollision = peer.makingOffer || connection.signalingState !== 'stable';
-        peer.ignoreOffer = !peer.polite && offerCollision;
-
-        if (peer.ignoreOffer) {
-          return;
-        }
-
-        await connection.setRemoteDescription(signal.description);
-        await connection.setLocalDescription(await connection.createAnswer());
-        await flushPendingCandidates();
-
-        socketRef.current?.emit('webrtc:signal', {
-          roomId: projectId,
-          targetId: from,
-          signal: {
-            type: 'answer',
-            description: connection.localDescription,
-          },
-        });
-      } else if (signal?.type === 'answer') {
-        await connection.setRemoteDescription(signal.description);
-        await flushPendingCandidates();
-      } else if (signal?.type === 'candidate' && signal.candidate) {
-        if (!peer.ignoreOffer) {
-          if (connection.remoteDescription) {
-            await connection.addIceCandidate(signal.candidate);
-          } else {
-            peer.pendingCandidates.push(signal.candidate);
-          }
+      if (client) {
+        const tracksToUnpublish = [audioTrack, videoTrack, screenTrack].filter(Boolean);
+        if (tracksToUnpublish.length > 0) {
+          await client.unpublish(tracksToUnpublish);
         }
       }
-    } catch (signalError) {
-      setError(signalError.message || 'WebRTC signaling failed.');
+    } catch {
+      // ignore cleanup failures
     }
+
+    stopTrack(audioTrack);
+    stopTrack(videoTrack);
+    stopTrack(screenTrack);
+
+    if (screenSourceStreamRef.current) {
+      screenSourceStreamRef.current.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch {
+          // no-op
+        }
+      });
+    }
+
+    try {
+      if (client && agoraUidRef.current) {
+        await client.leave();
+      }
+    } catch {
+      // ignore leave failures
+    }
+
+    localAudioTrackRef.current = null;
+    localVideoTrackRef.current = null;
+    screenVideoTrackRef.current = null;
+    screenSourceStreamRef.current = null;
+    agoraUidRef.current = '';
+    joinInFlightRef.current = false;
+
+    setLocalVideoTrack(null);
+    setMicEnabled(true);
+    setCameraEnabled(true);
+    setRoomCallActive(false);
+    setScreenShareOwner('');
+    setRemoteMediaByUid({});
+
+    if (announce) {
+      socketRef.current?.emit('call:leave', { roomId: projectId });
+      socketRef.current?.emit('screen-share:stop', { roomId: projectId });
+    }
+
+    window.sessionStorage.removeItem(`lattice:active-meet:${projectId}`);
+  };
+
+  const joinAgoraCall = async () => {
+    if (joinInFlightRef.current || agoraUidRef.current) {
+      return agoraUidRef.current;
+    }
+
+    if (!isAgoraConfigured) {
+      throw new Error('Missing Agora config. Add VITE_AGORA_APP_ID and VITE_AGORA_TEMP_TOKEN to the frontend environment.');
+    }
+
+    joinInFlightRef.current = true;
+    setError('');
+
+    try {
+      const client = ensureAgoraClient();
+      const channel = buildAgoraChannelName(projectId);
+      const uid = await client.join(AGORA_APP_ID.trim(), channel, AGORA_TEMP_TOKEN.trim(), 0);
+
+      agoraUidRef.current = String(uid);
+
+      const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+      localAudioTrackRef.current = audioTrack;
+      localVideoTrackRef.current = videoTrack;
+      setLocalVideoTrack(videoTrack);
+
+      await client.publish([audioTrack, videoTrack]);
+
+      socketRef.current?.emit('agora:sync', {
+        roomId: projectId,
+        agoraUid: String(uid),
+      });
+
+      setMicEnabled(true);
+      setCameraEnabled(true);
+      setRoomCallActive(true);
+      resumeCallRef.current = true;
+      window.sessionStorage.setItem(`lattice:active-meet:${projectId}`, '1');
+
+      return uid;
+    } finally {
+      joinInFlightRef.current = false;
+    }
+  };
+
+  const startCall = async () => {
+    try {
+      if (enforceRoleBasedCalls && callPermission === 'view_only') {
+        setError('Your role does not allow starting calls.');
+        return;
+      }
+
+      const uid = await joinAgoraCall();
+      socketRef.current?.emit('call:start', { roomId: projectId, agoraUid: String(uid) });
+    } catch (mediaError) {
+      await leaveAgoraCall({ announce: false });
+      setError(mediaError?.message || 'Unable to start the Agora call.');
+    }
+  };
+
+  const endCall = async () => {
+    await leaveAgoraCall({ announce: true });
+  };
+
+  const ensureJoinedForMedia = async () => {
+    if (!agoraUidRef.current) {
+      await startCall();
+    }
+  };
+
+  const toggleMic = async () => {
+    await ensureJoinedForMedia();
+    const next = !micEnabled;
+
+    try {
+      await localAudioTrackRef.current?.setEnabled?.(next);
+      setMicEnabled(next);
+    } catch (toggleError) {
+      setError(toggleError?.message || 'Unable to toggle microphone.');
+    }
+  };
+
+  const toggleCamera = async () => {
+    await ensureJoinedForMedia();
+    const next = !cameraEnabled;
+
+    try {
+      await localVideoTrackRef.current?.setEnabled?.(next);
+      setCameraEnabled(next);
+    } catch (toggleError) {
+      setError(toggleError?.message || 'Unable to toggle camera.');
+    }
+  };
+
+  const stopScreenShare = async ({ announce = true } = {}) => {
+    const client = agoraClientRef.current;
+    const screenTrack = screenVideoTrackRef.current;
+    const cameraTrack = localVideoTrackRef.current;
+
+    if (!screenTrack) {
+      return;
+    }
+
+    try {
+      if (client) {
+        await client.unpublish(screenTrack);
+      }
+    } catch {
+      // ignore cleanup failures
+    }
+
+    stopTrack(screenTrack);
+    screenVideoTrackRef.current = null;
+
+    if (screenSourceStreamRef.current) {
+      screenSourceStreamRef.current.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch {
+          // no-op
+        }
+      });
+    }
+    screenSourceStreamRef.current = null;
+
+    if (cameraTrack && client) {
+      try {
+        await client.publish(cameraTrack);
+      } catch {
+        // ignore republish failures
+      }
+    }
+
+    setLocalVideoTrack(cameraTrack || null);
+    setScreenShareOwner('');
+
+    if (announce) {
+      socketRef.current?.emit('screen-share:stop', { roomId: projectId });
+    }
+  };
+
+  const startShare = async () => {
+    try {
+      await ensureJoinedForMedia();
+
+      if (screenVideoTrackRef.current) {
+        return;
+      }
+
+      const client = agoraClientRef.current;
+      const shareStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      const nativeVideoTrack = shareStream.getVideoTracks()[0];
+
+      if (!nativeVideoTrack) {
+        throw new Error('Screen capture did not return a video track.');
+      }
+
+      screenSourceStreamRef.current = shareStream;
+      const screenTrack = AgoraRTC.createCustomVideoTrack({ mediaStreamTrack: nativeVideoTrack });
+      screenVideoTrackRef.current = screenTrack;
+
+      if (localVideoTrackRef.current) {
+        await client.unpublish(localVideoTrackRef.current);
+      }
+      await client.publish(screenTrack);
+
+      setLocalVideoTrack(screenTrack);
+      setScreenShareOwner('You');
+      socketRef.current?.emit('screen-share:start', { roomId: projectId });
+
+      nativeVideoTrack.addEventListener('ended', () => {
+        void stopScreenShare({ announce: true });
+      }, { once: true });
+    } catch (shareError) {
+      setError(shareError?.message || 'Unable to start screen sharing.');
+    }
+  };
+
+  const sendMessage = (event) => {
+    event.preventDefault();
+
+    const text = input.trim();
+    if (!text) {
+      return;
+    }
+
+    socketRef.current?.emit('chat:send', {
+      roomId: projectId,
+      message: text,
+    });
+
+    setInput('');
   };
 
   useEffect(() => {
@@ -428,67 +570,46 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
 
         socket.on('connect', () => {
           setStatus('connected');
-          selfIdRef.current = socket.id || selfIdRef.current;
           socket.emit('room:join', {
             roomId: projectId,
             username: nextName,
             userId: nextUserId,
             avatarUrl: nextAvatarUrl,
           });
-
         });
 
         socket.on('connect_error', () => setStatus('offline'));
         socket.on('disconnect', () => setStatus('offline'));
 
         socket.on('room:state', (state) => {
-          selfIdRef.current = state?.me?.id || '';
-          setParticipants(state?.users || []);
+          syncParticipants(state?.users || [], state);
           setRoomCallActive(Boolean(state?.call?.active));
           setScreenShareOwner(state?.screenShare?.active ? state?.screenShare?.username || 'Collaborator' : '');
         });
 
         socket.on('presence:update', ({ users = [] }) => {
-          setParticipants(users);
+          syncParticipants(users, null);
         });
 
-        socket.on('room:user-left', ({ user }) => {
-          if (user?.id) {
-            cleanupPeer(user.id);
-          }
+        socket.on('chat:new', (entry) => {
+          setMessages((previous) => [entry, ...previous].slice(0, 80));
         });
 
         socket.on('call:state', (payload = {}) => {
           setRoomCallActive(Boolean(payload?.active));
+
           if (!payload?.active) {
             setScreenShareOwner('');
-            peersRef.current.forEach((_, id) => {
-              cleanupPeer(id);
-            });
+            void leaveAgoraCall({ announce: false });
           }
-        });
-
-        socket.on('call:leave', ({ userId }) => {
-          if (userId) {
-            cleanupPeer(userId);
-          }
-        });
-
-        socket.on('chat:new', (entry) => {
-          setMessages((prev) => [entry, ...prev].slice(0, 80));
         });
 
         socket.on('screen-share:state', (payload = {}) => {
-          const ownerName = payload?.active ? payload?.username || 'Collaborator' : '';
-          setScreenShareOwner(ownerName);
-        });
-
-        socket.on('webrtc:signal', (payload) => {
-          void handleSignal(payload);
+          setScreenShareOwner(payload?.active ? payload?.username || 'Collaborator' : '');
         });
       } catch (initError) {
         setStatus('offline');
-        setError(initError.message || 'Unable to start collaborative room.');
+        setError(initError?.message || 'Unable to start collaborative room.');
       }
     };
 
@@ -496,17 +617,11 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
 
     return () => {
       mounted = false;
-      if (isCallActiveRef.current) {
-        window.sessionStorage.setItem(`lattice:active-meet:${projectId}`, '1');
-      }
       if (socketRef.current) {
         socketRef.current.removeAllListeners();
         socketRef.current.disconnect();
       }
-      peersRef.current.forEach((_, id) => cleanupPeer(id));
-      if (activeStreamRef.current) {
-        activeStreamRef.current.getTracks().forEach((track) => track.stop());
-      }
+      void leaveAgoraCall({ announce: false });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
@@ -516,9 +631,10 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
   }, [projectId]);
 
   useEffect(() => {
-    if (status === 'connected' && callPermission !== 'view_only' && (resumeCallRef.current || roomCallActive) && !isCallActiveRef.current) {
+    if (status === 'connected' && callPermission !== 'view_only' && (resumeCallRef.current || roomCallActive) && !agoraUidRef.current && !joinInFlightRef.current) {
       void startCall();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callPermission, roomCallActive, status]);
 
   useEffect(() => {
@@ -540,37 +656,6 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
   }, [projectId]);
 
   useEffect(() => {
-    if (!localStream) {
-      peersRef.current.forEach((_, id) => {
-        cleanupPeer(id);
-      });
-      return;
-    }
-
-    participants.forEach((participant) => {
-      if (participant.id !== selfIdRef.current) {
-        const peer = peersRef.current.get(participant.id) || createPeer(participant.id);
-        attachLocalTracks(peer, localStream || undefined);
-      }
-    });
-
-    const ids = new Set(participants.map((participant) => participant.id));
-
-    Array.from(peersRef.current.keys()).forEach((id) => {
-      if (!ids.has(id)) {
-        cleanupPeer(id);
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [participants, localStream]);
-
-  useEffect(() => {
-    if (typeof onParticipantsChange === 'function') {
-      onParticipantsChange(participants);
-    }
-  }, [onParticipantsChange, participants]);
-
-  useEffect(() => {
     if (!socketRef.current || !projectId) {
       return;
     }
@@ -581,120 +666,18 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
     });
   }, [activeLinkId, projectId]);
 
-  const startCall = async () => {
-    try {
-      if (enforceRoleBasedCalls && callPermission === 'view_only') {
-        setError('Your role does not allow starting calls.');
-        return;
-      }
-
-      setError('');
-      resumeCallRef.current = true;
-      isCallActiveRef.current = true;
-      window.sessionStorage.setItem(`lattice:active-meet:${projectId}`, '1');
-      await ensureMedia();
-      socketRef.current?.emit('call:start', { roomId: projectId });
-    } catch (mediaError) {
-      setError(mediaError.message || 'Unable to access camera/microphone.');
-    }
-  };
-
-  const toggleMic = async () => {
-    const stream = await ensureMedia();
-    const next = !micEnabled;
-    stream.getAudioTracks().forEach((track) => {
-      track.enabled = next;
-    });
-    setMicEnabled(next);
-  };
-
-  const toggleCamera = async () => {
-    const stream = await ensureMedia();
-    const next = !cameraEnabled;
-    stream.getVideoTracks().forEach((track) => {
-      track.enabled = next;
-    });
-    setCameraEnabled(next);
-  };
-
-  const startShare = async () => {
-    try {
-      await ensureMedia();
-      const shareStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-      const shareTrack = shareStream.getVideoTracks()[0];
-
-      peersRef.current.forEach((peer) => {
-        peer.senders?.forEach((sender) => {
-          if (sender.track?.kind === 'video') {
-            sender.replaceTrack(shareTrack).catch(() => { });
-          }
-        });
-      });
-
-      if (localPreviewRef.current) {
-        localPreviewRef.current.srcObject = shareStream;
-      }
-      activeStreamRef.current = shareStream;
-      setScreenShareOwner('You');
-      socketRef.current?.emit('screen-share:start', { roomId: projectId });
-
-      shareTrack.onended = () => {
-        if (!localStream) {
-          return;
-        }
-
-        peersRef.current.forEach((peer) => {
-          peer.senders?.forEach((sender) => {
-            if (sender.track?.kind === 'video') {
-              sender.replaceTrack(localStream.getVideoTracks()[0] || null).catch(() => { });
-            }
-          });
-        });
-
-        if (localPreviewRef.current) {
-          localPreviewRef.current.srcObject = localStream;
-        }
-
-        activeStreamRef.current = localStream;
-        setScreenShareOwner('');
-        socketRef.current?.emit('screen-share:stop', { roomId: projectId });
-      };
-    } catch (shareError) {
-      setError(shareError.message || 'Unable to start screen sharing.');
-    }
-  };
-
-  const sendMessage = (event) => {
-    event.preventDefault();
-
-    const text = input.trim();
-    if (!text) {
-      return;
-    }
-
-    socketRef.current?.emit('chat:send', {
-      roomId: projectId,
-      message: text,
-    });
-
-    setInput('');
-  };
-
-  const activeRemoteStreams = Object.entries(remoteStreams).filter(([, stream]) => Boolean(stream));
-  const isCallActive = Boolean(localStream);
+  const isCallActive = Boolean(localVideoTrack);
   const canStartCall = !enforceRoleBasedCalls || callPermission !== 'view_only';
   const hasProjectMembers = Array.isArray(projectMembers) && projectMembers.length > 0;
   const participantCount = hasProjectMembers ? projectMembers.length : participants.length;
   const callAccessLabel = enforceRoleBasedCalls ? callPermission.replace(/_/g, ' ') : 'open';
-  const networkNote = ICE_CONFIG.source === 'env'
-    ? ICE_CONFIG.hasTurn
-      ? 'TURN relay configured for cross-network calling.'
-      : 'ICE servers are set, but no TURN relay is present. Cross-network calls may fail.'
-    : 'Using the built-in TURN fallback. Add VITE_ICE_SERVERS for your own relay in production.';
+  const networkNote = isAgoraConfigured
+    ? 'Agora RTC is configured for global voice, video, and screen sharing.'
+    : 'Add VITE_AGORA_APP_ID and VITE_AGORA_TEMP_TOKEN to the frontend environment.';
   const recentChatCount = messages.filter((message) => isRecentActivity(message.createdAt)).length;
   const shelfWeather = resolveShelfWeather({
     participantCount: participants.length,
-    activeRemoteCount: activeRemoteStreams.length,
+    activeRemoteCount: activeRemoteEntries.length,
     recentChatCount,
     isCallActive,
     roomCallActive,
@@ -717,9 +700,10 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
         {screenShareOwner ? <span className="project-realtime-badge is-share">Shared screen: {screenShareOwner}</span> : null}
       </div>
 
-      <p className={`project-realtime-network-note ${ICE_CONFIG.hasTurn ? 'has-turn' : 'needs-turn'}`}>
+      <p className={`project-realtime-network-note ${isAgoraConfigured ? 'has-turn' : 'needs-turn'}`}>
         {networkNote}
       </p>
+
       <div className={`project-shelf-weather tone-${shelfWeather.tone}`} aria-label={`Shelf Weather ${shelfWeather.label}`}>
         <div className="project-shelf-weather-copy">
           <span className="project-shelf-weather-kicker">Shelf Weather</span>
@@ -736,39 +720,39 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
       <div className="project-realtime-actions">
         <button
           type="button"
-          onClick={isCallActive ? endCall : startCall}
+          onClick={isCallActive ? () => void endCall() : () => void startCall()}
           className={isCallActive ? 'danger' : ''}
           disabled={!canStartCall && !isCallActive}
           title={!canStartCall ? 'Your role is view-only' : ''}
         >
           <Video size={15} /> {isCallActive ? 'End Call' : 'Start Call'}
         </button>
-        <button type="button" onClick={toggleMic}>{micEnabled ? <Mic size={15} /> : <MicOff size={15} />}{micEnabled ? 'Mute' : 'Unmute'}</button>
-        <button type="button" onClick={toggleCamera}>{cameraEnabled ? <Video size={15} /> : <VideoOff size={15} />}{cameraEnabled ? 'Camera Off' : 'Camera On'}</button>
-        <button type="button" onClick={startShare}><ScreenShare size={15} /> Share Screen</button>
+        <button type="button" onClick={() => void toggleMic()}>{micEnabled ? <Mic size={15} /> : <MicOff size={15} />}{micEnabled ? 'Mute' : 'Unmute'}</button>
+        <button type="button" onClick={() => void toggleCamera()}>{cameraEnabled ? <Video size={15} /> : <VideoOff size={15} />}{cameraEnabled ? 'Camera Off' : 'Camera On'}</button>
+        <button type="button" onClick={() => void startShare()}><ScreenShare size={15} /> Share Screen</button>
       </div>
 
       {screenShareOwner ? <p className="project-realtime-share-status">{screenShareOwner} is sharing screen</p> : null}
-
       {error ? <p className="project-realtime-error">{error}</p> : null}
 
       <div className="project-realtime-grid">
         <div className="project-realtime-video-col">
-          <StreamTile label="You" stream={localStream} muted />
+          <MediaTile label="You" videoTrack={localVideoTrack} muted />
           <div className="project-realtime-remote-list">
-            {activeRemoteStreams.length > 0 ? (
-              activeRemoteStreams.map(([id, stream]) => (
-                <StreamTile
-                  key={id}
-                  label={participants.find((participant) => participant.id === id)?.username || 'Collaborator'}
-                  stream={stream}
+            {activeRemoteEntries.length > 0 ? (
+              activeRemoteEntries.map(([uid, media]) => (
+                <MediaTile
+                  key={uid}
+                  label={resolveRemoteLabel(uid)}
+                  videoTrack={media.videoTrack}
+                  audioTrack={media.audioTrack}
+                  emptyLabel={media.audioTrack ? 'Audio only' : 'No stream'}
                 />
               ))
             ) : (
               <div className="realtime-stream-empty">No remote participants in call</div>
             )}
           </div>
-          <video ref={localPreviewRef} autoPlay playsInline muted className="project-realtime-hidden-video" />
         </div>
 
         <div className="project-realtime-side-col">
@@ -778,11 +762,16 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
               {hasProjectMembers ? (
                 projectMembers.map((member) => {
                   const isOnline = participants.some((participant) => {
-                    const participantUserId = String(participant.userId || '').trim();
-                    const memberUserId = String(member.id || member.userId || '').trim();
+                    const participantUserId = toUidKey(participant.userId);
+                    const participantAgoraUid = toUidKey(participant.agoraUid);
+                    const memberUserId = toUidKey(member.id || member.userId);
 
-                    if (participantUserId && memberUserId) {
-                      return participantUserId === memberUserId;
+                    if (participantUserId && memberUserId && participantUserId === memberUserId) {
+                      return true;
+                    }
+
+                    if (participantAgoraUid && member.agoraUid && toUidKey(member.agoraUid) === participantAgoraUid) {
+                      return true;
                     }
 
                     const participantName = String(participant.username || participant.name || '').trim().toLowerCase();
