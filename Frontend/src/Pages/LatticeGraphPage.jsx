@@ -474,6 +474,7 @@ export const LatticeGraphPage = () => {
   const [queryMatches, setQueryMatches] = useState([]);
   const [graphViewMode, setGraphViewMode] = useState('2d');
   const [graphViewport, setGraphViewport] = useState({ width: 0, height: 0 });
+  const [visibleNodeCount, setVisibleNodeCount] = useState(0);
   const graphCanvasRef = useRef(null);
   const forceGraphRef = useRef(null);
 
@@ -491,7 +492,53 @@ export const LatticeGraphPage = () => {
     return normalizeLiveGraph(graphData);
   }, [graphData, liveMode]);
 
-  const nodeLookup = normalizedGraph.nodeIndex;
+  useEffect(() => {
+    const totalNodes = normalizedGraph.nodes.length;
+
+    if (totalNodes <= 0) {
+      setVisibleNodeCount(0);
+      return undefined;
+    }
+
+    setVisibleNodeCount(0);
+
+    const step = totalNodes > 120 ? 4 : totalNodes > 60 ? 2 : 1;
+    const delayMs = totalNodes > 120 ? 12 : 22;
+
+    const intervalId = window.setInterval(() => {
+      setVisibleNodeCount((previous) => {
+        const next = previous + step;
+        if (next >= totalNodes) {
+          window.clearInterval(intervalId);
+          return totalNodes;
+        }
+
+        return next;
+      });
+    }, delayMs);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [normalizedGraph.nodes]);
+
+  const renderedGraph = useMemo(() => {
+    const targetCount = clamp(visibleNodeCount, 0, normalizedGraph.nodes.length);
+    const nodes = normalizedGraph.nodes.slice(0, targetCount);
+    const visibleIds = new Set(nodes.map((node) => String(node.id)));
+
+    const edges = normalizedGraph.edges.filter((edge) => {
+      return visibleIds.has(String(edge.source)) && visibleIds.has(String(edge.target));
+    });
+
+    return {
+      nodes,
+      edges,
+      nodeIndex: new Map(nodes.map((node) => [String(node.id), node])),
+    };
+  }, [normalizedGraph.edges, normalizedGraph.nodes, visibleNodeCount]);
+
+  const nodeLookup = renderedGraph.nodeIndex;
 
   useEffect(() => {
     if (isProjectScoped) {
@@ -659,7 +706,7 @@ export const LatticeGraphPage = () => {
 
     const ids = new Set([String(activeNode.id)]);
 
-    normalizedGraph.edges.forEach((edge) => {
+    renderedGraph.edges.forEach((edge) => {
       if (String(edge.source) === String(activeNode.id)) {
         ids.add(String(edge.target));
       }
@@ -670,10 +717,10 @@ export const LatticeGraphPage = () => {
     });
 
     return ids;
-  }, [activeNode, normalizedGraph.edges]);
+  }, [activeNode, renderedGraph.edges]);
 
   const graph3dData = useMemo(() => {
-    const nodes = normalizedGraph.nodes.map((node) => {
+    const nodes = renderedGraph.nodes.map((node) => {
       const isActive = activeNode && String(activeNode.id) === String(node.id);
       const isConnected = connectedNodeIds.has(String(node.id));
       const faded = activeNode && !isActive && !isConnected;
@@ -692,7 +739,7 @@ export const LatticeGraphPage = () => {
 
     const nodeById = new Map(nodes.map((node) => [String(node.id), node]));
 
-    const links = normalizedGraph.edges
+    const links = renderedGraph.edges
       .map((edge) => {
         const source = nodeById.get(String(edge.source));
         const target = nodeById.get(String(edge.target));
@@ -714,7 +761,7 @@ export const LatticeGraphPage = () => {
       .filter(Boolean);
 
     return { nodes, links };
-  }, [activeNode, connectedNodeIds, normalizedGraph.edges, normalizedGraph.nodes]);
+  }, [activeNode, connectedNodeIds, renderedGraph.edges, renderedGraph.nodes]);
 
   useEffect(() => {
     const element = graphCanvasRef.current;
@@ -855,11 +902,11 @@ export const LatticeGraphPage = () => {
         <section className="lat-graph-stats-row">
           <div className="lat-graph-stat-card">
             <span>Nodes</span>
-            <strong>{normalizedGraph.nodes.length}</strong>
+            <strong>{renderedGraph.nodes.length}/{normalizedGraph.nodes.length}</strong>
           </div>
           <div className="lat-graph-stat-card">
             <span>Edges</span>
-            <strong>{normalizedGraph.edges.length}</strong>
+            <strong>{renderedGraph.edges.length}</strong>
           </div>
           <div className="lat-graph-stat-card">
             <span>Mode</span>
@@ -867,7 +914,7 @@ export const LatticeGraphPage = () => {
           </div>
           <div className="lat-graph-stat-card">
             <span>Status</span>
-            <strong>{graphLoading ? 'Loading...' : graphError ? 'Using sample data' : 'Ready'}</strong>
+            <strong>{graphLoading ? 'Loading...' : graphError ? 'Using sample data' : renderedGraph.nodes.length < normalizedGraph.nodes.length ? 'Streaming...' : 'Ready'}</strong>
           </div>
         </section>
 
@@ -932,7 +979,7 @@ export const LatticeGraphPage = () => {
 
                 {graphViewMode === '2d' ? (
                 <svg className="lat-graph-svg">
-                  {normalizedGraph.edges.map((edge) => {
+                  {renderedGraph.edges.map((edge) => {
                     const source = nodeLookup.get(String(edge.source));
                     const target = nodeLookup.get(String(edge.target));
 
@@ -958,7 +1005,7 @@ export const LatticeGraphPage = () => {
                 </svg>
                 ) : null}
 
-                {graphViewMode === '2d' ? normalizedGraph.nodes.map((node) => {
+                {graphViewMode === '2d' ? renderedGraph.nodes.map((node) => {
                   const highlighted = activeNode?.id === node.id;
                   const isConnected = connectedNodeIds.has(String(node.id));
                   const faded = activeNode && !highlighted && !isConnected;
