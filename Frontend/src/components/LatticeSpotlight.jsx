@@ -16,7 +16,7 @@ import {
   User,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { searchSpotlight } from '../services/latticeApi';
+import { searchSpotlight, getProjectLinks } from '../services/latticeApi';
 import { askLatticeAI, parseAIResponse } from '../services/aiQuery';
 import './LatticeSpotlight.css';
 
@@ -43,6 +43,8 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
   const [aiContextsResolved, setAiContextsResolved] = useState(0);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [contextBookmarks, setContextBookmarks] = useState([]);
+  const [contextBookmarksLoading, setContextBookmarksLoading] = useState(false);
   const inputRef = useRef(null);
   const executeLockRef = useRef(false);
 
@@ -123,8 +125,9 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
 
     const trimmed = query.trim();
     const isSlashMode = trimmed.startsWith('/');
+    const isMentionMode = trimmed.startsWith('@');
 
-    if (!trimmed || isSlashMode) {
+    if (!trimmed || isSlashMode || isMentionMode) {
       setResults([]);
       setSelectedIndex(0);
       setLoading(false);
@@ -138,8 +141,12 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
         setLoading(true);
         setError('');
 
+        const clean = context && trimmed.toLowerCase().startsWith(`@${context.name.toLowerCase()}`) 
+          ? trimmed.slice(`@${context.name}`.length).trim() 
+          : trimmed;
+
         const response = await searchSpotlight({
-          query: trimmed,
+          query: clean,
           latticeId: context?.id || '',
           limit: 10,
         });
@@ -219,36 +226,32 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
   const filteredResults = useMemo(() => {
     const trimmedQuery = query.trim().toLowerCase();
 
-    if (!trimmedQuery) {
+    if (!trimmedQuery || trimmedQuery.startsWith('@')) {
       return [];
     }
 
-    return results.filter((item) => {
-      const title = String(item?.title || '').toLowerCase();
-      const description = String(item?.description || '').toLowerCase();
-      const metadata = String(item?.path || item?.project?.name || '').toLowerCase();
-      return [title, description, metadata].some((value) => value.includes(trimmedQuery));
-    });
+    return results;
   }, [query, results]);
 
   const resultCommands = useMemo(() => {
     return filteredResults.flatMap((item) => {
       const rawType = String(item?.type || '').toLowerCase();
-      const mappedType = rawType === 'project' ? 'lattice' : rawType === 'link' ? 'link' : '';
+      const mappedType = rawType === 'project' ? 'lattice' : rawType === 'link' || rawType === 'node' ? 'link' : '';
 
       if (!mappedType) {
         return [];
       }
 
       const route = mappedType === 'lattice'
-        ? `/lattice/${item.id}`
+        ? `/lattice/project/${item.id}`
         : '';
 
       return {
         id: `result:${item.id}`,
         itemId: item.id,
-        label: item.title,
+        label: item.title || item.name || 'Untitled result',
         type: mappedType,
+        sourceType: rawType,
         route,
         metadata: item.path || item.project?.name || 'space',
         description: item.description || 'No preview available.',
@@ -343,8 +346,27 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
     setAiMode(false);
     setResults([]);
     setSelectedIndex(0);
+    setContextBookmarks([]);
+    setContextBookmarksLoading(true);
     if (inputRef.current) {
       inputRef.current.focus();
+    }
+    
+    // Fetch bookmarks for selected context
+    if (ctx?.id) {
+      getProjectLinks(ctx.id)
+        .then((response) => {
+          setContextBookmarks(Array.isArray(response.links) ? response.links : []);
+        })
+        .catch((error) => {
+          console.error('Failed to load context bookmarks:', error);
+          setContextBookmarks([]);
+        })
+        .finally(() => {
+          setContextBookmarksLoading(false);
+        });
+    } else {
+      setContextBookmarksLoading(false);
     }
   };
 
@@ -370,6 +392,10 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
       return;
     }
 
+    const clean = context && trimmedQuery.toLowerCase().startsWith(`@${context.name.toLowerCase()}`)
+      ? trimmedQuery.slice(`@${context.name}`.length).trim()
+      : trimmedQuery;
+
     setAiMode(true);
     setAiLoading(true);
     setAiError('');
@@ -378,7 +404,7 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
     setAiContextsResolved(0);
 
     try {
-      const response = await askLatticeAI(trimmedQuery, activeProjectId || context?.id || '');
+      const response = await askLatticeAI(clean || 'summarise all links', activeProjectId || context?.id || '');
       const parsed = parseAIResponse(response);
 
       if (!parsed.success) {
@@ -439,16 +465,26 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
         if (command.actionKey === 'ask-lattice') {
           const trimmedQuery = query.trim();
           if (!trimmedQuery) {
-            setAiMode(true);
+            window.dispatchEvent(new CustomEvent('lattice:open-ask-lattice-modal', {
+              detail: {
+                source: 'spotlight',
+                projectId: activeProjectId || context?.id || '',
+              },
+            }));
+            closeSpotlight();
             return;
           }
 
-          if (/@([a-zA-Z0-9\-_]+)/.test(trimmedQuery)) {
+          const clean = context && trimmedQuery.toLowerCase().startsWith(`@${context.name.toLowerCase()}`)
+            ? trimmedQuery.slice(`@${context.name}`.length).trim()
+            : trimmedQuery;
+
+          if (clean.length === 0 || /@([a-zA-Z0-9\-_]+)/.test(trimmedQuery) || context) {
             await runAiQuery(trimmedQuery);
             return;
           }
 
-          window.dispatchEvent(new CustomEvent('lattice:open-chat', {
+          window.dispatchEvent(new CustomEvent('lattice:open-ask-lattice-modal', {
             detail: {
               source: 'spotlight',
               query: trimmedQuery,
@@ -534,7 +570,11 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
     }
 
     if (e.key === 'Enter' && query.length > 0 && !isSlashMode) {
-      if (/@([a-zA-Z0-9\-_]+)/.test(query.trim())) {
+      const clean = context && query.trim().toLowerCase().startsWith(`@${context.name.toLowerCase()}`)
+          ? query.trim().slice(`@${context.name}`.length).trim()
+          : query.trim();
+
+      if (/@([a-zA-Z0-9\-_]+)/.test(query.trim()) || context) {
         e.preventDefault();
         void runAiQuery(query.trim());
         return;
@@ -549,7 +589,7 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
   };
 
   const getItemTypeLabel = (item) => {
-    const type = String(item?.type || '').toLowerCase();
+    const type = String(item?.sourceType || item?.type || '').toLowerCase();
 
     if (!type) {
       return 'Item';
@@ -563,11 +603,15 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
       return 'Link';
     }
 
+    if (type === 'node') {
+      return 'Note';
+    }
+
     return type.charAt(0).toUpperCase() + type.slice(1);
   };
 
   const getResultIcon = (itemType) => {
-    const type = String(itemType || '').toLowerCase();
+    const type = String(itemType?.sourceType || itemType?.type || itemType || '').toLowerCase();
 
     if (type === 'lattice') {
       return <Network size={15} />;
@@ -577,7 +621,7 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
       return <LinkIcon size={15} />;
     }
 
-    if (type === 'note' || type === 'document') {
+    if (type === 'node' || type === 'note' || type === 'document') {
       return <FileText size={15} />;
     }
 
@@ -727,7 +771,7 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
                   )}
                 </div>
               </div>
-            ) : isSlashMode || (isAtMode && mentionHasOnlyContext) ? (
+            ) : isSlashMode || isAtMode ? (
               <div className="spotlight-section">
                 <span className="spotlight-section-title">Choose a space</span>
                 {contextSuggestions.map((item, index) => (
@@ -823,7 +867,7 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
                     </div>
                   ))}
 
-                  {!loading && query.trim() && !resultCommands.length ? (
+                  {!loading && query.trim() && !query.trim().startsWith('@') && !resultCommands.length ? (
                     <div className="spotlight-row">
                       <div className="spotlight-match-content">
                         <div className="spotlight-match-title-row">
@@ -889,6 +933,53 @@ export const LatticeSpotlight = ({ isOpen, onClose, currentUserId = '' }) => {
 
                 <span className="spotlight-meta-label">Updated</span>
                 <span className="spotlight-meta-value">{formatDate(new Date())}</span>
+              </div>
+            </>
+          ) : context && (isAtMode || isSlashMode) ? (
+            <>
+              <div className="spotlight-right-icon"><FolderOpen size={16} /></div>
+              <div className="spotlight-right-title">{context.name}</div>
+              <div className="spotlight-right-type">{context.kind === 'collaborative' ? 'Collaborative' : 'Personal'} Space</div>
+
+              <div className="spotlight-right-location">
+                <span className="spotlight-meta-label">Bookmarks</span>
+                <span className="spotlight-meta-value">{contextBookmarks.length}</span>
+              </div>
+
+              <div className="spotlight-preview-card">
+                {contextBookmarksLoading ? (
+                  <p style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <Loader2 size={14} className="lat-spinner" />
+                    Loading bookmarks...
+                  </p>
+                ) : contextBookmarks.length > 0 ? (
+                  <div className="spotlight-bookmarks-list">
+                    {contextBookmarks.slice(0, 5).map((bookmark, index) => (
+                      <div key={`bookmark-${bookmark._id || index}`} className="spotlight-bookmark-item">
+                        <div className="spotlight-bookmark-icon"><LinkIcon size={12} /></div>
+                        <div className="spotlight-bookmark-content">
+                          <div className="spotlight-bookmark-title">{bookmark.title || bookmark.url}</div>
+                          {bookmark.description && (
+                            <div className="spotlight-bookmark-desc">{bookmark.description}</div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {contextBookmarks.length > 5 && (
+                      <div className="spotlight-bookmark-more">+{contextBookmarks.length - 5} more bookmarks</div>
+                    )}
+                  </div>
+                ) : (
+                  <p>No bookmarks in this space yet.</p>
+                )}
+              </div>
+
+              <div className="spotlight-meta-grid">
+                <span className="spotlight-meta-label">Type</span>
+                <span className="spotlight-meta-value">{context.kind === 'collaborative' ? 'Collaborative' : 'Personal'}</span>
+
+                <span className="spotlight-meta-label">Bookmarks</span>
+                <span className="spotlight-meta-value">{contextBookmarks.length}</span>
               </div>
             </>
           ) : (

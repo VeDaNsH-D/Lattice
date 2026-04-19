@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import {
   Command,
   LayoutDashboard,
@@ -16,6 +16,7 @@ import {
   CircleUserRound,
 } from 'lucide-react';
 import { LatticeSpotlight } from '../components/LatticeSpotlight';
+import { AskLatticeModal } from '../components/AskLatticeModal';
 import { NotificationDropdown } from '../components/NotificationDropdown';
 import { getCurrentSessionUser, getForkActivity } from '../services/latticeApi';
 import './LatticePages.css';
@@ -32,14 +33,30 @@ const navItems = [
 ];
 
 export const LatticeFrame = ({ children }) => {
+  const location = useLocation();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSpotlightOpen, setIsSpotlightOpen] = useState(false);
+  const [spotlightSessionKey, setSpotlightSessionKey] = useState(0);
+  const [isAskModalOpen, setIsAskModalOpen] = useState(false);
+  const [askModalSessionKey, setAskModalSessionKey] = useState(0);
+  const [askModalQuery, setAskModalQuery] = useState('');
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [userAvatarUrl, setUserAvatarUrl] = useState(null);
   const [userProfileId, setUserProfileId] = useState('');
   const [hasUnreadActivity, setHasUnreadActivity] = useState(false);
   const notificationWrapRef = useRef(null);
+
+  const activeProjectId = location.pathname.match(/^\/lattice\/project\/([^/]+)/)?.[1] || '';
+
+  const openSpotlight = () => {
+    setSpotlightSessionKey((previous) => previous + 1);
+    setIsSpotlightOpen(true);
+  };
+
+  const closeSpotlight = () => {
+    setIsSpotlightOpen(false);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -109,12 +126,39 @@ export const LatticeFrame = ({ children }) => {
     const handleGlobalKeyDown = (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
-        setIsSpotlightOpen((previous) => !previous);
+        setIsSpotlightOpen((previous) => {
+          if (!previous) {
+            setSpotlightSessionKey((current) => current + 1);
+          }
+
+          return !previous;
+        });
       }
     };
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
+  useEffect(() => {
+    const openAskModal = (event) => {
+      setAskModalQuery(event?.detail?.query || '');
+      setAskModalSessionKey((previous) => previous + 1);
+      setIsAskModalOpen(true);
+    };
+
+    const closeAskModal = () => {
+      setIsAskModalOpen(false);
+      setAskModalQuery('');
+    };
+
+    window.addEventListener('lattice:open-ask-lattice-modal', openAskModal);
+    window.addEventListener('lattice:close-ask-lattice-modal', closeAskModal);
+
+    return () => {
+      window.removeEventListener('lattice:open-ask-lattice-modal', openAskModal);
+      window.removeEventListener('lattice:close-ask-lattice-modal', closeAskModal);
+    };
   }, []);
 
   useEffect(() => {
@@ -214,7 +258,7 @@ export const LatticeFrame = ({ children }) => {
           </div>
 
           <div className="topbar-actions">
-            <button className="action-circle" onClick={() => setIsSpotlightOpen(true)} aria-label="Search">
+            <button className="action-circle" onClick={openSpotlight} aria-label="Search">
               <Search size={18} />
             </button>
             <button className="action-circle" aria-label="Create">
@@ -267,9 +311,18 @@ export const LatticeFrame = ({ children }) => {
       </main>
 
       <LatticeSpotlight
+        key={spotlightSessionKey}
         isOpen={isSpotlightOpen}
-        onClose={() => setIsSpotlightOpen(false)}
+        onClose={closeSpotlight}
         currentUserId={userProfileId}
+      />
+
+      <AskLatticeModal
+        key={askModalSessionKey}
+        isOpen={isAskModalOpen}
+        onClose={() => setIsAskModalOpen(false)}
+        projectId={activeProjectId || null}
+        initialQuery={askModalQuery}
       />
     </div>
   );

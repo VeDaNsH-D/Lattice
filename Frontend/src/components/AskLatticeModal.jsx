@@ -10,7 +10,7 @@ import './AskLatticeModal.css';
  * Usage:
  * <AskLatticeModal isOpen={true} onClose={() => {}} projectId="..." />
  */
-export const AskLatticeModal = ({ isOpen = false, onClose, projectId = null }) => {
+export const AskLatticeModal = ({ isOpen = false, onClose, projectId = null, initialQuery = '' }) => {
     const [query, setQuery] = useState('');
     const [response, setResponse] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -24,13 +24,13 @@ export const AskLatticeModal = ({ isOpen = false, onClose, projectId = null }) =
     // Reset state when modal opens
     useEffect(() => {
         if (isOpen) {
-            setQuery('');
+            setQuery(initialQuery || '');
             setResponse(null);
             setError(null);
             setShowSuggestions(false);
             inputRef.current?.focus();
         }
-    }, [isOpen]);
+    }, [initialQuery, isOpen]);
 
     // Handle @ mention for suggestions
     useEffect(() => {
@@ -116,6 +116,8 @@ export const AskLatticeModal = ({ isOpen = false, onClose, projectId = null }) =
     }
 
     const queryInfo = formatAIQuery(query);
+    const hasImplicitProjectContext = Boolean(projectId) && query.trim().length > 3 && queryInfo.contexts.length === 0;
+    const canSubmit = Boolean(query.trim()) && (queryInfo.isValid || Boolean(projectId));
 
     return (
         <div className="ask-lattice-modal-backdrop" onClick={onClose}>
@@ -143,6 +145,12 @@ export const AskLatticeModal = ({ isOpen = false, onClose, projectId = null }) =
                                         <div className="ask-lattice-hint-valid">
                                             <CheckCircle size={13} />
                                             Contexts: {queryInfo.displayContexts}
+                                        </div>
+                                    )}
+                                    {!queryInfo.isValid && hasImplicitProjectContext && (
+                                        <div className="ask-lattice-hint-valid">
+                                            <CheckCircle size={13} />
+                                            Using current lattice context
                                         </div>
                                     )}
                                     {!queryInfo.isValid && query.length > 0 && (
@@ -200,7 +208,7 @@ export const AskLatticeModal = ({ isOpen = false, onClose, projectId = null }) =
                             <button
                                 type="submit"
                                 className="ask-lattice-submit-btn"
-                                disabled={loading || !queryInfo.isValid}
+                                disabled={loading || !canSubmit}
                             >
                                 {loading ? (
                                     <>

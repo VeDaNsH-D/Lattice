@@ -211,6 +211,13 @@ export const markLinkViewed = (linkId) => {
   return requestJson(`/links/${linkId}/view`, { method: 'POST' });
 };
 
+export const getProjectLinks = (projectId) => {
+  if (!projectId) {
+    return Promise.resolve({ links: [] });
+  }
+  return requestJson(`/links?projectId=${projectId}`, { method: 'GET' });
+};
+
 export const getNotifications = () => {
   return requestJson('/notifications', { method: 'GET', cache: 'no-store' });
 };

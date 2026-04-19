@@ -520,6 +520,69 @@
   font-weight: 700;
 }
 
+.spotlight-bookmarks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.spotlight-bookmark-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  background: #f9f9f9;
+  border-radius: 6px;
+  border: 1px solid #e5e5e5;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.spotlight-bookmark-item:hover {
+  background: #f0f0f0;
+  border-color: #d5d5d5;
+}
+
+.spotlight-bookmark-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #0066cc;
+}
+
+.spotlight-bookmark-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.spotlight-bookmark-title {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spotlight-bookmark-desc {
+  font-size: 0.75rem;
+  color: #888;
+  margin-top: 2px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.spotlight-bookmark-more {
+  font-size: 0.75rem;
+  color: #999;
+  text-align: center;
+  padding: 6px;
+  font-style: italic;
+}
+
 @media (max-width: 860px) {
   .spotlight-modal.expanded {
     width: min(94vw, 760px);
