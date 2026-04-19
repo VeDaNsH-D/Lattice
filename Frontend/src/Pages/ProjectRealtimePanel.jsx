@@ -394,10 +394,10 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
   }, [projectId]);
 
   useEffect(() => {
-    if (status === 'connected' && callPermission !== 'view_only' && resumeCallRef.current && !isCallActiveRef.current) {
+    if (status === 'connected' && callPermission !== 'view_only' && (resumeCallRef.current || roomCallActive) && !isCallActiveRef.current) {
       void startCall();
     }
-  }, [callPermission, status]);
+  }, [callPermission, roomCallActive, status]);
 
   useEffect(() => {
     const onOpenChat = (event) => {
