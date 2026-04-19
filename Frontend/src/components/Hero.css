@@ -228,9 +228,20 @@
   top: 50%;
   left: 50%;
   border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(0, 0, 0, 0.11);
   /* Increased from 0.04 to 0.12 for better visibility */
   transform: translate(-50%, -50%);
+  will-change: transform;
+}
+
+.ring::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 2px solid transparent;
+  border-top-color: rgba(15, 23, 42, 0.36);
+  border-right-color: rgba(15, 23, 42, 0.2);
 }
 
 .ring-2 {
@@ -259,8 +270,10 @@
   top: 50%;
   left: 50%;
   border-radius: 50%;
+  --start-angle: 0deg;
   transform: translate(-50%, -50%);
   border: 1px solid transparent;
+  will-change: transform;
 }
 
 .ring-accent-1 {
@@ -270,7 +283,7 @@
   border-top-color: #fca5a5;
   opacity: 0.5;
   /* Increased from 0.3 */
-  transform: translate(-50%, -50%) rotate(-45deg);
+  --start-angle: -45deg;
 }
 
 .ring-accent-2 {
@@ -280,7 +293,7 @@
   border-bottom-color: #fca5a5;
   opacity: 0.4;
   /* Increased from 0.2 */
-  transform: translate(-50%, -50%) rotate(15deg);
+  --start-angle: 15deg;
 }
 
 
