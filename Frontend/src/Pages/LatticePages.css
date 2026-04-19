@@ -4494,6 +4494,33 @@
   pointer-events: none;
 }
 
+.lattice-home-graph-summary-card {
+  margin: 0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+}
+
+.lattice-home-graph-summary-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #5b21b6;
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.lattice-home-graph-summary-card p {
+  margin: 6px 0 0;
+  color: rgba(15, 23, 42, 0.86);
+  font-size: 0.79rem;
+  line-height: 1.35;
+}
+
 .lattice-home-graph-legend {
   position: absolute;
   top: 10px;

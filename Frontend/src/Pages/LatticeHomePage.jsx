@@ -84,6 +84,7 @@ const normalizeHomeGraph = (graph = {}) => {
     nodeType: node.nodeType || 'bookmark',
     parentHub: normalizeHubLabel(node.parentHub || ''),
     tags: Array.isArray(node.tags) ? node.tags : [],
+    summary: typeof node.summary === 'string' ? node.summary : (typeof node.description === 'string' ? node.description : ''),
     importanceScore: Number(node.importanceScore ?? 0.45),
     x: null,
     y: null,
@@ -299,6 +300,23 @@ const nodeSizeByType = (node) => {
 
 const toRadians = (degrees) => (degrees * Math.PI) / 180;
 const GRAPH_VISUAL_SCALE = 1.75;
+
+const getQuickNodeSummary = (node) => {
+  const summary = String(node?.summary || '').trim();
+  if (summary) {
+    return summary;
+  }
+
+  if (node?.nodeType === 'hub') {
+    return `Hub node grouping related ideas under ${node.label}.`;
+  }
+
+  if (node?.nodeType === 'root') {
+    return 'Global entry node that connects all major hubs in the graph.';
+  }
+
+  return 'No quick summary available for this node yet.';
+};
 
 const renderProjectCards = (projects, icons, onProjectClick, idOffset = 0) => {
   if (!projects.length) {
@@ -1322,7 +1340,17 @@ export const LatticeHomePage = () => {
                     : `Tip: ${graphViewMode === '3d' ? 'drag to orbit and click nodes to inspect.' : 'click nodes to inspect and click green hub nodes to expand/collapse.'}`}
                 </p>
               ) : null}
+
             </div>
+
+            {!heroGraphLoading && !heroGraphError && activePreviewNode ? (
+              <div className="lattice-home-graph-summary-card" aria-live="polite">
+                <div className="lattice-home-graph-summary-head">
+                  <Sparkles size={13} /> Quick summary
+                </div>
+                <p>{getQuickNodeSummary(activePreviewNode)}</p>
+              </div>
+            ) : null}
 
             {/* The full-screen interactive component for global isn't built yet, so we omit the button. */}
           </aside>

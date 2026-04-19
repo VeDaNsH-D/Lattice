@@ -6,7 +6,6 @@ import {
   CornerRightUp,
   Loader2,
   Network,
-  Sparkles,
   Search,
   Share2,
   Tag,
@@ -983,9 +982,6 @@ export const LatticeGraphPage = () => {
                   3D
                 </button>
               </div>
-              <button className="lat-toolbar-btn ai-btn" type="button" onClick={() => activeNode && handleNodeSelect(activeNode)}>
-                <Sparkles size={14} /> Find patterns
-              </button>
               {graphLoading ? <Loader2 size={14} className="lat-spinner" /> : null}
             </div>
 
