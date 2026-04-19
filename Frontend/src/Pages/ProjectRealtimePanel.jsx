@@ -7,10 +7,8 @@ import './ProjectRealtimePanel.css';
 
 const SOCKET_URL = String(import.meta.env.VITE_SOCKET_URL || '').trim() || BACKEND_ORIGIN;
 const AGORA_APP_ID = import.meta.env.VITE_AGORA_APP_ID || '';
-const AGORA_TEMP_TOKEN = import.meta.env.VITE_AGORA_TEMP_TOKEN || import.meta.env.VITE_AGORA_TOKEN || '';
 const AGORA_CHANNEL_PREFIX = import.meta.env.VITE_AGORA_CHANNEL_PREFIX || 'lattice';
 const AGORA_FORCE_NO_TOKEN = String(import.meta.env.VITE_AGORA_FORCE_NO_TOKEN || '').trim().toLowerCase() === 'true';
-const AGORA_ALLOW_TEMP_TOKEN_FALLBACK = String(import.meta.env.VITE_AGORA_ALLOW_TEMP_TOKEN_FALLBACK || '').trim().toLowerCase() === 'true';
 const IS_LOCAL_DEV_HOST = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
 const SHELF_ACTIVITY_WINDOW_MS = 15 * 60 * 1000;
 
@@ -416,12 +414,7 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
           }
         } catch (tokenError) {
           console.warn('Failed to fetch token from backend:', tokenError?.message);
-
-          if (AGORA_ALLOW_TEMP_TOKEN_FALLBACK && AGORA_TEMP_TOKEN.trim()) {
-            initialToken = AGORA_TEMP_TOKEN.trim();
-          } else if (!AGORA_FORCE_NO_TOKEN) {
-            throw new Error(`Unable to fetch signed Agora token from backend: ${tokenError?.message || 'unknown error'}`);
-          }
+          throw new Error(`Unable to fetch signed Agora token from backend: ${tokenError?.message || 'unknown error'}`);
         }
       }
 
@@ -443,9 +436,9 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
 
         if (tokenLikelyInvalid) {
           if (usesSignedToken) {
-            throw new Error('Agora rejected the signed token. Verify AGORA_APP_ID/AGORA_APP_CERTIFICATE pair on backend and restart the server.');
+            throw new Error('Agora rejected the signed token. Verify AGORA_APP_ID and AGORA_APP_CERTIFICATE in the backend, and make sure the frontend is using the same Agora app.');
           }
-          throw new Error('Agora token join failed. Temp token appears invalid or from a different Agora app.');
+          throw new Error('Agora join failed. Configure backend-signed Agora credentials instead of a temp token.');
         }
 
         throw joinError;
