@@ -160,6 +160,7 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
       polite: String(selfIdRef.current) < String(remoteId),
       makingOffer: false,
       ignoreOffer: false,
+      pendingCandidates: [],
       localTracksAttached: false,
       senders: [],
     };
@@ -235,6 +236,20 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
     }
 
     const connection = peer.connection;
+    const flushPendingCandidates = async () => {
+      if (!connection.remoteDescription) {
+        return;
+      }
+
+      while (peer.pendingCandidates.length > 0) {
+        const candidate = peer.pendingCandidates.shift();
+        if (!candidate) {
+          continue;
+        }
+
+        await connection.addIceCandidate(candidate);
+      }
+    };
 
     try {
       if (signal?.type === 'offer') {
@@ -247,6 +262,7 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
 
         await connection.setRemoteDescription(signal.description);
         await connection.setLocalDescription(await connection.createAnswer());
+        await flushPendingCandidates();
 
         socketRef.current?.emit('webrtc:signal', {
           roomId: projectId,
@@ -258,9 +274,14 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
         });
       } else if (signal?.type === 'answer') {
         await connection.setRemoteDescription(signal.description);
+        await flushPendingCandidates();
       } else if (signal?.type === 'candidate' && signal.candidate) {
         if (!peer.ignoreOffer) {
-          await connection.addIceCandidate(signal.candidate);
+          if (connection.remoteDescription) {
+            await connection.addIceCandidate(signal.candidate);
+          } else {
+            peer.pendingCandidates.push(signal.candidate);
+          }
         }
       }
     } catch (signalError) {
@@ -299,7 +320,7 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
         const authToken = window.localStorage.getItem('token') || window.localStorage.getItem('latticeToken') || '';
 
         const socket = io(SOCKET_URL, {
-          transports: ['websocket'],
+          transports: ['websocket', 'polling'],
           autoConnect: true,
           auth: authToken ? { token: authToken } : {},
         });
@@ -628,6 +649,13 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
               {hasProjectMembers ? (
                 projectMembers.map((member) => {
                   const isOnline = participants.some((participant) => {
+                    const participantUserId = String(participant.userId || '').trim();
+                    const memberUserId = String(member.id || member.userId || '').trim();
+
+                    if (participantUserId && memberUserId) {
+                      return participantUserId === memberUserId;
+                    }
+
                     const participantName = String(participant.username || participant.name || '').trim().toLowerCase();
                     const memberName = String(member.name || '').trim().toLowerCase();
                     return participantName && memberName && participantName === memberName;
