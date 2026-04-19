@@ -11,6 +11,7 @@ const AGORA_TEMP_TOKEN = import.meta.env.VITE_AGORA_TEMP_TOKEN || import.meta.en
 const AGORA_CHANNEL_PREFIX = import.meta.env.VITE_AGORA_CHANNEL_PREFIX || 'lattice';
 const AGORA_FORCE_NO_TOKEN = String(import.meta.env.VITE_AGORA_FORCE_NO_TOKEN || '').trim().toLowerCase() === 'true';
 const AGORA_ALLOW_TEMP_TOKEN_FALLBACK = String(import.meta.env.VITE_AGORA_ALLOW_TEMP_TOKEN_FALLBACK || '').trim().toLowerCase() === 'true';
+const IS_LOCAL_DEV_HOST = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
 const SHELF_ACTIVITY_WINDOW_MS = 15 * 60 * 1000;
 
 const buildAgoraChannelName = (projectId) => `${AGORA_CHANNEL_PREFIX}-${String(projectId || 'room')}`;
@@ -368,6 +369,10 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
   const joinAgoraCall = async () => {
     if (joinInFlightRef.current || agoraUidRef.current) {
       return agoraUidRef.current;
+    }
+
+    if (AGORA_FORCE_NO_TOKEN && !IS_LOCAL_DEV_HOST) {
+      throw new Error('VITE_AGORA_FORCE_NO_TOKEN=true is only allowed on localhost. Disable it in deployed environments and use backend-signed tokens.');
     }
 
     joinInFlightRef.current = true;
