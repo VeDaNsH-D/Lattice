@@ -356,6 +356,7 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
       const channel = buildAgoraChannelName(projectId);
       let initialToken = null;
       let agoraUid = 0;
+      let usesSignedToken = false;
 
       // Try to get a fresh token from the backend (recommended approach)
       if (!AGORA_FORCE_NO_TOKEN) {
@@ -367,11 +368,13 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
 
           if (tokenResponse?.success && tokenResponse?.token) {
             initialToken = tokenResponse.token;
-            agoraUid = tokenResponse.uid || 0;
+            agoraUid = tokenResponse.uid; // IMPORTANT: Use the exact UID from token
+            usesSignedToken = true;
+            console.log('[Agora] Got signed token from backend with UID:', agoraUid);
           }
         } catch (tokenError) {
           console.warn('Failed to fetch token from backend, will attempt fallback:', tokenError?.message);
-          // If backend token fetch fails, fall through to env var or no-token mode
+          // If backend token fetch fails and no token in env, we'll try no-token mode
           if (AGORA_TEMP_TOKEN.trim()) {
             initialToken = AGORA_TEMP_TOKEN.trim();
           }
@@ -386,8 +389,9 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
         const message = String(joinError?.message || '').toLowerCase();
         const tokenLikelyInvalid = message.includes('invalid token') || message.includes('can_not_get_gateway_server') || message.includes('authorized failed');
 
-        if (initialToken && tokenLikelyInvalid) {
-          // Fallback for "no-auth" Agora projects where App Certificate is disabled.
+        // Only fallback to no-token mode if NOT using signed tokens
+        if (!usesSignedToken && initialToken && tokenLikelyInvalid) {
+          console.log('[Agora] Token invalid, falling back to no-token mode');
           uid = await client.join(AGORA_APP_ID.trim(), channel, null, 0);
           setError('Agora token was invalid/expired. Joined without token (no-auth mode).');
         } else {
