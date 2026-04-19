@@ -1,7 +1,9 @@
 import express from "express";
-import { RtcTokenBuilder, RtcRole } from "agora-token";
+import AgoraTokenPkg from "agora-token";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 import Project from "../models/project.js";
+
+const { RtcTokenBuilder, RtcRole } = AgoraTokenPkg;
 
 const router = express.Router();
 
@@ -42,7 +44,9 @@ router.post("/token", authMiddleware, async (req, res) => {
 
         // Get Agora credentials from environment
         const appId = process.env.AGORA_APP_ID?.trim();
-        const appCertificate = process.env.AGORA_APP_CERTIFICATE?.trim();
+        const appCertificate =
+            process.env.AGORA_APP_CERTIFICATE?.trim()
+            || process.env.AGORA_CHANNEL_CERTIFICATE?.trim();
 
         if (!appId) {
             return res.status(500).json({
@@ -51,8 +55,9 @@ router.post("/token", authMiddleware, async (req, res) => {
             });
         }
 
-        // Use the project ID as the channel name
-        const channel = projectId;
+        // Keep channel naming aligned with frontend ProjectRealtimePanel.
+        const channelPrefix = process.env.AGORA_CHANNEL_PREFIX?.trim() || "lattice";
+        const channel = `${channelPrefix}-${String(projectId || "room")}`;
 
         // Use user ID as the Agora UID (ensure it's a number)
         // Extract numeric part or hash the userId to get a number
@@ -67,31 +72,29 @@ router.post("/token", authMiddleware, async (req, res) => {
 
         let token;
 
-        // If no certificate, generate without it (anonymous mode)
         if (!appCertificate) {
-            token = RtcTokenBuilder.buildTokenWithUid(
-                appId,
-                undefined, // No certificate
-                channel,
-                uid,
-                role === "publisher" ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER,
-                privilegeExpiredTs
-            );
-        } else {
-            token = RtcTokenBuilder.buildTokenWithUid(
-                appId,
-                appCertificate,
-                channel,
-                uid,
-                role === "publisher" ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER,
-                privilegeExpiredTs
-            );
+            return res.status(500).json({
+                success: false,
+                message: "Agora certificate not configured",
+                hint: "Set AGORA_APP_CERTIFICATE (or AGORA_CHANNEL_CERTIFICATE) in backend env.",
+            });
         }
+
+        token = RtcTokenBuilder.buildTokenWithUid(
+            appId,
+            appCertificate,
+            channel,
+            uid,
+            role === "publisher" ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER,
+            privilegeExpiredTs
+        );
 
         return res.json({
             success: true,
             token,
             uid,
+            appId,
+            channel,
             expiresIn: expirationTimeInSeconds,
         });
     } catch (error) {

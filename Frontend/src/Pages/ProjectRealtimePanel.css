@@ -297,6 +297,12 @@
   display: block;
 }
 
+.realtime-video-fallback {
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
 .project-realtime-remote-list {
   margin-top: 10px;
   display: grid;

@@ -10,6 +10,7 @@ const AGORA_APP_ID = import.meta.env.VITE_AGORA_APP_ID || '';
 const AGORA_TEMP_TOKEN = import.meta.env.VITE_AGORA_TEMP_TOKEN || import.meta.env.VITE_AGORA_TOKEN || '';
 const AGORA_CHANNEL_PREFIX = import.meta.env.VITE_AGORA_CHANNEL_PREFIX || 'lattice';
 const AGORA_FORCE_NO_TOKEN = String(import.meta.env.VITE_AGORA_FORCE_NO_TOKEN || '').trim().toLowerCase() === 'true';
+const AGORA_ALLOW_TEMP_TOKEN_FALLBACK = String(import.meta.env.VITE_AGORA_ALLOW_TEMP_TOKEN_FALLBACK || '').trim().toLowerCase() === 'true';
 const SHELF_ACTIVITY_WINDOW_MS = 15 * 60 * 1000;
 
 const buildAgoraChannelName = (projectId) => `${AGORA_CHANNEL_PREFIX}-${String(projectId || 'room')}`;
@@ -69,37 +70,63 @@ const stopTrack = (track) => {
   }
 };
 
-const MediaTile = ({ label, videoTrack, audioTrack = null, muted = false, emptyLabel = 'No stream' }) => {
+const MediaTile = ({ label, videoTrack, audioTrack = null, muted = false, emptyLabel = 'No stream', preferNativeVideo = false }) => {
   const containerRef = useRef(null);
+  const videoElementRef = useRef(null);
 
   useEffect(() => {
     const container = containerRef.current;
+    const nativeVideo = videoElementRef.current;
     if (!container) {
       return undefined;
     }
 
     container.innerHTML = '';
 
+    if (nativeVideo) {
+      nativeVideo.srcObject = null;
+    }
+
     if (videoTrack) {
-      try {
-        videoTrack.play(container);
-      } catch {
-        // keep the empty state if play fails
+      const mediaStreamTrack = videoTrack.getMediaStreamTrack?.();
+      const canUseNativeVideo = preferNativeVideo && mediaStreamTrack && nativeVideo;
+
+      if (canUseNativeVideo) {
+        try {
+          nativeVideo.srcObject = new MediaStream([mediaStreamTrack]);
+          const playPromise = nativeVideo.play?.();
+          if (playPromise && typeof playPromise.catch === 'function') {
+            playPromise.catch(() => {
+              // Local preview fallback is handled by SDK playback below.
+            });
+          }
+        } catch {
+          try {
+            videoTrack.play(container);
+          } catch {
+            // keep the empty state if play fails
+          }
+        }
+      } else {
+        try {
+          videoTrack.play(container);
+        } catch {
+          // keep the empty state if play fails
+        }
       }
     }
 
     return () => {
-      try {
-        videoTrack?.stop?.();
-      } catch {
-        // no-op
-      }
-
+      // Do not stop tracks here. Track lifecycle is handled by join/leave helpers.
       if (container) {
         container.innerHTML = '';
       }
+
+      if (nativeVideo) {
+        nativeVideo.srcObject = null;
+      }
     };
-  }, [videoTrack]);
+  }, [preferNativeVideo, videoTrack]);
 
   useEffect(() => {
     if (!audioTrack || muted) {
@@ -112,19 +139,18 @@ const MediaTile = ({ label, videoTrack, audioTrack = null, muted = false, emptyL
       // autoplay can be blocked by the browser
     }
 
-    return () => {
-      try {
-        audioTrack?.stop?.();
-      } catch {
-        // no-op
-      }
-    };
+    return undefined;
   }, [audioTrack, muted]);
 
   return (
     <div className="realtime-stream-tile">
       <span className="realtime-stream-label">{label}</span>
-      {videoTrack ? <div ref={containerRef} className="realtime-video" /> : <div className="realtime-stream-empty">{emptyLabel}</div>}
+      {videoTrack ? (
+        <>
+          {preferNativeVideo ? <video ref={videoElementRef} className="realtime-video" autoPlay playsInline muted={muted} /> : null}
+          <div ref={containerRef} className={preferNativeVideo ? 'realtime-video-fallback' : 'realtime-video'} />
+        </>
+      ) : <div className="realtime-stream-empty">{emptyLabel}</div>}
     </div>
   );
 };
@@ -159,7 +185,7 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
   const [screenShareOwner, setScreenShareOwner] = useState('');
   const enforceRoleBasedCalls = roleBasedCalls !== false;
 
-  const isAgoraConfigured = Boolean(AGORA_APP_ID.trim()) && Boolean(AGORA_TEMP_TOKEN.trim());
+  const isAgoraConfigured = Boolean(AGORA_APP_ID.trim());
 
   const activeRemoteEntries = useMemo(
     () => Object.entries(remoteMediaByUid).filter(([, media]) => Boolean(media?.videoTrack || media?.audioTrack)),
@@ -344,16 +370,13 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
       return agoraUidRef.current;
     }
 
-    if (!AGORA_APP_ID.trim()) {
-      throw new Error('Missing Agora config. Add VITE_AGORA_APP_ID to the frontend environment.');
-    }
-
     joinInFlightRef.current = true;
     setError('');
 
     try {
       const client = ensureAgoraClient();
-      const channel = buildAgoraChannelName(projectId);
+      let channel = buildAgoraChannelName(projectId);
+      let joinAppId = AGORA_APP_ID.trim();
       let initialToken = null;
       let agoraUid = 0;
       let usesSignedToken = false;
@@ -361,42 +384,66 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
       // Try to get a fresh token from the backend (recommended approach)
       if (!AGORA_FORCE_NO_TOKEN) {
         try {
-          const tokenResponse = await apiRequest('POST', '/agora/token', {
-            projectId,
-            role: 'publisher',
+          const tokenResponse = await apiRequest('/agora/token', {
+            method: 'POST',
+            body: JSON.stringify({
+              projectId,
+              role: 'publisher',
+            }),
           });
 
           if (tokenResponse?.success && tokenResponse?.token) {
             initialToken = tokenResponse.token;
             agoraUid = tokenResponse.uid; // IMPORTANT: Use the exact UID from token
+            if (typeof tokenResponse?.channel === 'string' && tokenResponse.channel.trim()) {
+              channel = tokenResponse.channel.trim();
+            }
+
+            if (typeof tokenResponse?.appId === 'string' && tokenResponse.appId.trim()) {
+              if (joinAppId && joinAppId !== tokenResponse.appId.trim()) {
+                console.warn('[Agora] Frontend VITE_AGORA_APP_ID differs from backend token appId. Using backend appId for join.');
+              }
+              joinAppId = tokenResponse.appId.trim();
+            }
+
             usesSignedToken = true;
-            console.log('[Agora] Got signed token from backend with UID:', agoraUid);
+            console.log('[Agora] Got signed token from backend with UID:', agoraUid, 'channel:', channel);
           }
         } catch (tokenError) {
-          console.warn('Failed to fetch token from backend, will attempt fallback:', tokenError?.message);
-          // If backend token fetch fails and no token in env, we'll try no-token mode
-          if (AGORA_TEMP_TOKEN.trim()) {
+          console.warn('Failed to fetch token from backend:', tokenError?.message);
+
+          if (AGORA_ALLOW_TEMP_TOKEN_FALLBACK && AGORA_TEMP_TOKEN.trim()) {
             initialToken = AGORA_TEMP_TOKEN.trim();
+          } else if (!AGORA_FORCE_NO_TOKEN) {
+            throw new Error(`Unable to fetch signed Agora token from backend: ${tokenError?.message || 'unknown error'}`);
           }
         }
+      }
+
+      if (!joinAppId) {
+        throw new Error('Missing Agora App ID. Set VITE_AGORA_APP_ID or ensure backend /agora/token returns appId.');
+      }
+
+      if (!usesSignedToken && !AGORA_FORCE_NO_TOKEN && !initialToken) {
+        throw new Error('Agora call requires a signed token. Backend token fetch failed and temp-token fallback is disabled.');
       }
 
       let uid;
 
       try {
-        uid = await client.join(AGORA_APP_ID.trim(), channel, initialToken, agoraUid);
+        uid = await client.join(joinAppId, channel, initialToken, agoraUid);
       } catch (joinError) {
         const message = String(joinError?.message || '').toLowerCase();
         const tokenLikelyInvalid = message.includes('invalid token') || message.includes('can_not_get_gateway_server') || message.includes('authorized failed');
 
-        // Only fallback to no-token mode if NOT using signed tokens
-        if (!usesSignedToken && initialToken && tokenLikelyInvalid) {
-          console.log('[Agora] Token invalid, falling back to no-token mode');
-          uid = await client.join(AGORA_APP_ID.trim(), channel, null, 0);
-          setError('Agora token was invalid/expired. Joined without token (no-auth mode).');
-        } else {
-          throw joinError;
+        if (tokenLikelyInvalid) {
+          if (usesSignedToken) {
+            throw new Error('Agora rejected the signed token. Verify AGORA_APP_ID/AGORA_APP_CERTIFICATE pair on backend and restart the server.');
+          }
+          throw new Error('Agora token join failed. Temp token appears invalid or from a different Agora app.');
         }
+
+        throw joinError;
       }
 
       agoraUidRef.current = String(uid);
@@ -718,7 +765,7 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
   const callAccessLabel = enforceRoleBasedCalls ? callPermission.replace(/_/g, ' ') : 'open';
   const networkNote = isAgoraConfigured
     ? 'Agora RTC is configured for global voice, video, and screen sharing.'
-    : 'Add VITE_AGORA_APP_ID and VITE_AGORA_TEMP_TOKEN to the frontend environment.';
+    : 'Add VITE_AGORA_APP_ID to the frontend environment.';
   const recentChatCount = messages.filter((message) => isRecentActivity(message.createdAt)).length;
   const shelfWeather = resolveShelfWeather({
     participantCount: participants.length,
@@ -782,7 +829,7 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
 
       <div className="project-realtime-grid">
         <div className="project-realtime-video-col">
-          <MediaTile label="You" videoTrack={localVideoTrack} muted />
+          <MediaTile label="You" videoTrack={localVideoTrack} muted preferNativeVideo />
           <div className="project-realtime-remote-list">
             {activeRemoteEntries.length > 0 ? (
               activeRemoteEntries.map(([uid, media]) => (

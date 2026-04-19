@@ -1,5 +1,7 @@
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
+const HTTP_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD']);
+
 const clearStoredAuth = () => {
     if (typeof window === 'undefined') {
         return;
@@ -20,13 +22,57 @@ const redirectToLogin = () => {
     }
 };
 
-export async function apiRequest(endpoint, options = {}) {
+function resolveApiRequestArgs(arg1, arg2, arg3) {
+    if (typeof arg1 === 'string' && HTTP_METHODS.has(arg1.toUpperCase()) && typeof arg2 === 'string') {
+        const method = arg1.toUpperCase();
+        const endpoint = arg2;
+
+        if (arg3 && typeof arg3 === 'object') {
+            if (
+                Object.prototype.hasOwnProperty.call(arg3, 'method')
+                || Object.prototype.hasOwnProperty.call(arg3, 'headers')
+                || Object.prototype.hasOwnProperty.call(arg3, 'body')
+            ) {
+                return {
+                    endpoint,
+                    options: {
+                        ...arg3,
+                        method,
+                    },
+                };
+            }
+
+            return {
+                endpoint,
+                options: {
+                    method,
+                    body: JSON.stringify(arg3),
+                },
+            };
+        }
+
+        return {
+            endpoint,
+            options: { method },
+        };
+    }
+
+    return {
+        endpoint: arg1,
+        options: arg2 || {},
+    };
+}
+
+export async function apiRequest(arg1, arg2 = {}, arg3) {
+    const { endpoint, options } = resolveApiRequestArgs(arg1, arg2, arg3);
     const token = localStorage.getItem('token');
     const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
     const headers = new Headers(options.headers || {});
 
-    if (!headers.has('Content-Type')) {
+    const shouldSkipJsonHeader = typeof FormData !== 'undefined' && options.body instanceof FormData;
+
+    if (!headers.has('Content-Type') && !shouldSkipJsonHeader) {
         headers.set('Content-Type', 'application/json');
     }
 
