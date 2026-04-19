@@ -11,9 +11,9 @@ const personalIcons = [BookOpen, PenTool, Code2, Share2];
 const collaborativeIcons = [Blocks, ArrowUpRight, Atom, PenTool];
 
 const graphNodeColor = (index, importance) => {
-  if (index % 7 === 0) return '#2ecc71';
-  if (importance > 0.7) return '#ffffff';
-  return '#9e9e9e';
+  if (index % 7 === 0) return '#64748b'; // blue-grey accent
+  if (importance > 0.7) return '#334155'; // bold slate
+  return '#cbd5e1'; // subtle silver
 };
 
 const normalizeHubLabel = (value = '') => {
@@ -275,11 +275,11 @@ const hashString = (value = '') => {
 
 const nodeColorByType = (node, index) => {
   if (node.nodeType === 'root') {
-    return '#f1f5f9';
+    return '#020617'; // pure dark slate for roots
   }
 
   if (node.nodeType === 'hub') {
-    return '#4cd964';
+    return '#4f46e5'; // rich indigo for parent hubs
   }
 
   return graphNodeColor(index, Math.max(0.2, Math.min(1, Number(node.importanceScore ?? 0.45))));
@@ -309,12 +309,11 @@ const renderProjectCards = (projects, icons, onProjectClick, idOffset = 0) => {
     <section className="directory-grid">
       {projects.map((project, index) => {
         const IconComponent = icons[index % icons.length];
-        const displayIndex = String(index + 1 + idOffset).padStart(2, '0');
         const variantIndex = index % 6;
 
         return (
           <div
-            className={`dir-card dir-variant-${variantIndex}`}
+            className="elegant-tool-card"
             key={project.id}
             role="button"
             tabIndex={0}
@@ -326,35 +325,24 @@ const renderProjectCards = (projects, icons, onProjectClick, idOffset = 0) => {
               }
             }}
           >
-            <div className="dir-top-meta">
-              <span className="dir-lessons-badge">{project.memberCount * 2 + 10} modules</span>
-              <div className="dir-action-circle" style={{ opacity: 1, position: 'relative', bottom: 'auto', right: 'auto', transform: 'none', background: 'transparent', boxShadow: 'none', width: 'auto', height: 'auto'}}>
-                <span style={{fontSize: '0.8rem', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '500'}}>
-                  {project.projectType === 'collaborative' ? 'Shared' : 'Private'} <ArrowUpRight size={14} strokeWidth={2.5} color="#6b7280" />
-                </span>
-              </div>
-            </div>
-
-            <div className="dir-icon-area">
-               <div className="dir-icon-squircle">
-                 <IconComponent size={32} />
+            <div className={`elegant-icon-section gradient-variant-${variantIndex}`}>
+               <div className="elegant-inner-circle">
+                 <IconComponent size={20} strokeWidth={1.8} color="#111827" />
                </div>
             </div>
-
-            <div className="dir-tags">
-              <span className="dir-tag">{project.projectType === 'personal' ? 'UX design' : 'Architecture'}</span>
-              <span className="dir-tag">{index % 2 === 0 ? 'Visual design' : 'System logic'}</span>
-            </div>
-
-            <h3 className="dir-title">{project.name}</h3>
-
-            <div className="dir-bottom">
-              <span className="dir-level">Level: <strong style={{color: '#374151'}}>{index % 3 === 0 ? 'Advance' : index % 2 === 0 ? 'Medium' : 'Junior'}</strong></span>
-              <div className="dir-progress-wrap">
-                <span style={{color: '#6b7280', fontWeight: '500'}}>Progress:</span>
-                <div className="dir-progress-ring"></div>
-                <span>{index * 15 + 10}%</span>
-              </div>
+            
+            <div className="elegant-content-section">
+               <div className="elegant-header-area">
+                 <h3 className="elegant-title">{project.name}</h3>
+                 <p className="elegant-desc">
+                    {project.projectType === 'personal' 
+                      ? 'Personal workspace optimized for curation and discovery.' 
+                      : 'Shared collaborative workspace for team research.'}
+                 </p>
+               </div>
+               <button className="elegant-start-btn">
+                 <Plus size={14} style={{ marginRight: '4px' }} /> Start
+               </button>
             </div>
           </div>
         );
@@ -585,7 +573,7 @@ export const LatticeHomePage = () => {
       return {
         source: String(edge.source),
         target: String(edge.target),
-        color: rootHub ? 'rgba(226, 232, 240, 0.75)' : hubBookmark ? 'rgba(148, 163, 184, 0.48)' : 'rgba(100, 116, 139, 0.25)',
+        color: rootHub ? 'rgba(2, 6, 23, 0.45)' : hubBookmark ? 'rgba(79, 70, 229, 0.25)' : 'rgba(100, 116, 139, 0.15)',
         width: rootHub ? 2.8 : hubBookmark ? 1.6 : 1.1,
         particles: rootHub ? 2 : hubBookmark ? 1 : 0,
       };
@@ -1177,7 +1165,7 @@ export const LatticeHomePage = () => {
                   graphData={graph3dData}
                   width={graphViewport.width}
                   height={graphViewport.height}
-                  backgroundColor="#1e1e1e"
+                  backgroundColor="rgba(255, 255, 255, 0)"
                   showNavInfo={false}
                   enablePointerInteraction
                   nodeLabel={(node) => `${node.label} (${node.nodeType})`}
