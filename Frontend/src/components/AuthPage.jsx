@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLottie } from 'lottie-react';
 import { API_BASE_URL, apiRequest } from '../utils/api';
 import './AuthPage.css';
 
@@ -57,10 +58,49 @@ export const AuthPage = ({ mode = 'signup' }) => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [animationData, setAnimationData] = useState(null);
+
+  const { View: animationView } = useLottie(
+    {
+      animationData: animationData || undefined,
+      loop: true,
+      autoplay: true,
+    },
+    {
+      width: '100%',
+      height: '100%',
+    },
+  );
 
   useEffect(() => {
     document.title = mode === 'login' ? 'Login | LATTICE' : 'Sign Up | LATTICE';
   }, [mode]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadAnimation = async () => {
+      try {
+        const response = await fetch('/illustration.json');
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+        if (isMounted) {
+          setAnimationData(data);
+        }
+      } catch {
+        // Leave the illustration hidden if the asset cannot be loaded.
+      }
+    };
+
+    void loadAnimation();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (tokenFromGoogle) {
@@ -145,7 +185,9 @@ export const AuthPage = ({ mode = 'signup' }) => {
             ))}
           </h1>
 
-          <div className="auth-lottie" />
+          <div className="auth-lottie">
+            {animationData ? animationView : null}
+          </div>
         </div>
 
         {/* RIGHT COLUMN */}
