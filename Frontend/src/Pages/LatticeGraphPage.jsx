@@ -813,7 +813,45 @@ export const LatticeGraphPage = () => {
   };
 
   const handleNodeSelect = (node) => {
-    setActiveNode(normalizeNodeRecord(node));
+    const nextNode = normalizeNodeRecord(node);
+
+    setActiveNode((previous) => {
+      if (previous && String(previous.id) === String(nextNode?.id)) {
+        return null;
+      }
+
+      return nextNode;
+    });
+  };
+
+  const handleNodeZoom = (node) => {
+    if (!node || graphViewMode !== '3d' || !forceGraphRef.current) {
+      return;
+    }
+
+    const targetNode = normalizeNodeRecord(node);
+    const position = {
+      x: Number(targetNode?.x || node.x || 0),
+      y: Number(targetNode?.y || node.y || 0),
+      z: Number(targetNode?.z || node.z || 0),
+    };
+
+    const distance = 80;
+    const distRatio = 1 + distance / Math.hypot(position.x || 0, position.y || 0, position.z || 0);
+
+    try {
+      forceGraphRef.current.cameraPosition(
+        {
+          x: position.x * distRatio,
+          y: position.y * distRatio,
+          z: position.z * distRatio,
+        },
+        targetNode,
+        700
+      );
+    } catch {
+      // Ignore camera animation failures and keep the graph usable.
+    }
   };
 
   const handleQuerySubmit = async (event) => {
@@ -836,7 +874,7 @@ export const LatticeGraphPage = () => {
     }
   };
 
-  const activeNodeView = activeNode ? normalizeNodeRecord(activeNode) : null;
+  const activeNodeView = graphViewMode === '2d' && activeNode ? normalizeNodeRecord(activeNode) : null;
   const selectedLatticeName = isProjectScoped
     ? (routeProjectName || 'Project graph')
     : (selectedLatticeId ? lattices.find((item) => item.id === selectedLatticeId)?.name || 'Your lattice' : 'Your lattice');
@@ -973,7 +1011,7 @@ export const LatticeGraphPage = () => {
                     cooldownTicks={36}
                     d3VelocityDecay={0.72}
                     enableNodeDrag={false}
-                    onNodeClick={(node) => handleNodeSelect(node)}
+                    onNodeClick={(node) => handleNodeZoom(node)}
                   />
                 ) : null}
 
@@ -1026,7 +1064,7 @@ export const LatticeGraphPage = () => {
                       }}
                       onMouseEnter={() => setHoveredNodeId(node.id)}
                       onMouseLeave={() => setHoveredNodeId(null)}
-                      onClick={() => handleNodeSelect(node)}
+                        onClick={() => handleNodeSelect(node)}
                       aria-label={`Open node ${node.label}`}
                     >
                       <div
@@ -1057,7 +1095,7 @@ export const LatticeGraphPage = () => {
             </div>
           </div>
 
-          <aside className={`lat-graph-panel open`}>
+          <aside className={`lat-graph-panel open ${graphViewMode === '3d' ? 'graph-panel-3d' : ''}`}>
             {activeNodeView ? (
               <>
                 <div className="lat-panel-header">

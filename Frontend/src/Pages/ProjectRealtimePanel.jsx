@@ -47,6 +47,64 @@ const getIceConfig = () => {
 
 const ICE_CONFIG = getIceConfig();
 const ICE_SERVERS = ICE_CONFIG.servers;
+const SHELF_ACTIVITY_WINDOW_MS = 15 * 60 * 1000;
+
+const resolveShelfWeather = ({ participantCount, activeRemoteCount, recentChatCount, isCallActive, roomCallActive, screenShareOwner }) => {
+  const signalScore = (
+    Math.min(participantCount, 5) * 2
+    + Math.min(activeRemoteCount, 3) * 2
+    + Math.min(recentChatCount, 6)
+    + (isCallActive || roomCallActive ? 3 : 0)
+    + (screenShareOwner ? 2 : 0)
+  );
+
+  if (signalScore >= 12 || (participantCount >= 3 && recentChatCount >= 2) || ((isCallActive || roomCallActive) && participantCount >= 2)) {
+    return {
+      label: 'Stormy',
+      description: 'Heavy collaboration is rolling through the shelf.',
+      tone: 'stormy',
+      score: signalScore,
+    };
+  }
+
+  if (signalScore >= 6) {
+    return {
+      label: 'Breezy',
+      description: 'The shelf is active with light collaboration.',
+      tone: 'breezy',
+      score: signalScore,
+    };
+  }
+
+  if (signalScore >= 2) {
+    return {
+      label: 'Hazy',
+      description: 'A few signals are still drifting through.',
+      tone: 'hazy',
+      score: signalScore,
+    };
+  }
+
+  return {
+    label: 'Foggy',
+    description: 'The shelf is quiet and has been left alone.',
+    tone: 'foggy',
+    score: signalScore,
+  };
+};
+
+const isRecentActivity = (createdAt) => {
+  if (!createdAt) {
+    return false;
+  }
+
+  const parsed = new Date(createdAt);
+  if (Number.isNaN(parsed.getTime())) {
+    return false;
+  }
+
+  return Date.now() - parsed.getTime() <= SHELF_ACTIVITY_WINDOW_MS;
+};
 
 const StreamTile = ({ label, stream, muted = false }) => {
   const ref = useRef(null);
@@ -633,6 +691,15 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
       ? 'TURN relay configured for cross-network calling.'
       : 'ICE servers are set, but no TURN relay is present. Cross-network calls may fail.'
     : 'Using the built-in TURN fallback. Add VITE_ICE_SERVERS for your own relay in production.';
+  const recentChatCount = messages.filter((message) => isRecentActivity(message.createdAt)).length;
+  const shelfWeather = resolveShelfWeather({
+    participantCount: participants.length,
+    activeRemoteCount: activeRemoteStreams.length,
+    recentChatCount,
+    isCallActive,
+    roomCallActive,
+    screenShareOwner,
+  });
 
   return (
     <section className="project-realtime-wrap">
@@ -653,6 +720,18 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
       <p className={`project-realtime-network-note ${ICE_CONFIG.hasTurn ? 'has-turn' : 'needs-turn'}`}>
         {networkNote}
       </p>
+      <div className={`project-shelf-weather tone-${shelfWeather.tone}`} aria-label={`Shelf Weather ${shelfWeather.label}`}>
+        <div className="project-shelf-weather-copy">
+          <span className="project-shelf-weather-kicker">Shelf Weather</span>
+          <strong>{shelfWeather.label}</strong>
+          <p>{shelfWeather.description}</p>
+        </div>
+        <div className="project-shelf-weather-metrics" aria-hidden="true">
+          <span>{participants.length} online</span>
+          <span>{recentChatCount} recent chat{recentChatCount === 1 ? '' : 's'}</span>
+          <span>{(isCallActive || roomCallActive) ? 'Call live' : 'Call idle'}</span>
+        </div>
+      </div>
 
       <div className="project-realtime-actions">
         <button

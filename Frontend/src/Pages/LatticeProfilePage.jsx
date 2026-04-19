@@ -4,6 +4,7 @@ import { ArrowLeft, CircleUserRound, ImageOff, LayoutGrid, ExternalLink, Pencil 
 import { LatticeFrame } from './LatticeFrame';
 import { EditProfileModal } from '../components/EditProfileModal';
 import { getCurrentSessionUser, getUserProfile, updateCurrentUserProfile, updateLatticeVisibility } from '../services/latticeApi';
+import { formatVibeLabel, getVibeTheme } from '../utils/vibeTheme';
 import './LatticePages.css';
 
 const getLatticeDescription = (lattice) => {
@@ -92,6 +93,20 @@ export const LatticeProfilePage = () => {
         return String(currentUserId) === String(profileUser._id);
     }, [currentUserId, profileUser]);
 
+    const profileTheme = useMemo(() => getVibeTheme(profileUser?.roleVibe), [profileUser?.roleVibe]);
+
+    const profileCardStyle = useMemo(() => ({
+        '--profile-vibe-start': profileTheme.start,
+        '--profile-vibe-mid': profileTheme.mid,
+        '--profile-vibe-end': profileTheme.end,
+        '--profile-vibe-glow': profileTheme.glow,
+        '--profile-vibe-tint': profileTheme.tint,
+        '--profile-vibe-card-tint': profileTheme.cardTint,
+        '--profile-vibe-badge-bg': profileTheme.badgeBg,
+        '--profile-vibe-badge-border': profileTheme.badgeBorder,
+        '--profile-vibe-badge-text': profileTheme.badgeText,
+    }), [profileTheme]);
+
     const handleVisibilityToggle = async (lattice) => {
         if (!isOwner || updatingLatticeId) {
             return;
@@ -134,6 +149,11 @@ export const LatticeProfilePage = () => {
                 name: updatedUser.name || previous?.name,
                 bio: updatedUser.bio || '',
                 avatar: updatedUser.avatar || previous?.avatar || null,
+                roleLabel: previous?.roleLabel,
+                roleVibe: previous?.roleVibe,
+                roleSummary: previous?.roleSummary,
+                roleShare: previous?.roleShare,
+                roleCounts: previous?.roleCounts,
             }));
 
             window.dispatchEvent(new CustomEvent('lattice:current-user-updated', {
@@ -160,7 +180,7 @@ export const LatticeProfilePage = () => {
                 {errorMessage ? <p className="directory-status directory-status-error">{errorMessage}</p> : null}
 
                 {!loading && profileUser ? (
-                    <section className="profile-hero-card">
+                    <section className="profile-hero-card" style={profileCardStyle}>
                         <div className="profile-avatar-wrap">
                             <div className="profile-avatar">
                                 {getAvatarContent(profileUser)}
@@ -170,6 +190,13 @@ export const LatticeProfilePage = () => {
                         <div className="profile-hero-copy">
                             <h1>{profileUser.name}</h1>
                             {profileUser.bio ? <p className="profile-bio">{profileUser.bio}</p> : <p className="profile-bio profile-bio-muted">No bio added yet.</p>}
+                            {profileUser.roleLabel ? (
+                                <div className="profile-role-chip" title={profileUser.roleSummary || ''}>
+                                    <span className="profile-role-chip-label">Dominant vibe</span>
+                                    <strong>{profileUser.roleLabel}</strong>
+                                    <span className="profile-role-chip-subtitle">{formatVibeLabel(profileUser.roleVibe)}</span>
+                                </div>
+                            ) : null}
                             <div className="profile-hero-meta">
                                 <span>{lattices.length} public lattice{lattices.length === 1 ? '' : 's'}</span>
                                 {isOwner ? <span className="profile-owner-chip">You are viewing your profile</span> : null}
