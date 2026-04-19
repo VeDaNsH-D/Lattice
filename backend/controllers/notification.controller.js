@@ -36,7 +36,7 @@ export const markNotificationAsRead = async (req, res, next) => {
         const updatedNotification = await Notification.findOneAndUpdate(
             { _id: id, userId },
             { $set: { isRead: true } },
-            { new: true, runValidators: true }
+            { returnDocument: "after", runValidators: true }
         ).select("message link type isRead createdAt");
 
         if (!updatedNotification) {

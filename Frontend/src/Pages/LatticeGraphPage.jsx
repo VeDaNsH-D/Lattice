@@ -59,6 +59,49 @@ const fallbackGraph = {
   edges: demoEdges,
 };
 
+const GRAPH_CACHE_PREFIX = 'lattice:graph-cache:';
+const GRAPH_CACHE_TTL_MS = 5 * 60 * 1000;
+
+const readGraphCache = (latticeId) => {
+  if (typeof window === 'undefined' || !latticeId) {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(`${GRAPH_CACHE_PREFIX}${latticeId}`);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+    const cachedAt = Number(parsed?.cachedAt || 0);
+    const graph = parsed?.graph;
+
+    if (!graph || !cachedAt || (Date.now() - cachedAt) > GRAPH_CACHE_TTL_MS) {
+      return null;
+    }
+
+    return graph;
+  } catch {
+    return null;
+  }
+};
+
+const writeGraphCache = (latticeId, graph) => {
+  if (typeof window === 'undefined' || !latticeId || !graph) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(`${GRAPH_CACHE_PREFIX}${latticeId}`, JSON.stringify({
+      cachedAt: Date.now(),
+      graph,
+    }));
+  } catch {
+    // Ignore storage failures.
+  }
+};
+
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 const isObjectId = (value) => typeof value === 'string' && /^[a-f0-9]{24}$/i.test(value);
@@ -517,8 +560,16 @@ export const LatticeGraphPage = () => {
         return;
       }
 
+      const cachedGraph = readGraphCache(selectedLatticeId);
+      if (cachedGraph) {
+        setGraphData(cachedGraph);
+        setGraphError('');
+      }
+
       try {
-        setGraphLoading(true);
+        if (!cachedGraph) {
+          setGraphLoading(true);
+        }
         setGraphError('');
         const response = await getLatticeGraph(selectedLatticeId);
 
@@ -526,14 +577,18 @@ export const LatticeGraphPage = () => {
           return;
         }
 
-        setGraphData(response.graph || fallbackGraph);
+        const nextGraph = response.graph || fallbackGraph;
+        setGraphData(nextGraph);
+        writeGraphCache(selectedLatticeId, nextGraph);
       } catch (error) {
         if (!isMounted) {
           return;
         }
 
         setGraphError(error.message || 'Could not load project graph.');
-        setGraphData(fallbackGraph);
+        if (!cachedGraph) {
+          setGraphData(fallbackGraph);
+        }
       } finally {
         if (isMounted) {
           setGraphLoading(false);
@@ -541,10 +596,21 @@ export const LatticeGraphPage = () => {
       }
     };
 
-    loadGraph();
+    const loadGraphDeferred = () => {
+      void loadGraph();
+    };
+
+    const idleHandle = window.requestIdleCallback
+      ? window.requestIdleCallback(loadGraphDeferred, { timeout: 1000 })
+      : window.setTimeout(loadGraphDeferred, 150);
 
     return () => {
       isMounted = false;
+      if (typeof window.cancelIdleCallback === 'function' && typeof idleHandle === 'number') {
+        window.cancelIdleCallback(idleHandle);
+      } else {
+        window.clearTimeout(idleHandle);
+      }
     };
   }, [isProjectScoped, selectedLatticeId, liveMode]);
 

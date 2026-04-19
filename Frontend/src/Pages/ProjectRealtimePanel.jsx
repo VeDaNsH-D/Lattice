@@ -224,7 +224,8 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
       return;
     }
 
-    if (targetId && targetId !== selfIdRef.current) {
+    const currentSocketId = selfIdRef.current || socketRef.current?.id || '';
+    if (targetId && currentSocketId && targetId !== currentSocketId) {
       return;
     }
 
@@ -307,6 +308,7 @@ export const ProjectRealtimePanel = ({ projectId, projectName, projectMembers = 
 
         socket.on('connect', () => {
           setStatus('connected');
+          selfIdRef.current = socket.id || selfIdRef.current;
           socket.emit('room:join', {
             roomId: projectId,
             username: nextName,
