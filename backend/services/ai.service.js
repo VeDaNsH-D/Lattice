@@ -20,7 +20,7 @@ export async function generateAIContent(title = "", description = "", url = "") 
         return {
             summary: null,
             tags: FALLBACK_TAGS,
-            vibe: "neutral",
+            vibe: "general",
             parentHub: "General"
         };
     }
@@ -31,7 +31,12 @@ export async function generateAIContent(title = "", description = "", url = "") 
         "summary should be max 2 short sentences.",
         "tags should be an array of up to 5 lowercase strings.",
         `vibe must be exactly one of: ${VIBE_TYPES.join(", ")} (lowercase, no extra words).`,
-        "Prefer chaotic, educational, cursed, or high_signal whenever the content has any clear signal; use neutral only when the content is truly generic or empty.",
+        "Prefer high-signal, educational, motivational, chaotic, or cursed whenever the content has a clear signal; use general only when the content is truly generic or empty.",
+        "Use high-signal for research, reference material, docs, tools, APIs, or anything dense and useful.",
+        "Use educational for tutorials, walkthroughs, guides, and learning content.",
+        "Use motivational for inspiration, design showcases, ambitious ideas, and creative work.",
+        "Use chaotic for news, discussions, social threads, hot takes, and noisy internet content.",
+        "Use cursed for broken links, redirects, dead pages, stale pages, or content that feels deteriorated.",
         "parentHub must be a dynamic but highly generalized category clustering name (e.g., 'Machine Learning', 'Frontend Engineering', 'Social Media', 'Design Resources', 'Investments'). If the url clearly points to Reddit or Twitter, group it natively like 'Reddit Discussions' or 'Twitter Threads' respectively, but don't hardcode rules—intelligently group based on standard thematic groupings."
     ].join(" ");
 
@@ -77,7 +82,7 @@ export async function generateAIContent(title = "", description = "", url = "") 
         return {
             summary: null,
             tags: FALLBACK_TAGS,
-            vibe: "neutral",
+            vibe: "general",
             parentHub: "General"
         };
     }

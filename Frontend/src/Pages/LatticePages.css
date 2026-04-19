@@ -5765,6 +5765,32 @@
   gap: 10px;
 }
 
+.profile-share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid #cbd5e1;
+  background: rgba(255, 255, 255, 0.8);
+  color: #0f172a;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  backdrop-filter: blur(10px);
+}
+
+.profile-share-btn:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: #94a3b8;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+}
+
+.profile-share-btn:active {
+  transform: translateY(1px);
+}
+
 .profile-edit-btn {
   display: inline-flex;
   align-items: center;
@@ -5787,6 +5813,13 @@
 
 .profile-edit-btn:active {
   transform: translateY(1px);
+}
+
+.profile-share-feedback {
+  margin: 10px 0 0;
+  color: #334155;
+  font-size: 0.84rem;
+  font-weight: 600;
 }
 
 .profile-lattice-grid {

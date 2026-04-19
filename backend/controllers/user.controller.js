@@ -1,6 +1,58 @@
 import Project from "../models/project.js";
+import Link from "../models/link.js";
 import User from "../models/user.js";
 import { normalizeProject } from "./project.controller.js";
+import { normalizeVibe } from "../utils/vibe.js";
+
+const VIBE_ROLE_LABELS = {
+    "high-signal": "Curator",
+    educational: "Guide",
+    motivational: "Aspirer",
+    chaotic: "Storm Chaser",
+    cursed: "Reclaimer",
+    general: "Explorer",
+};
+
+const buildProfileRole = (vibes = []) => {
+    const counts = new Map();
+
+    for (const vibe of vibes) {
+        const key = normalizeVibe(vibe || "general", "general") || "general";
+        counts.set(key, (counts.get(key) || 0) + 1);
+    }
+
+    if (counts.size === 0) {
+        return {
+            vibe: "general",
+            label: VIBE_ROLE_LABELS.general,
+            summary: "Dominant bookmark vibe: general",
+            totalBookmarks: 0,
+            counts: {},
+        };
+    }
+
+    let dominantVibe = "general";
+    let dominantCount = 0;
+
+    for (const [vibe, count] of counts.entries()) {
+        if (count > dominantCount) {
+            dominantVibe = vibe;
+            dominantCount = count;
+        }
+    }
+
+    const totalBookmarks = Array.from(counts.values()).reduce((sum, value) => sum + value, 0);
+    const share = totalBookmarks > 0 ? dominantCount / totalBookmarks : 0;
+
+    return {
+        vibe: dominantVibe,
+        label: VIBE_ROLE_LABELS[dominantVibe] || VIBE_ROLE_LABELS.general,
+        summary: `Dominant bookmark vibe: ${dominantVibe}`,
+        totalBookmarks,
+        share: Number(share.toFixed(2)),
+        counts: Object.fromEntries(counts.entries()),
+    };
+};
 
 export const getUserProfile = async (req, res, next) => {
     try {
@@ -18,11 +70,23 @@ export const getUserProfile = async (req, res, next) => {
         const lattices = await Project.find({
             createdBy: userId,
             isActive: true,
-            isPublic: true,
         })
             .sort({ updatedAt: -1 })
             .populate("createdBy", "name email")
             .lean();
+
+        const latticeIds = lattices.map((project) => project._id).filter(Boolean);
+        const bookmarks = latticeIds.length > 0
+            ? await Link.find({
+                projectId: { $in: latticeIds },
+                createdBy: userId,
+                deletedAt: null,
+            })
+                .select("vibe projectId")
+                .lean()
+            : [];
+
+        const profileRole = buildProfileRole(bookmarks.map((bookmark) => bookmark.vibe));
 
         return res.status(200).json({
             success: true,
@@ -37,6 +101,11 @@ export const getUserProfile = async (req, res, next) => {
                 xUrl: user.xUrl || "",
                 linkDecayStartDays: Number.isFinite(user.linkDecayStartDays) ? user.linkDecayStartDays : 14,
                 linkGraveyardDays: Number.isFinite(user.linkGraveyardDays) ? user.linkGraveyardDays : 30,
+                roleLabel: profileRole.label,
+                roleVibe: profileRole.vibe,
+                roleSummary: profileRole.summary,
+                roleShare: profileRole.share,
+                roleCounts: profileRole.counts,
             },
             lattices: lattices.map((project) => normalizeProject(project)),
         });

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, CircleUserRound, ImageOff, LayoutGrid, ExternalLink, Pencil } from 'lucide-react';
+import { ArrowLeft, CircleUserRound, ImageOff, LayoutGrid, ExternalLink, Pencil, Share2 } from 'lucide-react';
 import { LatticeFrame } from './LatticeFrame';
 import { EditProfileModal } from '../components/EditProfileModal';
 import { getCurrentSessionUser, getUserProfile, updateCurrentUserProfile, updateLatticeVisibility } from '../services/latticeApi';
@@ -36,6 +36,7 @@ export const LatticeProfilePage = () => {
     const [errorMessage, setErrorMessage] = useState('');
     const [updatingLatticeId, setUpdatingLatticeId] = useState('');
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [shareFeedback, setShareFeedback] = useState('');
 
     useEffect(() => {
         let isMounted = true;
@@ -162,6 +163,32 @@ export const LatticeProfilePage = () => {
         }
     };
 
+    const handleShareProfile = async () => {
+        if (!profileUser?._id) {
+            return;
+        }
+
+        const profileUrl = window.location.href;
+        const shareTitle = `${profileUser.name || 'Profile'} on Lattice`;
+
+        try {
+            if (navigator.share) {
+                await navigator.share({
+                    title: shareTitle,
+                    text: profileUser.bio || 'View this public Lattice profile.',
+                    url: profileUrl,
+                });
+                setShareFeedback('Profile shared.');
+                return;
+            }
+
+            await navigator.clipboard.writeText(profileUrl);
+            setShareFeedback('Profile link copied.');
+        } catch {
+            setShareFeedback('Unable to share profile right now.');
+        }
+    };
+
     return (
         <LatticeFrame>
             <div className="profile-page-container">
@@ -201,14 +228,22 @@ export const LatticeProfilePage = () => {
                                 <span>{lattices.length} public lattice{lattices.length === 1 ? '' : 's'}</span>
                                 {isOwner ? <span className="profile-owner-chip">You are viewing your profile</span> : null}
                             </div>
-                            {isOwner ? (
-                                <div className="profile-hero-actions">
+
+                            {shareFeedback ? <p className="profile-share-feedback" role="status">{shareFeedback}</p> : null}
+
+                            <div className="profile-hero-actions">
+                                <button type="button" className="profile-share-btn" onClick={() => void handleShareProfile()}>
+                                    <Share2 size={14} />
+                                    Share Profile
+                                </button>
+
+                                {isOwner ? (
                                     <button type="button" className="profile-edit-btn" onClick={() => setIsEditModalOpen(true)}>
                                         <Pencil size={14} />
                                         Edit Profile
                                     </button>
-                                </div>
-                            ) : null}
+                                ) : null}
+                            </div>
                         </div>
                     </section>
                 ) : null}
