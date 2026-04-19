@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { API_BASE_URL } from '../utils/api';
 
-const IMPORT_API_URL = 'http://localhost:8000/api/bookmarks/import';
+const IMPORT_API_URL = `${API_BASE_URL}/bookmarks/import`;
 
 function extractBookmarksFromNodes(nodes) {
     const flattened = [];
