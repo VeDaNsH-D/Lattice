@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Command,
   LayoutDashboard,
@@ -14,6 +14,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   CircleUserRound,
+  LogOut,
 } from 'lucide-react';
 import { LatticeSpotlight } from '../components/LatticeSpotlight';
 import { AskLatticeModal } from '../components/AskLatticeModal';
@@ -34,6 +35,7 @@ const navItems = [
 
 export const LatticeFrame = ({ children }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSpotlightOpen, setIsSpotlightOpen] = useState(false);
   const [spotlightSessionKey, setSpotlightSessionKey] = useState(0);
@@ -41,11 +43,19 @@ export const LatticeFrame = ({ children }) => {
   const [askModalSessionKey, setAskModalSessionKey] = useState(0);
   const [askModalQuery, setAskModalQuery] = useState('');
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [userAvatarUrl, setUserAvatarUrl] = useState(null);
   const [userProfileId, setUserProfileId] = useState('');
   const [hasUnreadActivity, setHasUnreadActivity] = useState(false);
   const notificationWrapRef = useRef(null);
+  const userMenuWrapRef = useRef(null);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('latticeToken');
+    navigate('/login', { replace: true });
+  };
 
   const activeProjectId = location.pathname.match(/^\/lattice\/project\/([^/]+)/)?.[1] || '';
 
@@ -100,6 +110,33 @@ export const LatticeFrame = ({ children }) => {
     const intervalId = window.setInterval(() => {
       void syncUnreadActivity();
     }, 15000);
+              <div className="user-menu-wrap" ref={userMenuWrapRef}>
+                <button
+                  className="user-avatar user-avatar-button"
+                  onClick={() => setIsUserMenuOpen((previous) => !previous)}
+                  aria-label="User menu"
+                  aria-expanded={isUserMenuOpen}
+                >
+                  {userAvatarUrl ? (
+                    <img src={userAvatarUrl} alt="User profile" className="user-avatar-image" />
+                  ) : (
+                    <CircleUserRound size={20} strokeWidth={1.8} />
+                  )}
+                </button>
+                {isUserMenuOpen && (
+                  <div className="user-menu-dropdown">
+                    {userProfileId && (
+                      <Link to={`/profile/${userProfileId}`} className="user-menu-item" onClick={() => setIsUserMenuOpen(false)}>
+                        Profile
+                      </Link>
+                    )}
+                    <button className="user-menu-item user-menu-logout" onClick={handleLogout}>
+                      <LogOut size={14} />
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
 
     const onSeen = () => {
       if (isMounted) {
